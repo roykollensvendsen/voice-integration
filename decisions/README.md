@@ -43,6 +43,7 @@ decision nobody writes down.
 | [012](ADR-VI-012-an-agent-discussion-has-fixed-phases.md) | An agent discussion has fixed phases and then stops | Accepted |
 | [013](ADR-VI-013-the-room-is-the-memory-scope.md) | The room is the memory scope | Accepted |
 | [014](ADR-VI-014-the-linux-client-is-built-first.md) | The Linux client is built first, and it is evidence before it is a feature | Accepted |
+| [015](ADR-VI-015-public-so-the-pull-request-rule-has-a-mechanism.md) | Public, so that the pull request rule has a mechanism | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

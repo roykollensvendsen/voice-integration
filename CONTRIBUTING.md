@@ -50,6 +50,14 @@ way to learn that the gates are not a ritual performed once.
 5. **Open one pull request per change**, with the template's checklist
    answered. The template is the mechanism for the rules no script can measure.
 
+`main` is protected: a pull request is required, every status check has to pass,
+force pushes and deletions are refused, history stays linear, and none of it is
+waived for administrators. That is a repository setting rather than a test,
+because a test that proves it would need a credential to pass and would fail for
+the wrong reasons. It is the one rule here enforced by something the suite
+cannot see, and [`decisions/ADR-VI-015`](decisions/ADR-VI-015-public-so-the-pull-request-rule-has-a-mechanism.md)
+says why the repository is public so that it could exist at all.
+
 ## Documents that restate a fact
 
 Point rather than copy. Where a document has to copy anyway, two test files

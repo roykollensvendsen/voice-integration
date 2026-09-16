@@ -12,7 +12,6 @@ read whenever a decision record is written and when a phase ends.
 | A release workflow and publishing | The first release someone outside will install | A published name is claimed and a published version cannot be reused |
 | `CODEOWNERS` | A second person who reviews | It would name one person as the owner of everything |
 | `pre-commit` as a requirement rather than an option | A second contributor | The gates run in CI, and a hook one person installs is a hook one person maintains |
-| Making the repository public | The Linux client works end to end and the specification has survived contact with it | A specification with open premises reads as a claim, and publishing cannot be undone |
 | The Android client | The Linux client has been used enough to say whether the interaction is worth a second client | ADR-VI-014: the premise is cheaper to test on the machine the person is already sitting at |
 | The laptop view over `/v1/runs/{run_id}/events` | The Linux client works end to end | It is the screen the voice layer defers detail to, and deferring to a screen that does not exist is just losing the detail |
 | Rooms where agents talk to each other | The Linux client works end to end | The shape is decided in ADR-VI-012; nothing else about it is |
