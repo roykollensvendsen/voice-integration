@@ -258,9 +258,10 @@ mutation row is a rule no test has ever been proven to catch.
    a delegation by asking Hermes. Everything but the handshake itself is tested;
    the handshake needs a browser and a person
    ([ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md)).
-2. **The laptop view.** The same room, subscribed to
-   `/v1/runs/{run_id}/events`, showing what the voice plane is deliberately not
-   saying.
+2. **The screen, done.** A panel under the conversation on the same page,
+   subscribed to `/v1/runs/{run_id}/events` through the bridge, showing what the
+   voice plane is deliberately not saying: which tool an agent started, and the
+   answer as it is written.
 3. **A phone client that survives a locked screen**, against a tool surface that
    has by then been used in anger rather than only designed. The same page works
    on a phone today, as long as it stays in front.

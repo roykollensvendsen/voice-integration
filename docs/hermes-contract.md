@@ -18,6 +18,7 @@ default and requires `API_SERVER_KEY`; the bridge sends it as a bearer token.
 | `POST` | `/v1/runs/{run_id}/steer` | inject guidance into a running agent | accepted, or `409` |
 | `POST` | `/v1/runs/{run_id}/stop` | interrupt a run | the new status |
 | `GET` | `/api/sessions` | list the rooms that can be picked up again | `{object, data, limit, offset, has_more}` |
+| `GET` | `/v1/runs/{run_id}/events` | follow a run for the screen, never for the voice | server-sent `tool.started`, `tool.completed`, `message.delta`, `run.completed` |
 
 `voicebridge check` fails when this table and the paths in
 `voice_bridge.contract.VOICE_TOOLS` disagree.
@@ -55,9 +56,11 @@ this page used to state were wrong and no test could see it.
 
 ## What we do not call, on purpose
 
-* `GET /v1/runs/{run_id}/events` is the server-sent event stream of the run's
-  lifecycle. It belongs to the laptop view, not to the voice plane: a stream of
-  tool-started events is the definition of something not worth saying aloud.
+The event stream used to be on this list. It is now read, on its own thread,
+and relayed to the page's screen panel — never to the voice plane, which is
+what that line was really protecting. A stream of tool-started events remains
+the definition of something not worth saying aloud.
+
 * `/v1/chat/completions` and `/v1/responses` would make the bridge a chat client
   and put the gateway's thinking back into the audio path.
 * `/api/sessions/{id}/messages` returns history, which the voice plane has no

@@ -17,6 +17,15 @@
   button[data-live="yes"] { border-color: var(--live); color: var(--live); }
   #state { margin-left: .9rem; color: var(--dim); }
   #log { margin-top: 1.75rem; border-top: 1px solid var(--line); }
+  h2 { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+       color: var(--dim); margin: 2.25rem 0 .5rem; }
+  #under { border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .ev { display: grid; grid-template-columns: 9rem 1fr; gap: .8rem; padding: .35rem 0;
+        border-bottom: 1px solid var(--line); font-size: .85rem; }
+  .ev .kind { color: var(--dim); }
+  .ev .what { overflow-wrap: anywhere; }
+  .ev[data-kind="tool.started"] .kind, .ev[data-kind="run.asked"] .kind { color: var(--live); }
+  .ev[data-kind="approval.requested"] { background: color-mix(in srgb, var(--live) 10%, transparent); }
   .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 4.5rem 1fr; gap: .8rem; }
   .who { color: var(--dim); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; padding-top: .15rem; }
 </style>
@@ -27,8 +36,13 @@
 <button id="talk">Take the microphone</button><span id="state">idle</span>
 <div id="log"></div>
 
+<h2>Underneath</h2>
+<p class="sub" id="under-note">What the agents are doing, which the voice deliberately does not read out.</p>
+<div id="under"></div>
+
 <script type="module">
 const talk = document.getElementById("talk");
+const under = document.getElementById("under");
 const state = document.getElementById("state");
 const log = document.getElementById("log");
 
@@ -79,6 +93,40 @@ function onEvent(event) {
     case "error": show("error", event.error?.message ?? "unknown"); break;
   }
 }
+
+// The gateway streams every tool an agent starts and every token it writes.
+// The voice plane must not read that out; this is where it goes instead.
+function watch() {
+  const stream = new EventSource("/watch");
+  let writing = null;
+  stream.onmessage = (m) => {
+    let e;
+    try { e = JSON.parse(m.data); } catch { return; }
+    if (e.event === "message.delta") {
+      if (!writing) {
+        writing = document.createElement("div");
+        writing.className = "ev";
+        writing.dataset.kind = "message";
+        writing.innerHTML = `<div class="kind">writing</div><div class="what"></div>`;
+        under.prepend(writing);
+      }
+      writing.querySelector(".what").textContent += e.delta ?? "";
+      return;
+    }
+    writing = null;
+    const detail = e.asked ?? e.tool ?? e.preview ?? e.why ?? e.status ?? "";
+    const row = document.createElement("div");
+    row.className = "ev";
+    row.dataset.kind = e.event ?? "";
+    row.innerHTML = `<div class="kind"></div><div class="what"></div>`;
+    row.querySelector(".kind").textContent = (e.event ?? "?").replace(/^run\./, "");
+    row.querySelector(".what").textContent = String(detail);
+    under.prepend(row);
+    while (under.children.length > 300) under.lastElementChild.remove();
+  };
+  stream.onerror = () => { /* the browser reconnects on its own */ };
+}
+watch();
 
 async function start() {
   state.textContent = "opening";

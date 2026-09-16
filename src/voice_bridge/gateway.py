@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
 from voice_bridge.contract import BY_NAME, DEFAULT_GATEWAY, Tool
 from voice_bridge.policy import Capabilities, Refused
@@ -108,6 +108,15 @@ PATIENCE_SECONDS = 25.0
 #: only costs requests.
 POLL_SECONDS = 1.5
 
+#: Every gateway path used outside the six voice tools. `voicebridge check`
+#: compares this and their paths against `docs/hermes-contract.md`, so a path
+#: reached from anywhere has to be written down somewhere a person reads.
+BESIDES_THE_TOOLS: tuple[str, ...] = ("/v1/runs/{run_id}/events",)
+
+#: A stream is meant to stay open. The gateway sends a keepalive every thirty
+#: seconds, so anything longer than that without a byte is a dead connection.
+STREAM_TIMEOUT_SECONDS = 90.0
+
 
 def wait_for(
     run_id: str,
@@ -126,6 +135,32 @@ def wait_for(
         if status not in ("queued", "running", None) or time.monotonic() >= deadline:
             return seen
         sleep(POLL_SECONDS)
+
+
+def events(run_id: str, gateway: str = DEFAULT_GATEWAY, key: str | None = None) -> Iterator[dict[str, Any]]:
+    """Every lifecycle event of a run, as the gateway sends them.
+
+    This is the stream `docs/hermes-contract.md` says the voice plane must not
+    consume: a run of `tool.started` events is the definition of something not
+    worth saying aloud. It is for the screen.
+    """
+    url = gateway.rstrip("/") + f"/v1/runs/{run_id}/events"
+    if not url.startswith(_ALLOWED_SCHEMES):
+        message = f"refusing a gateway URL that is not HTTP: {url}"
+        raise Refused(message)
+    token = key if key is not None else os.environ.get("HERMES_API_KEY", "")
+    headers = {"Accept": "text/event-stream"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, headers=headers, method="GET")  # noqa: S310 — scheme checked above
+    with urllib.request.urlopen(request, timeout=STREAM_TIMEOUT_SECONDS) as stream:  # noqa: S310 — as above
+        for raw in stream:
+            line = raw.decode("utf-8", "replace").strip()
+            if line.startswith("data:"):
+                try:
+                    yield json.loads(line[5:])
+                except json.JSONDecodeError:
+                    continue
 
 
 def tool_schemas() -> list[dict[str, object]]:
