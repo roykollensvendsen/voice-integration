@@ -90,13 +90,15 @@ not a preference.
 
 ## Running the checks
 
-Every fact stated twice here is compared by something that can fail:
+Every fact stated twice here is compared by something that can fail, and every
+rule has to have a test that names it:
 
 ```console
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 6 in docs/hermes-contract.md, 6 in the code, agreed
-rules: 3 in the source, 3 in scripts/mutations.toml, agreed
+rules: 8 in the source, 8 in scripts/mutations.toml, agreed
+rule tests: 8 rules, each with a test named after it
 ```
 
 The rest of the gates, and how a change is made, are in

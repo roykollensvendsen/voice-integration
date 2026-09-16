@@ -31,6 +31,7 @@ def say(tool_name: str, payload: Any) -> str:  # noqa: ANN401 — a gateway repl
     """Render one gateway reply as a sentence to speak."""
     if not isinstance(payload, dict):
         return shorten(str(payload))
+    # RULE: a gateway refusal is spoken, not raised
     if "error" in payload:
         error = payload["error"]
         detail = error.get("message", "") if isinstance(error, dict) else str(error)

@@ -7,10 +7,17 @@ quietly go stale:
 * the voice tools, in `docs/voice-contract.md` and in `voice_bridge.contract`
 * the gateway endpoints, in `docs/hermes-contract.md` and in `voice_bridge.gateway`
 * the rules, marked `# RULE:` in the source and rowed in `scripts/mutations.toml`
+* every rule, against a test in `tests/` named after it
 
 The third is the one that keeps the mutation evidence honest. A rule added
 without a row is a rule no mutation ever switches off, and the table becomes a
 historical document without anyone noticing.
+
+The fourth is what makes a mutation kill readable. Turning a rule off breaks
+whatever it breaks, and a kill only means something if the test that went red is
+the one that names the rule. Without a test named after it, a rule can look
+guarded by an accident — a documentation example that happened to change — and
+nobody would see the difference.
 """
 
 from __future__ import annotations
@@ -34,6 +41,9 @@ class Disagreement(Exception):
 
 def table_after(page: pathlib.Path, anchor: str, pattern: re.Pattern[str]) -> set[str]:
     """Every backticked name in the one table that follows an anchor."""
+    if not page.is_file():
+        message = f"{page} is gone, and it held the only written copy of the {anchor}"
+        raise Disagreement(message)
     text = page.read_text()
     marker = ANCHOR.format(anchor)
     if marker not in text:
@@ -61,9 +71,27 @@ def marked_rules(root: pathlib.Path) -> set[str]:
     return found
 
 
+def test_names(root: pathlib.Path) -> set[str]:
+    """Every test function the suite defines, by name."""
+    found = set()
+    for module in sorted((root / "tests").rglob("test_*.py")):
+        found.update(re.findall(r"^def (test_\w+)", module.read_text(), re.MULTILINE))
+    return found
+
+
+def test_name_for(rule: str) -> str:
+    """The test name a rule requires: its own words, as an identifier."""
+    words = re.sub(r"[^a-z0-9]+", "_", rule.lower())
+    return "test_" + re.sub(r"_+", "_", words).strip("_")
+
+
 def rowed_rules(root: pathlib.Path) -> set[str]:
     """Every rule the mutation table claims to switch off."""
-    table = tomllib.loads((root / "scripts/mutations.toml").read_text())
+    listing = root / "scripts/mutations.toml"
+    if not listing.is_file():
+        message = f"{listing} is gone, and no rule has evidence without it"
+        raise Disagreement(message)
+    table = tomllib.loads(listing.read_text())
     return {str(rule["name"]) for rule in table.get("rule", [])}
 
 
@@ -88,16 +116,27 @@ def report(root: pathlib.Path) -> list[str]:
             "the code",
         )
     )
+    rules = marked_rules(root)
     lines.append(
         _compare(
             "rules",
-            marked_rules(root),
+            rules,
             "the source",
             rowed_rules(root),
             "scripts/mutations.toml",
         )
     )
+    lines.append(_every_rule_has_its_own_test(rules, test_names(root)))
     return lines
+
+
+def _every_rule_has_its_own_test(rules: set[str], tests: set[str]) -> str:
+    missing = sorted(rule for rule in rules if test_name_for(rule) not in tests)
+    if missing:
+        wanted = ", ".join(f"{test_name_for(rule)}()" for rule in missing)
+        message = f"rules with no test named after them — write {wanted}"
+        raise Disagreement(message)
+    return f"rule tests: {len(rules)} rules, each with a test named after it"
 
 
 def _compare(subject: str, left: set[str], left_name: str, right: set[str], right_name: str) -> str:

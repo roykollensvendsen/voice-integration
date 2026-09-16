@@ -51,6 +51,7 @@ def plan(name: str, arguments: dict[str, Any], gateway: str = DEFAULT_GATEWAY) -
     for argument in tool.arguments:
         placeholder = "{" + argument.name + "}"
         if placeholder in path:
+            # RULE: a path argument goes into the URL, never into the body
             path = path.replace(placeholder, str(arguments[argument.name]))
     body: dict[str, Any] | None = None
     if tool.method != "GET":
@@ -77,6 +78,7 @@ def call(
 
 def send(request: Request, key: str | None = None) -> Any:  # noqa: ANN401 — the gateway's own JSON
     """Send one planned request and return the decoded reply."""
+    # RULE: only an HTTP gateway URL is ever opened
     if not request.url.startswith(_ALLOWED_SCHEMES):
         message = f"refusing a gateway URL that is not HTTP: {request.url}"
         raise Refused(message)
@@ -100,6 +102,7 @@ def tool_schemas() -> list[dict[str, object]]:
 
 def _require_arguments(tool: Tool, arguments: dict[str, Any]) -> None:
     missing = [a.name for a in tool.arguments if a.required and not arguments.get(a.name)]
+    # RULE: a required argument missing is refused before a request is planned
     if missing:
         message = f"{tool.name} needs {', '.join(missing)}"
         raise Refused(message)
