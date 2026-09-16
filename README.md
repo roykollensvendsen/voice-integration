@@ -11,20 +11,23 @@ voice model is given, the translation of a gateway reply into a sentence worth
 hearing, and the permission layer that can only ever narrow.
 
 ```
-  phone                     laptop
-    │ WebRTC audio            │ HTTP, the same session
-    ▼                         │
- OpenAI Realtime API          │      the voice plane
-    │ tool calls (JSON)       │
-    ▼                         │
- voice-bridge  ◄──────────────┘             the edge
-    │ HTTPS + Bearer
-    ▼
- Hermes gateway  /v1/runs  /api/sessions          the control plane
-    │ A2A, MCP, subagents, toolsets
-    ▼
- Claude Code   OpenCode   DeepSeek Harness         the work plane
+  phone                laptop
+    │ microphone         │ microphone        │ screen
+    ▼                    ▼                   │
+      OpenAI Realtime API                    │     the voice plane
+                │ tool calls (JSON)          │
+                ▼                            │
+            voice-bridge  ◄──────────────────┘            the edge
+                │ HTTPS + Bearer
+                ▼
+      Hermes gateway  /v1/runs  /api/sessions         the control plane
+                │ A2A, MCP, subagents, toolsets
+                ▼
+  Claude Code   OpenCode   DeepSeek Harness             the work plane
 ```
+
+Both ends carry a microphone; only the laptop carries a screen, and that is its
+only privilege.
 
 **Context flows down, identifiers flow up.** The voice plane learns that
 `run_ab12` is waiting on an approval. It never learns the diff.
@@ -76,7 +79,7 @@ not a preference.
 | Start here | For |
 |---|---|
 | [`docs/specification.md`](docs/specification.md) | the system, and the rules the cost of audio forces on it |
-| [`docs/open-questions.md`](docs/open-questions.md) | the nine things that are not settled, and what would settle each |
+| [`docs/open-questions.md`](docs/open-questions.md) | the eleven things that are not settled, and what would settle each |
 | [`docs/voice-contract.md`](docs/voice-contract.md) | the six tools, and what the model is told |
 | [`docs/hermes-contract.md`](docs/hermes-contract.md) | what we call on the gateway, and what we deliberately do not |
 | [`docs/permissions.md`](docs/permissions.md) | three layers, and the invariant that makes them worth having |

@@ -36,25 +36,49 @@ does not learn the diff.
 ## The shape
 
 ```
-  phone                     laptop
-    │ WebRTC audio            │ HTTP, the same session
-    ▼                         │
- OpenAI Realtime API          │      the voice plane
-    │ tool calls (JSON)       │
-    ▼                         │
- voice-bridge  ◄──────────────┘             the edge
-    │ HTTPS + Bearer, X-Hermes-Session-Id
-    ▼
- Hermes gateway  /v1/runs  /api/sessions          the control plane
-    │ A2A, MCP, subagents, toolsets
-    ▼
- Claude Code   OpenCode   DeepSeek Harness         the work plane
+  phone                laptop
+    │ microphone         │ microphone        │ screen
+    ▼                    ▼                   │
+      OpenAI Realtime API                    │     the voice plane
+                │ tool calls (JSON)          │
+                ▼                            │
+            voice-bridge  ◄──────────────────┘            the edge
+                │ HTTPS + Bearer, X-Hermes-Session-Id
+                ▼
+      Hermes gateway  /v1/runs  /api/sessions         the control plane
+                │ A2A, MCP, subagents, toolsets
+                ▼
+  Claude Code   OpenCode   DeepSeek Harness             the work plane
 ```
 
-The laptop is a second view on one session, never a second assistant. This is
-the requirement the person stated first and it is the one that decides the
-session model: a run started by voice on the phone is the same run the laptop
-is watching, because both address it by the same gateway session identifier.
+Both ends carry a microphone. The laptop carries a screen as well, and that is
+its only privilege: it is where the detail the voice plane deliberately does not
+say aloud is read. Neither device is a second assistant. A run started by voice
+on the phone is the same run the laptop is talking to, because both address it
+by the same gateway session identifier.
+
+## Two microphones, one room
+
+Two audio clients against one room is not the same problem as two screens, and
+it is the newest thing in this specification.
+
+* **Cost is per open session, not per sentence.** A realtime session bills while
+  it is connected, whether or not anyone is speaking. Two open sessions is twice
+  the idle cost of one, and the idle cost is most of the bill for a person who
+  talks to their agents for two minutes an hour.
+* **A speaker next to an open microphone is a loop.** The laptop plays the
+  reply through the same room the laptop is listening to. Browsers give
+  acoustic echo cancellation through `getUserMedia`; a native client has to
+  bring its own, and a native client that does not have one is unusable rather
+  than merely annoying.
+* **Who is live has to be a fact, not a race.** If both clients are live, one
+  spoken sentence reaches two sessions and the person hears two answers. The
+  room therefore has at most one *live* client at a time, and handing the
+  microphone over is an explicit act.
+
+What follows from those three, and what is still open, is questions 10 and 11 in
+[`open-questions.md`](open-questions.md). Nothing is built on either until they
+are answered.
 
 ## Why the gateway is Hermes and not ours
 
@@ -184,9 +208,11 @@ mutation row is a rule no test has ever been proven to catch.
    as real HTTP to a real server speaking the gateway's contract, rendered back
    as a sentence, with the permission layer in the path. No audio, no model.
 2. **The audio client.** A realtime session against the Realtime API, the six
-   tool definitions, ephemeral client secrets, and one microphone.
-3. **The laptop view.** The same room, subscribed to `/v1/runs/{run_id}/events`,
-   showing what the voice plane is deliberately not saying.
+   tool definitions, ephemeral client secrets, and one microphone. One
+   implementation, reached from both the phone and the laptop.
+3. **The laptop view, and the second microphone.** The same room, subscribed to
+   `/v1/runs/{run_id}/events`, showing what the voice plane is deliberately not
+   saying — and holding the microphone when it is the laptop's turn.
 4. **Rooms with more than one agent**, and then with more than one person.
 
 Every step leaves something a person can run. What is deliberately not in this
@@ -195,5 +221,5 @@ list, and what would make each worth adding, is
 
 ## What is still unsettled
 
-Eight of them, with what would settle each, in
+Eleven of them, with what would settle each, in
 [`open-questions.md`](open-questions.md). Read that before building step 2.

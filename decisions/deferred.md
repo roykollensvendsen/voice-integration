@@ -18,4 +18,5 @@ read whenever a decision record is written and when a phase ends.
 | Rooms with more than one person | Voice identity answered, question 6 in `docs/open-questions.md` | Today the bridge knows a session, not a speaker, and an approval from an unidentified voice is not an approval |
 | Calling `GET /v1/capabilities` before assuming the contract | The first time Hermes changes an endpoint under us | Hermes publishes it, so the break should be a message rather than a mystery |
 | Revisiting ADR-VI-002 | ChatGPT voice gains tool calling on a plan that is held | The whole reason for owning the client is that this does not exist today |
-| A second language for the voice client | The audio client needs a browser | Python is right for the part that talks to Hermes and probably wrong for the part that holds a microphone in a browser |
+| A second language for the voice client | Question 11 in `docs/open-questions.md` answered "browser" | Python is right for the part that talks to Hermes and wrong for the part holding a microphone in a page, and both ends now need that part |
+| Microphone handover between the phone and the laptop | Question 10 in `docs/open-questions.md` answered | Two live sessions answer one sentence twice and bill twice while idle |
