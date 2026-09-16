@@ -49,11 +49,6 @@ def test_the_person_can_pick_a_room_back_up(url):
     assert gateway.call("session_recall", {}, url) == "2 open: evening, morning."
 
 
-def test_a_gateway_refusal_is_said_rather_than_raised(url):
-    spoken = gateway.call("run_status", {"run_id": "run_nothing"}, url)
-    assert spoken.startswith("The gateway refused that:")
-
-
 def test_a_capability_the_session_lacks_never_reaches_the_gateway(url, hermes, run_id):
     only_reading = Capabilities(frozenset({"run_status"}))
     with pytest.raises(Refused):

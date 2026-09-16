@@ -8,7 +8,8 @@ an accident.
 
 import pytest
 
-from voice_bridge import speech
+from voice_bridge import gateway, speech
+from voice_bridge.cli import main
 from voice_bridge.policy import Capabilities, Refused
 
 
@@ -39,3 +40,30 @@ def test_a_spoken_reply_is_capped_so_audio_never_carries_a_transcript():
 
 def test_a_short_reply_is_left_alone():
     assert speech.shorten("  That run is  running. ") == "That run is running."
+
+
+def test_a_path_argument_goes_into_the_url_never_into_the_body():
+    planned = gateway.plan("run_steer", {"run_id": "run_ab12", "guidance": "stop that"})
+    assert planned.url.endswith("/v1/runs/run_ab12/steer")
+    assert planned.body == {"input": "stop that"}
+
+
+def test_a_required_argument_missing_is_refused_before_a_request_is_planned():
+    with pytest.raises(Refused, match="needs instruction"):
+        gateway.plan("agent_task", {"agent": "opencode"})
+
+
+def test_only_an_http_gateway_url_is_ever_opened():
+    with pytest.raises(Refused, match="not HTTP"):
+        gateway.send(gateway.Request("GET", "file:///etc/passwd", None))
+
+
+def test_a_gateway_refusal_is_spoken_not_raised(url):
+    spoken = gateway.call("run_status", {"run_id": "run_nothing"}, url)
+    assert spoken.startswith("The gateway refused that:")
+
+
+def test_a_refused_call_says_why_and_exits_non_zero(capsys):
+    refused = '{"run_id": "run_ab12", "choice": "always"}'
+    assert main(["dispatch", "--dry-run", "approval_resolve", refused]) == 2
+    assert "refused:" in capsys.readouterr().err

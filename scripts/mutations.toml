@@ -32,3 +32,33 @@ name = "a spoken reply is capped, so audio never carries a transcript"
 file = "src/voice_bridge/speech.py"
 find = 'if len\(collapsed\) <= SPOKEN_REPLY_MAX_CHARS:'
 replace = 'if True:'
+
+[[rule]]
+name = "a path argument goes into the URL, never into the body"
+file = "src/voice_bridge/gateway.py"
+find = 'path = path\.replace\(placeholder'
+replace = 'path = path  # mutated'
+
+[[rule]]
+name = "a required argument missing is refused before a request is planned"
+file = "src/voice_bridge/gateway.py"
+find = 'if missing:'
+replace = 'if False:'
+
+[[rule]]
+name = "only an HTTP gateway URL is ever opened"
+file = "src/voice_bridge/gateway.py"
+find = 'if not request\.url\.startswith\(_ALLOWED_SCHEMES\):'
+replace = 'if False:'
+
+[[rule]]
+name = "a gateway refusal is spoken, not raised"
+file = "src/voice_bridge/speech.py"
+find = 'if "error" in payload:'
+replace = 'if False:'
+
+[[rule]]
+name = "a refused call says why and exits non-zero"
+file = "src/voice_bridge/cli.py"
+find = '^        return 2$'
+replace = 'return 0'

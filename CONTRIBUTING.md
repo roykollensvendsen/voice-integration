@@ -43,8 +43,17 @@ way to learn that the gates are not a ritual performed once.
    before it is code. If the documentation does not say it, it is not decided.
 3. **Write a test and watch it fail.** A test that passes on its first run
    proves nothing. Where the rule already exists and no test can precede it,
-   turn the rule off with `python scripts/mutate.py`, watch a named test go
-   red, and keep the row in `scripts/mutations.toml`.
+   turn the rule off with `uv run python scripts/mutate.py`, watch a named test
+   go red, and keep the row in `scripts/mutations.toml`.
+
+   A rule is a line marked `# RULE: what it says` in the source. Every one needs
+   a row in `scripts/mutations.toml` and a test whose name is the rule's own
+   words — `# RULE: a spoken reply is capped` wants
+   `test_a_spoken_reply_is_capped`. `voicebridge check` refuses a rule missing
+   either. That naming is not decoration: the mutation script checks that the
+   test named after a rule is one of the ones that went red, and fails the run
+   when something else broke instead. A kill by an unrelated test is not
+   evidence about the rule.
 4. **Write the smallest code that turns it green**, then refactor with the
    suite green.
 5. **Open one pull request per change**, with the template's checklist

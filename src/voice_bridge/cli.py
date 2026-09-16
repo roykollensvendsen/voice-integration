@@ -47,6 +47,7 @@ def _dispatch(args: argparse.Namespace) -> int:
             print(gateway.call(args.name, arguments, args.gateway, capabilities))
     except Refused as refusal:
         print(f"refused: {refusal}", file=sys.stderr)
+        # RULE: a refused call says why and exits non-zero
         return 2
     return 0
 
