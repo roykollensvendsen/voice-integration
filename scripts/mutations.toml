@@ -87,5 +87,8 @@ replace = 'pass'
 [[rule]]
 name = "a session is never opened without a language rule in its own language"
 file = "src/voice_bridge/live.py"
+# `if False:` rather than an early return: a replacement has to leave the file
+# valid, and returning here orphans the two lines under it into a syntax error,
+# which turns every test red and proves nothing about this rule.
 find = 'if chosen not in INSTRUCTIONS:'
-replace = 'return INSTRUCTIONS.get(chosen, "")'
+replace = 'if False:'

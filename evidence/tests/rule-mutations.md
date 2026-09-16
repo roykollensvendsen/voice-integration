@@ -10,7 +10,7 @@ Where a rule already exists, this is the substitute. Each rule is disabled in
 turn, by replacing its one line with something that can never hold, and the
 suite is run. A rule whose removal breaks no test is a rule nothing protects.
 
-**Result: 11 of 11 rules turned off the test that names them.** None survived.
+**Result: 12 of 12 rules turned off the test that names them.** None survived.
 
 | Rule turned off | Tests that went red | The test that names it | Did that one go red? |
 |---|---|---|---|
@@ -25,6 +25,7 @@ suite is run. A rule whose removal breaks no test is a rule nothing protects.
 | a run that failed is not a refused request | 1 | `test_a_run_that_failed_is_not_a_refused_request` | yes |
 | a session is refused once the monthly ceiling is spent | 3 | `test_a_session_is_refused_once_the_monthly_ceiling_is_spent` | yes |
 | the month is checked before a session is opened | 2 | `test_the_month_is_checked_before_a_session_is_opened` | yes |
+| a session is never opened without a language rule in its own language | 1 | `test_a_session_is_never_opened_without_a_language_rule_in_its_own_language` | yes |
 
 ## What this does not prove
 
