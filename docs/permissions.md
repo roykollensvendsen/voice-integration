@@ -63,6 +63,25 @@ machine, which is why the limit on approval answers above carries more weight
 than it otherwise would, and why rooms with more than one person are the last
 phase rather than the second.
 
+## Answering one
+
+A question reaches the person two ways, and both end in the same place.
+
+The gateway can stop a run and put it in its approval queue. The bridge sees
+`approval.request` on the event stream — which is why it watches the stream at
+all, rather than only polling — and remembers which run is waiting however long
+after it stopped waiting. The person then answers by saying a plain yes or no,
+or by pressing one of two buttons in the page.
+
+Or the agent can simply ask in words, mid-answer, and the reply is an ordinary
+turn in the same room. Nothing special happens; the gateway already has the
+context.
+
+Only a word that is plainly yes or no counts as an answer. A vague reply leaves
+the question open and is treated as a new request, because a channel that
+mishears short words must not be allowed to guess at consent. Both paths send
+`once` or `deny` and nothing else.
+
 ## What the gateway still owns
 
 Everything that matters. The approval queue is Hermes', keyed per run so that

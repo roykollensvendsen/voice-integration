@@ -64,6 +64,30 @@ HOLDING: dict[str, str] = {
 }
 
 
+#: What counts as answering a permission question. Nothing outside these lists
+#: is treated as an answer: a channel that mishears short words must not guess
+#: at a yes, and ADR-VI-003 already limits a spoken answer to this one call.
+YES: dict[str, tuple[str, ...]] = {
+    "nb": ("ja", "ja takk", "greit", "kjør", "kjør det", "gjør det", "ok", "okay"),
+    "en": ("yes", "yes please", "go ahead", "do it", "run it", "ok", "okay"),
+}
+NO: dict[str, tuple[str, ...]] = {
+    "nb": ("nei", "nei takk", "stopp", "ikke", "la være", "avbryt"),
+    "en": ("no", "no thanks", "stop", "don't", "do not", "cancel"),
+}
+
+
+def answer_to_a_question(said: str, language: str | None = None) -> str | None:
+    """`once`, `deny`, or None when that was not an answer at all."""
+    spoken = said.strip().strip(".!?,").casefold()
+    chosen = language or LANGUAGE
+    if spoken in YES.get(chosen, ()) or spoken in YES["en"]:
+        return "once"
+    if spoken in NO.get(chosen, ()) or spoken in NO["en"]:
+        return "deny"
+    return None
+
+
 def holding(language: str | None = None) -> str:
     """What to say while the work runs."""
     return HOLDING.get(language or LANGUAGE, HOLDING["en"])

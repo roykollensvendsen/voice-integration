@@ -20,6 +20,7 @@ import json
 import pathlib
 import threading
 import time
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, Any
 
@@ -36,6 +37,18 @@ PAGE = pathlib.Path(__file__).parent / "client" / "index.html"
 #: How often a watcher is handed what has arrived.
 WATCH_POLL_SECONDS = 0.4
 
+#: What the gateway is told about this particular turn. A voice turn has to end
+#: with something to say: dispatching work to a background subagent completes
+#: the run immediately, and the real answer arrives later as a message nobody is
+#: listening for. Heard from the person's side, that is the system saying "I am
+#: starting it" and then never coming back.
+TURN_INSTRUCTIONS = (
+    "This request came in by voice and someone is waiting to hear the answer. "
+    "Do the work in this turn and answer with the result. "
+    "Do not dispatch background subagents; run the tools yourself and wait for them. "
+    "If it truly cannot be finished now, say in one sentence what you started and what is left."
+)
+
 #: How long a conversation is worth resuming. Come back an hour later and you
 #: are starting something new, whatever the page still shows.
 REMEMBER_FOR_SECONDS = 45 * 60
@@ -50,26 +63,59 @@ WATCH_KEPT = 400
 ROOM = "voice"
 
 
-def _note(server: Bridge, event: dict[str, Any]) -> None:
+def notice(server: Bridge, event: dict[str, Any]) -> None:
     """Keep an event for whoever is watching, and no more than a screenful."""
+    # A run can ask for permission long after we stopped waiting for it, so the
+    # question is caught here rather than by whoever happened to be polling.
+    # RULE: a permission question is noticed however late it arrives
+    if str(event.get("event", "")).startswith("approval.request"):
+        server.awaiting = str(event.get("run_id") or server.awaiting or "")
     with server.watching_lock:
         server.watching.append(event)
         del server.watching[:-WATCH_KEPT]
 
 
-def answer_delegation(
+def resolve_pending(bridge: Bridge, choice: str) -> str:
+    """Answer the permission question the room is waiting on."""
+    run_id, bridge.awaiting = bridge.awaiting, None
+    if not run_id:
+        return "There is nothing waiting for permission."
+    spoken = gateway.call(
+        "approval_resolve", {"run_id": run_id, "choice": choice}, bridge.gateway_url, bridge.capabilities
+    )
+    if choice == "deny":
+        return spoken
+    finished = gateway.wait_for(run_id, bridge.gateway_url)
+    if isinstance(finished, dict) and finished.get("status") == "waiting_for_approval":
+        bridge.awaiting = run_id
+    return say("run_status", finished)
+
+
+def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
+    *,
     capabilities: Capabilities | None = None,
     patience: float = gateway.PATIENCE_SECONDS,
     watcher: Callable[[str, str], None] | None = None,
+    bridge: Bridge | None = None,
 ) -> str:
     """Turn what was heard into something to say back."""
     if not transcript.strip():
         return "I did not catch that."
+    # A question that is waiting takes precedence over a new request: "yes" is
+    # an answer to it, not a thing to go and do.
+    if bridge is not None and bridge.awaiting:
+        answered = live.answer_to_a_question(transcript)
+        # RULE: only a word that is plainly yes or no answers a permission question
+        if answered is not None:
+            return resolve_pending(bridge, answered)
     arguments: dict[str, Any] = {"agent": "hermes-agent", "instruction": transcript.strip(), "room": ROOM}
     (capabilities or Capabilities()).permit("agent_task", arguments)
-    started = gateway.send(gateway.plan("agent_task", arguments, url))
+    planned = gateway.plan("agent_task", arguments, url)
+    # RULE: a voice turn asks the gateway to finish inside it
+    asking = replace(planned, body={**(planned.body or {}), "instructions": TURN_INSTRUCTIONS})
+    started = gateway.send(asking)
     run_id = started.get("run_id") if isinstance(started, dict) else None
     if not run_id:
         return say("agent_task", started)
@@ -77,6 +123,8 @@ def answer_delegation(
         watcher(str(run_id), transcript.strip())
     # RULE: a delegation waits for the work rather than reading back a receipt
     finished = gateway.wait_for(str(run_id), url, patience)
+    if bridge is not None and isinstance(finished, dict) and finished.get("status") == "waiting_for_approval":
+        bridge.awaiting = str(run_id)
     return say("run_status", finished)
 
 
@@ -145,6 +193,12 @@ class _Handler(BaseHTTPRequestHandler):
                     str(body.get("sdp", "")), self.server.ledger, history=self.server.recent()
                 )
                 self._send(200, {"sdp": sdp, "resumed": len(self.server.recent())})
+            elif self.path == "/approval":
+                choice = str(body.get("choice", ""))
+                if choice not in ("once", "deny"):
+                    self._send(400, {"error": "a permission is answered once or deny"})
+                else:
+                    self._send(200, {"content": resolve_pending(self.server, choice)})
             elif self.path == "/turn":
                 self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
                 self._send(200, {})
@@ -152,8 +206,9 @@ class _Handler(BaseHTTPRequestHandler):
                 spoken = answer_delegation(
                     str(body.get("transcript", "")),
                     self.server.gateway_url,
-                    self.server.capabilities,
+                    capabilities=self.server.capabilities,
                     watcher=self.server.follow,
+                    bridge=self.server,
                 )
                 self._send(200, {"content": spoken})
             else:
@@ -179,6 +234,8 @@ class Bridge(ThreadingHTTPServer):
         # guide asks the application to keep it, and a page keeps it only until
         # it is reloaded.
         self.spoken: list[tuple[float, dict[str, str]]] = []
+        #: The run whose permission question is open, if one is.
+        self.awaiting: str | None = None
 
     def remember(self, who: str, text: str) -> None:
         """Keep a turn, so the next session can be given it."""
@@ -195,13 +252,13 @@ class Bridge(ThreadingHTTPServer):
 
     def follow(self, run_id: str, asked: str) -> None:
         """Relay a run's events to whoever is watching, on its own thread."""
-        _note(self, {"event": "run.asked", "run_id": run_id, "asked": asked})
+        notice(self, {"event": "run.asked", "run_id": run_id, "asked": asked})
 
         def read() -> None:
             try:
                 for event in gateway.events(run_id, self.gateway_url):
-                    _note(self, event)
+                    notice(self, event)
             except (OSError, Refused) as failure:
-                _note(self, {"event": "watch.lost", "run_id": run_id, "why": str(failure)})
+                notice(self, {"event": "watch.lost", "run_id": run_id, "why": str(failure)})
 
         threading.Thread(target=read, daemon=True).start()

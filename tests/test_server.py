@@ -61,7 +61,11 @@ def test_a_delegation_becomes_a_run_and_comes_back_as_a_sentence(bridge, hermes)
     assert body["content"] == "The tests pass."
     path, sent, _ = hermes.seen[0]
     assert path == "/v1/runs"
-    assert sent == {"input": "run the tests", "model": "hermes-agent", "session_id": "voice"}
+    assert {k: v for k, v in sent.items() if k != "instructions"} == {
+        "input": "run the tests",
+        "model": "hermes-agent",
+        "session_id": "voice",
+    }
 
 
 def test_an_empty_transcript_is_not_sent_anywhere(bridge, hermes):
@@ -187,5 +191,62 @@ def test_an_empty_turn_is_not_worth_remembering(tmp_path):
             {"role": "user", "content": "Run the tests"},
             {"role": "assistant", "content": "They pass."},
         ]
+    finally:
+        running.server_close()
+
+
+def test_a_voice_turn_asks_the_gateway_to_finish_inside_it(bridge, hermes):
+    """Background work completes the run at once and answers nobody."""
+    post(f"{bridge}/delegation", {"transcript": "run the tests"})
+    _, sent, _ = hermes.seen[0]
+    assert "instructions" in sent, "a voice turn is not an ordinary run"
+    assert "Do not dispatch background subagents" in sent["instructions"]
+    assert "waiting to hear the answer" in sent["instructions"]
+
+
+def test_only_a_word_that_is_plainly_yes_or_no_answers_a_permission_question(url, tmp_path):
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        running.awaiting = "run_ab12"
+        spoken = server.answer_delegation("maybe later, I think", url, bridge=running)
+        assert running.awaiting == "run_ab12", "a vague reply leaves the question open"
+        assert "permission" not in spoken
+    finally:
+        running.server_close()
+
+
+def test_a_plain_yes_answers_the_question_instead_of_starting_work(url, tmp_path, hermes):
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        running.awaiting = "run_ab12"
+        server.answer_delegation("ja", url, bridge=running)
+        assert running.awaiting is None
+        assert hermes.seen[0][0] == "/v1/runs/run_ab12/approval"
+        assert hermes.seen[0][1] == {"choice": "once"}
+    finally:
+        running.server_close()
+
+
+def test_a_permission_can_only_be_answered_once_or_denied(bridge):
+    status, body = post(f"{bridge}/approval", {"choice": "always"})
+    assert status == 400
+    assert "once or deny" in body["error"]
+
+
+def test_a_permission_question_is_the_one_row_you_can_answer(bridge):
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert 'if (e.event === "approval.request") asking(row, e)' in page
+    assert '["Allow once", "once"], ["Refuse", "deny"]' in page
+    assert '"always"' not in page, "a page must not offer a standing permission"
+
+
+def test_a_permission_question_is_noticed_however_late_it_arrives(url, tmp_path):
+    """Patience runs out long before an agent gets round to asking."""
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        assert running.awaiting is None
+        server.notice(running, {"event": "approval.request", "run_id": "run_ab12"})
+        assert running.awaiting == "run_ab12"
     finally:
         running.server_close()

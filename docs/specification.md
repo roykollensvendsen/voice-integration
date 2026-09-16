@@ -183,7 +183,9 @@ day it unpauses, a ceiling on the audio covers the smaller half of the bill.
   run, not against the room, because Hermes deliberately keys approval queues by
   run so that answering one cannot unblock another.
 * The person is the only participant with standing to resolve an approval. The
-  voice plane is a channel they speak through, not a party with authority.
+  voice plane is a channel they speak through, not a party with authority. How
+  one is actually answered, by voice or by button, is
+  [`permissions.md`](permissions.md).
 * The room is also the **memory scope**: `X-Hermes-Session-Key` is set to it, so
   voice and typed sessions in one room share long-term memory and different
   rooms share none

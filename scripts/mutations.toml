@@ -98,3 +98,21 @@ name = "a delegation waits for the work rather than reading back a receipt"
 file = "src/voice_bridge/server.py"
 find = 'finished = gateway\.wait_for'
 replace = 'finished = started'
+
+[[rule]]
+name = "a voice turn asks the gateway to finish inside it"
+file = "src/voice_bridge/server.py"
+find = 'asking = replace\(planned'
+replace = 'asking = planned'
+
+[[rule]]
+name = "only a word that is plainly yes or no answers a permission question"
+file = "src/voice_bridge/server.py"
+find = 'if answered is not None:'
+replace = 'if True:'
+
+[[rule]]
+name = "a permission question is noticed however late it arrives"
+file = "src/voice_bridge/server.py"
+find = 'if str\(event\.get\("event", ""\)\)\.startswith\("approval\.request"\):'
+replace = 'if False:'

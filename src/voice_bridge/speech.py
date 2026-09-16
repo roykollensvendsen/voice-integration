@@ -65,6 +65,11 @@ def _status(payload: dict[str, Any]) -> str:
     output = payload.get("output")
     if state == "completed" and str(output or "").strip():
         return str(output).strip()
+    if state == "waiting_for_approval":
+        asked = payload.get("approval") or {}
+        command = str(asked.get("command", "")) if isinstance(asked, dict) else str(asked)
+        first = next((line for line in command.splitlines() if line.strip()), "something")
+        return f"It needs your permission to run {first.strip()}. Say yes or no."
     if state in ("queued", "running"):
         return f"Still working. Ask me about {payload.get('run_id', 'that run')}."
     failure = payload.get("error")
