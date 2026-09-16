@@ -149,13 +149,19 @@ def offence(subject: str) -> str | None:
     return None
 
 
-def subjects(commit_range: str) -> list[tuple[str, str]]:
-    """Every commit in the range, as its short hash and its subject."""
+def subjects(commit_range: str, cwd: str | None = None) -> list[tuple[str, str]]:
+    """Every commit in the range, as its short hash and its subject.
+
+    ``cwd`` exists so a test can build its own history and read that, rather
+    than reading whatever the checkout happens to be. It is never passed in
+    normal use.
+    """
     result = subprocess.run(  # noqa: S603
         ["git", "log", "--no-merges", "--format=%h\t%s", commit_range],  # noqa: S607
         capture_output=True,
         text=True,
         check=True,
+        cwd=cwd,
     )
     return [
         (line.split("\t", 1)[0], line.split("\t", 1)[1])
