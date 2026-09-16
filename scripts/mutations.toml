@@ -54,7 +54,10 @@ replace = 'if False:'
 [[rule]]
 name = "a gateway refusal is spoken, not raised"
 file = "src/voice_bridge/speech.py"
-find = 'if "error" in payload:'
+# Two rules share this line and mutate it differently: switch the whole test
+# off and no refusal is ever spoken; widen it back and a failed run is called
+# a refusal again.
+find = 'if "error" in payload and "object" not in payload:'
 replace = 'if False:'
 
 [[rule]]
@@ -62,3 +65,9 @@ name = "a refused call says why and exits non-zero"
 file = "src/voice_bridge/cli.py"
 find = '^        return 2$'
 replace = 'return 0'
+
+[[rule]]
+name = "a run that failed is not a refused request"
+file = "src/voice_bridge/speech.py"
+find = 'if "error" in payload and "object" not in payload:'
+replace = 'if "error" in payload:'

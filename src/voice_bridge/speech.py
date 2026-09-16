@@ -31,8 +31,12 @@ def say(tool_name: str, payload: Any) -> str:  # noqa: ANN401 — a gateway repl
     """Render one gateway reply as a sentence to speak."""
     if not isinstance(payload, dict):
         return shorten(str(payload))
-    # RULE: a gateway refusal is spoken, not raised
-    if "error" in payload:
+    # A refusal is an envelope with nothing else in it. A run that failed is a
+    # whole object that happens to carry its failure, and `object` is how the
+    # gateway distinguishes the two.
+    # RULE: a run that failed is not a refused request
+    if "error" in payload and "object" not in payload:
+        # RULE: a gateway refusal is spoken, not raised
         error = payload["error"]
         detail = error.get("message", "") if isinstance(error, dict) else str(error)
         return shorten(f"The gateway refused that: {detail}")
@@ -58,6 +62,10 @@ def _approved(payload: dict[str, Any]) -> str:
 
 def _status(payload: dict[str, Any]) -> str:
     state = payload.get("status", "unknown")
+    failure = payload.get("error")
+    if failure:
+        detail = failure.get("message", "") if isinstance(failure, dict) else str(failure)
+        return f"That run {state}: {detail}"
     last = payload.get("last_event")
     tail = f", last event {last}" if last else ""
     return f"That run is {state}{tail}."
@@ -75,5 +83,9 @@ def _sessions(payload: dict[str, Any]) -> str:
     sessions = payload.get("data") or payload.get("sessions") or []
     if not sessions:
         return "No sessions open."
-    names = [str(s.get("session_id", "?")) if isinstance(s, dict) else str(s) for s in sessions]
+    # A session is keyed `id`. `session_id` is what it is called everywhere the
+    # run API takes one, and reading that here is what made every room "?".
+    names = [
+        str(s.get("id") or s.get("session_id") or "?") if isinstance(s, dict) else str(s) for s in sessions
+    ]
     return f"{len(names)} open: {', '.join(names)}."

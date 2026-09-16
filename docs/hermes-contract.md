@@ -17,10 +17,27 @@ default and requires `API_SERVER_KEY`; the bridge sends it as a bearer token.
 | `POST` | `/v1/runs/{run_id}/approval` | answer an approval the run is blocked on | the resolved choice |
 | `POST` | `/v1/runs/{run_id}/steer` | inject guidance into a running agent | accepted, or `409` |
 | `POST` | `/v1/runs/{run_id}/stop` | interrupt a run | the new status |
-| `GET` | `/api/sessions` | list the rooms that can be picked up again | a list of sessions |
+| `GET` | `/api/sessions` | list the rooms that can be picked up again | `{object, data, limit, offset, has_more}` |
 
 `voicebridge check` fails when this table and the paths in
 `voice_bridge.contract.VOICE_TOOLS` disagree.
+
+## The shapes it answers with
+
+Read off a running Hermes 0.21.3 rather than assumed, because two of the shapes
+this page used to state were wrong and no test could see it.
+
+* A **session** is keyed `id`, not `session_id`. It also carries `title`,
+  `model`, `message_count`, `started_at` and `ended_at`. Every other endpoint
+  takes the same value as `session_id`, which is how the wrong name survived.
+* A **run that failed** answers `200`, not an error status. Its status object
+  has `status: "failed"` and the reason in `error`, alongside
+  `object: "hermes.run"`. A refusal is different: an envelope holding `error`
+  and nothing else. `object` is what separates them, and mistaking one for the
+  other told the person the gateway had refused when the gateway was fine.
+* **Run state lives in memory.** Restarting the gateway loses every run, and a
+  poll for one afterwards answers `404 run_not_found`. Sessions survive; runs do
+  not.
 
 ## The fields we send
 
