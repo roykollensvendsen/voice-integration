@@ -118,6 +118,15 @@ when the team is one person and their agents.
 
 ## Commit messages
 
+**Write them for somebody who has never seen this project.** They do not know
+the file names, the settings, or what any abbreviation here stands for, and a
+message that sends them into the code to find out has failed. Everyday words,
+and a term explained in the sentence before it is leaned on. Anything
+mechanical — file paths, settings, flags, record numbers — goes at the bottom,
+under a heading of its own, so that everything above it can be read without
+them. The [`write-commit`](.claude/skills/write-commit/SKILL.md) skill has a
+worked example of the same change written both ways.
+
 [Conventional Commits](https://www.conventionalcommits.org/), checked by
 `committed.toml`: one line, `type: Subject`, at most 72 characters,
 capitalised after the type, no full stop. Types are build, chore, ci, docs,

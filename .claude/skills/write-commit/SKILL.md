@@ -15,6 +15,13 @@ The test is not whether the message looks like a person wrote it. It is
 whether it was written **for** a person. A terse list passes if it answers
 what its reader came for. A warm paragraph fails if it does not.
 
+**Write for a reader who has never seen this project.** That is the standing
+assumption here, not a courtesy for the occasional outsider. They do not know
+what the files are called, what the settings do, or what any abbreviation in
+this repository stands for, and they should not have to open the code to follow
+the message. If a sentence only makes sense to somebody who already knows the
+tree, it is not finished.
+
 Three readers, and none of them wants the same thing:
 
 - **The reviewer, now.** What changed, whether it is sound, what to look at
@@ -85,6 +92,23 @@ itself is the ground, and the next rule is the whole job. For anything larger,
 one or two sentences first: what this part is for, and where it stood. A
 message that opens on the change assumes a map the reader does not have, and
 after a few months that reader includes you.
+
+**Use everyday words, and explain a term before you lean on it.** Write it the
+way you would say it to somebody over coffee who does not work on this. A file
+name, a setting, a flag or an abbreviation is jargon until the sentence before
+it has said what it is — "a decision record, which is a short page saying why a
+choice was made" — and after that it can be used freely. Never open on jargon.
+"ADR-VI-015 made a pull request the only way onto main" tells a stranger
+nothing; "until today anyone could push a change straight to the main branch,
+with nothing checking it first" tells them everything and costs four more
+words.
+
+**Push the mechanical detail down.** Exact file paths, setting names, command
+flags and record numbers belong at the bottom, under a heading of their own —
+"The details, for whoever maintains this" — not threaded through the
+explanation. A reader who wants them will scroll. A reader who does not should
+be able to stop after the first two paragraphs and understand what happened and
+why.
 
 **Then say what changed, in the words you would use out loud.** One sentence,
 before any reasoning, saying what is different now. That sentence is what a
@@ -158,16 +182,20 @@ The same message at a larger size, for the same readers. It carries the one
 thing no single commit can: why the whole set exists together, and what a
 reviewer should look at hardest.
 
-Four parts, in this order:
+Five parts, in this order:
 
 1. **The ground.** What this part of the system is for, and where it stood
    before. Written so somebody who was never in the conversation can read the
-   rest.
+   rest, in plain words, with no file name or abbreviation that has not been
+   explained first.
 2. **What changed**, and why it was done this way rather than another way.
 3. **What a reviewer should push on.** Name the weakest parts of your own
    change. This is the section that earns the review: a reviewer who has to
    hunt for the soft spots finds fewer of them.
-4. **The checklist the template carries**, answered honestly. It is there for
+4. **The details, for whoever maintains this.** Everything mechanical, gathered
+   in one place where it can be skipped: which files, which settings, which
+   records, which flags. Nothing above this heading needs it to make sense.
+5. **The checklist the template carries**, answered honestly. It is there for
    the rules no script can measure, so a ticked box that is not true is worse
    than an empty repository.
 
@@ -187,11 +215,29 @@ A fix with the reason it was made:
 ```
 fix: Compare a gate's target only where the workflow runs it as a command
 
-The stronger comparison was right about the type checker and wrong about
-the commit linter, which the workflow reaches through an action rather
-than a shell step, so its target can never appear. It still catches the
-divergence it was written for.
+One of our automated tests checks that every quality check the guide
+promises is really run when a change is proposed. It compared the check's
+name and the thing it is pointed at, which was right for some checks and
+wrong for the one that lints commit messages: that one is not run as a
+command, so the thing it is pointed at never appears, and the test failed
+on a repository that was doing nothing wrong.
+
+It now compares the target only where there is one to compare. The
+mismatch it was written to catch is still caught.
 ```
+
+The same change, written the way this page refuses:
+
+```
+fix: Compare a gate's target only where the workflow runs it as a command
+
+The stronger comparison was right about mypy and wrong about committed,
+which checks.yml reaches through a `uses:` rather than a `run:`, so its
+target can never appear in run_steps.
+```
+
+Every fact in the second version is true, it is a third the length, and a
+person who does not already know this tree learns nothing from it.
 
 ## Rewriting a message that is already pushed
 
