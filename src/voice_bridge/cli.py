@@ -13,7 +13,7 @@ import pathlib
 import sys
 from typing import TYPE_CHECKING, ClassVar
 
-from voice_bridge import budget, gateway
+from voice_bridge import budget, gateway, server
 from voice_bridge import check as drift
 from voice_bridge.contract import DEFAULT_GATEWAY
 from voice_bridge.policy import Capabilities, Refused
@@ -67,6 +67,19 @@ def _budget(args: argparse.Namespace) -> int:
     return 0
 
 
+def _serve(args: argparse.Namespace) -> int:
+    """Serve the page and answer what it asks, until interrupted."""
+    bridge = server.Bridge((args.host, args.port), args.gateway)
+    print(f"voice-bridge on http://{args.host}:{bridge.server_port}, gateway {args.gateway}")
+    try:
+        bridge.serve_forever()
+    except KeyboardInterrupt:
+        print("stopped")
+    finally:
+        bridge.server_close()
+    return 0
+
+
 def _check(args: argparse.Namespace) -> int:
     """Compare every fact the documents and the code both state."""
     try:
@@ -85,6 +98,7 @@ class Main:
         "budget": _budget,
         "check": _check,
         "dispatch": _dispatch,
+        "serve": _serve,
         "tools": _tools,
     }
 
@@ -104,6 +118,11 @@ class Main:
 
         spend = verbs.add_parser("budget", help=_budget.__doc__)
         spend.add_argument("--ledger", default="", help="where the spend is kept")
+
+        serve = verbs.add_parser("serve", help=_serve.__doc__)
+        serve.add_argument("--host", default="127.0.0.1", help="what to listen on")
+        serve.add_argument("--port", type=int, default=8760, help="what port to listen on")
+        serve.add_argument("--gateway", default=DEFAULT_GATEWAY, help="the Hermes gateway")
 
         check = verbs.add_parser("check", help=_check.__doc__)
         check.add_argument("root", nargs="?", default=".", help="the repository to check")

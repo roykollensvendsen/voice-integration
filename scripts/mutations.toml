@@ -77,3 +77,9 @@ name = "a session is refused once the monthly ceiling is spent"
 file = "src/voice_bridge/budget.py"
 find = 'if self\.remaining_usd\(\) <= 0:'
 replace = 'if False:'
+
+[[rule]]
+name = "the month is checked before a session is opened"
+file = "src/voice_bridge/live.py"
+find = '\(ledger or Ledger\(\)\)\.authorise\(\)'
+replace = 'pass'

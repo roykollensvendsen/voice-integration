@@ -47,6 +47,7 @@ decision nobody writes down.
 | [016](ADR-VI-016-rebase-merges-only.md) | Only a rebase merge, so every commit lands on its own | Accepted |
 | [017](ADR-VI-017-the-voice-model-is-gpt-live-1.md) | The voice model is gpt-live-1, priced flat per second | Accepted |
 | [018](ADR-VI-018-the-client-is-a-browser-page.md) | The client is a browser page, served by the bridge | Accepted |
+| [019](ADR-VI-019-a-delegation-not-a-tool-list.md) | The voice model gets a delegation, not a tool list | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

@@ -89,6 +89,25 @@ not a preference.
 | [`docs/permissions.md`](docs/permissions.md) | three layers, and the invariant that makes them worth having |
 | [`decisions/`](decisions/README.md) | why it is this and not something else |
 
+## Talking to it
+
+Hermes has to be running, and then:
+
+```console
+$ voicebridge serve --help
+usage: voicebridge serve [-h] [--host HOST] [--port PORT] [--gateway GATEWAY]
+
+options:
+  -h, --help         show this help message and exit
+  --host HOST        what to listen on
+  --port PORT        what port to listen on
+  --gateway GATEWAY  the Hermes gateway
+```
+
+Open the address it prints, press **Take the microphone**, and talk. Nothing is
+listening before that, and the page holds no key: it makes a WebRTC offer, the
+bridge exchanges it for an answer, and the audio goes straight to OpenAI.
+
 ## What it costs
 
 Voice is the only part billed by the second, and it bills while the microphone
@@ -111,8 +130,8 @@ rule has to have a test that names it:
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 6 in docs/hermes-contract.md, 6 in the code, agreed
-rules: 10 in the source, 10 in scripts/mutations.toml, agreed
-rule tests: 10 rules, each with a test named after it
+rules: 11 in the source, 11 in scripts/mutations.toml, agreed
+rule tests: 11 rules, each with a test named after it
 ```
 
 The rest of the gates, and how a change is made, are in
