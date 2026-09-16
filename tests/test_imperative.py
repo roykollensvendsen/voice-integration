@@ -4,6 +4,7 @@ The linter this repository uses has the setting and enforces nothing, so this
 is the mechanism. Every case below is one somebody will write.
 """
 
+import functools
 import pathlib
 import subprocess
 import sys
@@ -59,11 +60,24 @@ def test_a_subject_with_a_scope_is_read_past_it():
     assert imperative.offence("feat(cli)!: Add a verb") is None
 
 
-def test_the_range_is_read_from_git():
-    """A rule that cannot see the commits enforces nothing."""
-    found = imperative.subjects("HEAD~1..HEAD")
-    assert len(found) == 1
-    assert found[0][1]
+def test_the_range_is_read_from_git(tmp_path):
+    """A rule that cannot see the commits enforces nothing.
+
+    This built its own history after reading the checkout's cost a green build:
+    `HEAD~1..HEAD` is one commit on a push and several on a pull request, because
+    a pull request is checked out as a merge of the branch and its base. A test
+    that reads the repository it happens to be running in is a test whose answer
+    depends on how it was started.
+    """
+    run = functools.partial(subprocess.run, cwd=tmp_path, check=True, capture_output=True)
+    run(["git", "init", "-q", "-b", "main"])
+    run(["git", "config", "user.email", "test@example.com"])
+    run(["git", "config", "user.name", "A Test"])
+    for subject in ("feat: Add the first thing", "fix: Repair the second thing"):
+        run(["git", "commit", "-q", "--allow-empty", "-m", subject])
+
+    found = imperative.subjects("HEAD~1..HEAD", cwd=str(tmp_path))
+    assert [subject for _, subject in found] == ["fix: Repair the second thing"]
 
 
 def test_a_message_file_is_read_the_way_the_hook_sees_it(tmp_path):
