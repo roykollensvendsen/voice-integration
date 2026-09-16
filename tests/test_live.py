@@ -19,10 +19,23 @@ def test_the_voice_model_is_given_no_tools():
 
 
 def test_the_instructions_never_carry_a_repository_or_an_agent_name():
-    instructions = live.INSTRUCTIONS.lower()
-    assert "hermes" not in instructions
-    assert "claude" not in instructions
-    assert len(live.INSTRUCTIONS) < 400
+    for written in live.INSTRUCTIONS.values():
+        assert "hermes" not in written.lower()
+        assert "claude" not in written.lower()
+        assert len(written) < 400
+
+
+def test_a_session_is_never_opened_without_a_language_rule_in_its_own_language():
+    """An English prompt is why the first real conversation came back in German."""
+    assert live.instructions("nb").startswith("Snakk norsk med mindre")
+    assert live.instructions("en").startswith("Speak English unless")
+    with pytest.raises(Refused, match="must be in the language it speaks"):
+        live.instructions("de")
+
+
+def test_norwegian_is_what_this_installation_speaks():
+    assert live.LANGUAGE == "nb"
+    assert live.session_config()["instructions"] == live.INSTRUCTIONS["nb"]
 
 
 def test_the_month_is_checked_before_a_session_is_opened(tmp_path, monkeypatch):
