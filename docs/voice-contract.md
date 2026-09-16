@@ -57,7 +57,9 @@ becomes `session_id`, which is the identifier the laptop view subscribes to.
 ## What the model is told
 
 The session preamble is fixed, and it is short for the reason
-[`specification.md`](specification.md) gives. It says four things and no more:
+[`specification.md`](specification.md) gives. It is carried in the session the
+bridge creates, never in the page, because the page is code a browser was
+handed and the preamble is policy. It says four things and no more:
 
 1. You are a voice interface to an agent system, not the agent.
 2. Name the agent and the room; never describe the work in detail.
