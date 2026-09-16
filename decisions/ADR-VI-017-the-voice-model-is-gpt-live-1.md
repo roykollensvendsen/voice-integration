@@ -64,8 +64,13 @@ only lever left is how long the microphone is open — which makes
 was not chosen for. And the transport is not negotiable, which costs a whole
 decision on its own.
 
-The number is still not written down. It goes into the first configuration file,
-and until then this record is as unfinished as the one it replaces.
+The number was chosen on 2026-09-16: twenty dollars a month, which is 400
+minutes, or about thirteen minutes a day. It lives in
+`voice_bridge.budget.DEFAULT_CEILING_USD`, an installation may raise it with
+`VOICE_BRIDGE_CEILING_USD`, and a session is refused once the month is spent.
+Thirteen minutes a day is not much, and the first thing it will cost is a
+conversation that gets cut off; raising it is one environment variable and a new
+number here.
 
 ## Related
 

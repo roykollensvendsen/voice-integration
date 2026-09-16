@@ -1,6 +1,6 @@
 # What is still unsettled
 
-Four questions. Eleven stood here on 2026-09-16; six were decided that day and
+Three questions. Eleven stood here on 2026-09-16; six were decided that day and
 moved into [`decisions/`](../decisions/README.md), where the answer is recorded
 with what it cost. What is left is either a number nobody can pick yet or a fact
 that can only be learned by building the thing.
@@ -9,10 +9,9 @@ The column that matters is the last one: what would settle it.
 
 | # | The question | Why it is not a detail | What would settle it |
 |---|---|---|---|
-| 1 | What is the monthly ceiling, as a number? | [ADR-VI-017](../decisions/ADR-VI-017-the-voice-model-is-gpt-live-1.md) says there is a ceiling and does not say what it is. It is now plain arithmetic — $0.05 a minute, $3.00 an hour — so the only thing missing is the decision | Writing the first configuration file, which is when the number has to be typed |
-| 2 | Does the browser's echo cancellation hold up with the laptop's speakers at normal volume? | Without it the model hears its own reply and answers it, and bills for both halves. `getUserMedia` provides it, which is not the same as it working in this room with these speakers | Opening the client and talking to it with the volume where you actually keep it |
-| 3 | Is the interaction, without the ChatGPT application around it, actually good enough? | [ADR-VI-002](../decisions/ADR-VI-002-our-own-realtime-client.md) rests on this and it has not been tested. If the answer is no, that record and much of this specification are wrong | Using the Linux client for a week, which is the whole reason it is built first |
-| 4 | What does the client show so that holding the microphone is obvious? | [ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md) makes the claim explicit and therefore makes forgetting it possible. Talking to a machine that is not listening is the failure this design invites | A first client, and watching the person forget |
+| 1 | Does the browser's echo cancellation hold up with the laptop's speakers at normal volume? | Without it the model hears its own reply and answers it, and bills for both halves. `getUserMedia` provides it, which is not the same as it working in this room with these speakers | Opening the client and talking to it with the volume where you actually keep it |
+| 2 | Is the interaction, without the ChatGPT application around it, actually good enough? | [ADR-VI-002](../decisions/ADR-VI-002-our-own-realtime-client.md) rests on this and it has not been tested. If the answer is no, that record and much of this specification are wrong | Using the Linux client for a week, which is the whole reason it is built first |
+| 3 | What does the client show so that holding the microphone is obvious? | [ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md) makes the claim explicit and therefore makes forgetting it possible. Talking to a machine that is not listening is the failure this design invites | A first client, and watching the person forget |
 
 ## What is no longer open, and where the answer went
 
@@ -29,6 +28,7 @@ The column that matters is the last one: what would settle it.
 | Which microphone is live | [ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md) — one, claimed by a gesture on the device |
 | Browser or native | [ADR-VI-018](../decisions/ADR-VI-018-the-client-is-a-browser-page.md) — a browser page, because `gpt-live-1` is reachable over WebRTC only and a browser has WebRTC and echo cancellation already |
 | Which model, and what it costs | [ADR-VI-017](../decisions/ADR-VI-017-the-voice-model-is-gpt-live-1.md) — `gpt-live-1`, flat at $0.05 a minute billed per second |
+| The monthly ceiling | $20, which is 400 minutes. `voice_bridge.budget` refuses a session once the month is spent |
 
 ## How to read this page
 
@@ -38,4 +38,4 @@ the wrong question gets said so here rather than quietly deleted.
 
 Nothing in the first table blocks building the client, which is the point of
 [ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md): every
-one of the four is answered *by* building it.
+one of the three is answered *by* building it.

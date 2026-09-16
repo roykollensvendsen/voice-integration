@@ -71,3 +71,9 @@ name = "a run that failed is not a refused request"
 file = "src/voice_bridge/speech.py"
 find = 'if "error" in payload and "object" not in payload:'
 replace = 'if "error" in payload:'
+
+[[rule]]
+name = "a session is refused once the monthly ceiling is spent"
+file = "src/voice_bridge/budget.py"
+find = 'if self\.remaining_usd\(\) <= 0:'
+replace = 'if False:'

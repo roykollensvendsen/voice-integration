@@ -137,7 +137,10 @@ arrangement in which the tool surface is ours to design.
 A `gpt-live-1` voice session costs $0.05 a minute, billed per second, and the
 backend model and tools are charged separately
 ([the model page](https://developers.openai.com/api/docs/models/gpt-live-1)).
-An hour of open microphone is $3.00. That is a number, not a range: the realtime
+An hour of open microphone is $3.00, and the ceiling is $20.00 a month — 400
+minutes, or about thirteen minutes a day. `voice_bridge.budget` refuses a
+session once the month is spent, which makes the ceiling a mechanism rather
+than an intention. That is a number, not a range: the realtime
 models it replaced were billed per audio token and ran anywhere from $0.02 to
 $0.46 a minute depending on whether prompt caching was holding.
 
