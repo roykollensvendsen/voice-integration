@@ -35,6 +35,14 @@ decision nobody writes down.
 | [004](ADR-VI-004-identifiers-up-context-down.md) | Context flows down and identifiers flow up | Accepted |
 | [005](ADR-VI-005-how-a-change-is-made.md) | Every fact stated twice is compared by something that can fail | Accepted |
 | [006](ADR-VI-006-no-runtime-dependencies.md) | The bridge has no runtime dependencies | Accepted |
+| [007](ADR-VI-007-mini-is-the-default-voice-model.md) | The mini model is the default, and the bill has a ceiling | Accepted |
+| [008](ADR-VI-008-a-native-client-on-each-device.md) | A native client on each device, and no browser anywhere | Accepted |
+| [009](ADR-VI-009-everything-runs-on-the-laptop.md) | Hermes and the bridge run on the laptop, reached over Tailscale | Accepted |
+| [010](ADR-VI-010-one-live-microphone.md) | One live microphone, claimed rather than won | Accepted |
+| [011](ADR-VI-011-the-device-is-the-identity.md) | The device is the identity; there is no voice identity | Accepted |
+| [012](ADR-VI-012-an-agent-discussion-has-fixed-phases.md) | An agent discussion has fixed phases and then stops | Accepted |
+| [013](ADR-VI-013-the-room-is-the-memory-scope.md) | The room is the memory scope | Accepted |
+| [014](ADR-VI-014-the-linux-client-is-built-first.md) | The Linux client is built first, and it is evidence before it is a feature | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

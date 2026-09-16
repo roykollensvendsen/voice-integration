@@ -50,9 +50,18 @@ machine and wrong for almost everything else. A session for a second person in
 the room, a session started from an unlocked phone, or a session running while
 the person is asleep should each be given less.
 
-What none of this yet does is distinguish *who* is speaking. That is the sharpest
-open question in [`open-questions.md`](open-questions.md), and it is the reason
-multi-person rooms are the last phase rather than the second.
+What none of this does is distinguish *who* is speaking, and that is a decision
+rather than a gap. There is no voice identity: claiming the microphone takes a
+gesture on an unlocked device, and the unlocked device is the authentication
+([ADR-VI-011](../decisions/ADR-VI-011-the-device-is-the-identity.md)). Speaker
+verification was considered and refused — a false rejection when the person has
+a cold is the kind of annoyance that gets a control switched off, and a false
+acceptance is silent.
+
+It follows that this protects nothing against somebody standing at the open
+machine, which is why the limit on approval answers above carries more weight
+than it otherwise would, and why rooms with more than one person are the last
+phase rather than the second.
 
 ## What the gateway still owns
 

@@ -1,31 +1,41 @@
 # What is still unsettled
 
-Eleven questions. Each one has an answer that changes what gets built, and none of
-them is answered by building more of what is already here. The column that
-matters is the last one: what would settle it.
+Five questions. Eleven stood here on 2026-09-16; six were decided that day and
+moved into [`decisions/`](../decisions/README.md), where the answer is recorded
+with what it cost. What is left is either a number nobody can pick yet or a fact
+that can only be learned by building the thing.
+
+The column that matters is the last one: what would settle it.
 
 | # | The question | Why it is not a detail | What would settle it |
 |---|---|---|---|
-| 1 | Who pays for the audio, and up to what ceiling? | Free ChatGPT is not API access. The Realtime API bills per audio token from a funded OpenAI account, and an always-listening session bills while nothing is happening | A funded account, a chosen model (`mini` or full), and a monthly ceiling written into the config |
-| 2 | Is the requirement "a voice interface this good", or "the ChatGPT app specifically"? | Our own Realtime client gets the same model and none of the app's polish — no chat history, no memory, no phone integration. If the second is the real requirement, this design is wrong | Ten minutes with a bare Realtime client, answering whether it is good enough |
-| 3 | Where does the bridge run, and how does the phone reach it? | The phone needs a reachable endpoint. A laptop behind a home router is not one. Every answer — Tailscale, Cloudflare tunnel, VPS — changes the threat model and the TLS story | A chosen network path, and an ADR recording what it exposes |
-| 4 | Where do the agents' tools actually execute? | Hermes' API server reports `"tool_execution": "server"` and `"split_runtime": false`: tools run on the gateway's host. Agents working on your repositories means Hermes running where your repositories are, which collides with question 3 | A decision on gateway placement: your laptop reachable from outside, or a VPS with the repositories on it |
-| 5 | Is driving Claude Code from a gateway, under your existing subscription, something Anthropic's terms allow? | Hermes already ships a `claude-code` skill that runs the `claude` CLI in its own terminal against your existing Pro/Max login, so the mechanism exists and needs no adapter. What is unverified is whether unattended use through it is within terms, and that is the difference between "already paid for" and a second metered bill | Reading Anthropic's terms for unattended use, and a decision about whether to run it that way |
-| 6 | Who is allowed to speak? | The bridge knows a voice session, not a person. Anyone within earshot of an unlocked phone can answer an approval. `deny`-only is a mitigation, not an answer | A decision on voice identity: a wake phrase is not authentication, a locked device might be |
-| 7 | What happens to audio that was never meant for the system? | Full duplex means the microphone is open. In a house with other people, that is a recording decision, not a feature flag | A stated policy on when the session is open, and a visible indicator when it is |
-| 8 | When agents discuss, what stops them? | Two agents arguing is two token streams with no natural end. The conversation asked for this explicitly; nothing in it bounds the cost | A turn limit, a token budget, or a person in the loop — chosen before the feature, not after the bill |
-| 9 | Do voice sessions share a memory scope with typed ones? | Hermes scopes long-term memory by `X-Hermes-Session-Key`. Sharing gives continuity across phone and laptop; it also means anything said aloud is remembered by everything else | A decision on the session-key scheme, and a test that shows what crosses |
-| 10 | When both microphones are open, which one is live? | Two live sessions means one sentence answered twice, and two idle sessions billed. Handing the microphone over has to be an act, not a race | A chosen handover: last speaker wins, an explicit claim, or push-to-talk on the laptop |
-| 11 | One client in a browser, or a native one per device? | A browser is one implementation for both ends and gets echo cancellation free from `getUserMedia`; native gets a hotkey and survives the browser being closed. The laptop's speaker sits next to the laptop's microphone either way | A decision, and an ADR: it also decides whether the bridge has to serve static files |
+| 1 | What is the monthly ceiling, as a number? | [ADR-VI-007](../decisions/ADR-VI-007-mini-is-the-default-voice-model.md) says there is a ceiling and does not say what it is. A ceiling with no number is a wish, and the record is only half kept until it has one | Writing the first configuration file, which is when the number has to be typed |
+| 2 | Does `AcousticEchoCanceler` work on the actual phone, at the rate the Realtime API wants? | Android's echo canceller is a per-device effect and is not guaranteed present. Without it the phone client is unusable rather than annoying, and no amount of the rest of this design helps | Building the Android client, which [ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md) puts second on purpose |
+| 3 | Does PipeWire's echo-cancel module hold up with the laptop's speakers at normal volume? | Same failure on the other machine, and it is configuration rather than code, so it has to be written down per machine or it is lost on the next reinstall | Setting it up once and recording the configuration in this repository |
+| 4 | Is the interaction, without the ChatGPT application around it, actually good enough? | [ADR-VI-002](../decisions/ADR-VI-002-our-own-realtime-client.md) rests on this and it has not been tested. If the answer is no, that record and much of this specification are wrong | Using the Linux client for a week, which is the whole reason it is built first |
+| 5 | What does the client show so that holding the microphone is obvious? | [ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md) makes the claim explicit and therefore makes forgetting it possible. Talking to a machine that is not listening is the failure this design invites | A first client, and watching the person forget |
+
+## What is no longer open, and where the answer went
+
+| Was | Went to |
+|---|---|
+| Who pays for the audio | [ADR-VI-007](../decisions/ADR-VI-007-mini-is-the-default-voice-model.md) — mini by default, full model per session, a ceiling in configuration |
+| The ChatGPT application or the interaction | [ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md) — tested on the Linux client before anything else is built |
+| Where the bridge runs, and where the tools execute | [ADR-VI-009](../decisions/ADR-VI-009-everything-runs-on-the-laptop.md) — both on the laptop, reached over Tailscale, awake on mains power |
+| Claude Code under a subscription | Answered by reading: `claude -p` works and draws from the subscription's own quota. The change that would have moved it to a metered credit pool was announced for 2026-06-15 and paused, which is a row in [`deferred.md`](../decisions/deferred.md) rather than a question |
+| Who is allowed to speak | [ADR-VI-011](../decisions/ADR-VI-011-the-device-is-the-identity.md) — the unlocked device is the authentication, and it says what it does not protect |
+| Audio that was never meant for the system | [ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md) — the microphone is closed until a client claims it, which is not a setting but how it works |
+| What stops an agent discussion | [ADR-VI-012](../decisions/ADR-VI-012-an-agent-discussion-has-fixed-phases.md) — three phases, then it stops whether or not they agree |
+| The memory scope | [ADR-VI-013](../decisions/ADR-VI-013-the-room-is-the-memory-scope.md) — the room is the scope |
+| Which microphone is live | [ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md) — one, claimed by a gesture on the device |
+| Browser or native | [ADR-VI-008](../decisions/ADR-VI-008-a-native-client-on-each-device.md) — native on both, and echo cancellation is therefore ours twice |
 
 ## How to read this page
 
-These are not risks to be noted and moved past. Questions 1, 3 and 4 together
-decide whether the system can exist in the form described; 5 decides how much it
-costs to run; 6 and 7 decide whether it should be left switched on; 10 and 11
-decide what the client actually is. Steps 2 and later in
-[`specification.md`](specification.md) should not start until 1 to 4 and 11 have
-answers.
+A question that gets answered moves out of the first table and into a decision
+record, with the answer and what it cost. A question that turns out to have been
+the wrong question gets said so here rather than quietly deleted.
 
-A question that gets answered moves out of this table and into a decision record
-under [`decisions/`](../decisions/README.md), with the answer and what it cost.
+Nothing in the first table blocks building the Linux client, which is the point
+of [ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md):
+questions 1, 3, 4 and 5 are all answered *by* building it.

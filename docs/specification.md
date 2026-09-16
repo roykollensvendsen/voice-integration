@@ -36,20 +36,28 @@ does not learn the diff.
 ## The shape
 
 ```
-  phone                laptop
-    │ microphone         │ microphone        │ screen
-    ▼                    ▼                   │
-      OpenAI Realtime API                    │     the voice plane
-                │ tool calls (JSON)          │
-                ▼                            │
-            voice-bridge  ◄──────────────────┘            the edge
+  Android app            Linux client
+    │ microphone           │ microphone       │ screen
+    │  (over Tailscale)    │                  │
+    ▼                      ▼                  │
+        OpenAI Realtime API                   │      the voice plane
+                │ tool calls (JSON)           │
+                ▼                             │
+            voice-bridge  ◄───────────────────┘             the edge
                 │ HTTPS + Bearer, X-Hermes-Session-Id
                 ▼
-      Hermes gateway  /v1/runs  /api/sessions         the control plane
+      Hermes gateway  /v1/runs  /api/sessions          the control plane
                 │ A2A, MCP, subagents, toolsets
                 ▼
-  Claude Code   OpenCode   DeepSeek Harness             the work plane
+  Claude Code   OpenCode   DeepSeek Harness              the work plane
 ```
+
+Everything below the voice plane runs on one laptop, and the phone reaches it
+over Tailscale
+([ADR-VI-009](../decisions/ADR-VI-009-everything-runs-on-the-laptop.md)). Both
+clients are native, because the phone needs a session that survives a locked
+screen and a browser tab does not
+([ADR-VI-008](../decisions/ADR-VI-008-a-native-client-on-each-device.md)).
 
 Both ends carry a microphone. The laptop carries a screen as well, and that is
 its only privilege: it is where the detail the voice plane deliberately does not
@@ -72,13 +80,20 @@ it is the newest thing in this specification.
   bring its own, and a native client that does not have one is unusable rather
   than merely annoying.
 * **Who is live has to be a fact, not a race.** If both clients are live, one
-  spoken sentence reaches two sessions and the person hears two answers. The
-  room therefore has at most one *live* client at a time, and handing the
-  microphone over is an explicit act.
+  spoken sentence reaches two sessions and the person hears two answers.
 
-What follows from those three, and what is still open, is questions 10 and 11 in
-[`open-questions.md`](open-questions.md). Nothing is built on either until they
-are answered.
+So: **at most one client holds the microphone**, and taking it is a deliberate
+gesture on that device — a key on the laptop, a button in the application. The
+other drops to the screen and stops listening
+([ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md)). That also
+answers, better than a setting could, the question of when the system is
+listening: when somebody said so.
+
+Echo cancellation is therefore ours on both machines. On Linux it is PipeWire's
+echo-cancel module, which is configuration; on Android it is
+`AcousticEchoCanceler`, which is per-device and not guaranteed. Neither is
+written here and both have to work before either client is usable rather than
+merely annoying.
 
 ## Why the gateway is Hermes and not ours
 
@@ -137,9 +152,19 @@ Three normative rules fall straight out of those numbers.
    fact that they exist and the identifier that fetches them.
 
 The corollary nobody likes: the mini model is the default, and the full model is
-a deliberate, per-session choice. Three times the price for a layer that is
-supposed to be routing and small talk is not a trade this system wants by
-default.
+a deliberate, per-session choice
+([ADR-VI-007](../decisions/ADR-VI-007-mini-is-the-default-voice-model.md)).
+Three times the price for a layer that is supposed to be routing and small talk
+is not a trade this system wants by default.
+
+**What the ceiling does not cover.** The audio bill is the one this system can
+see. The agents' own cost lands elsewhere: on Claude Code's subscription quota,
+and on whatever DeepSeek and OpenCode are configured against. `claude -p` draws
+from the same five-hour and weekly caps as the Claude chat; the change that
+would have moved automated runs to a metered credit pool at API list rates was
+announced for 2026-06-15 and paused, not cancelled. That is a row in
+[`decisions/deferred.md`](../decisions/deferred.md) with a trigger, because the
+day it unpauses, a ceiling on the audio covers the smaller half of the bill.
 
 ## The session model
 
@@ -152,12 +177,24 @@ default.
   run so that answering one cannot unblock another.
 * The person is the only participant with standing to resolve an approval. The
   voice plane is a channel they speak through, not a party with authority.
+* The room is also the **memory scope**: `X-Hermes-Session-Key` is set to it, so
+  voice and typed sessions in one room share long-term memory and different
+  rooms share none
+  ([ADR-VI-013](../decisions/ADR-VI-013-the-room-is-the-memory-scope.md)).
+* Who is speaking is not known, and deliberately so. The unlocked device is the
+  authentication
+  ([ADR-VI-011](../decisions/ADR-VI-011-the-device-is-the-identity.md)).
 
 Agent-to-agent discussion — the part of the conversation about letting Claude
 Code and DeepSeek argue with each other while OpenCode stays out — is a property
 of the room, expressed through Hermes' own A2A and subagent machinery. The voice
-surface names the room; it does not implement the discussion. What is not yet
-built is in [`decisions/deferred.md`](../decisions/deferred.md).
+surface names the room; it does not implement the discussion.
+
+A discussion has a fixed shape, and the shape is what bounds it: one independent
+analysis each, one round of criticism each, one joint conclusion, then it stops
+whether or not they agree
+([ADR-VI-012](../decisions/ADR-VI-012-an-agent-discussion-has-fixed-phases.md)).
+What is not yet built is in [`decisions/deferred.md`](../decisions/deferred.md).
 
 ## Permissions
 
@@ -207,13 +244,18 @@ mutation row is a rule no test has ever been proven to catch.
 1. **The walking skeleton, which is done.** A voice tool call, planned and sent
    as real HTTP to a real server speaking the gateway's contract, rendered back
    as a sentence, with the permission layer in the path. No audio, no model.
-2. **The audio client.** A realtime session against the Realtime API, the six
-   tool definitions, ephemeral client secrets, and one microphone. One
-   implementation, reached from both the phone and the laptop.
-3. **The laptop view, and the second microphone.** The same room, subscribed to
+2. **The Linux client.** A realtime session, the six tool definitions, ephemeral
+   client secrets, one microphone and PipeWire's echo canceller. It is built
+   first because it is where the person sits, and because it is the cheapest
+   place to find out whether this interaction is worth having at all
+   ([ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md)).
+3. **The laptop view.** The same room, subscribed to
    `/v1/runs/{run_id}/events`, showing what the voice plane is deliberately not
-   saying — and holding the microphone when it is the laptop's turn.
-4. **Rooms with more than one agent**, and then with more than one person.
+   saying.
+4. **The Android client**, against a tool surface that has by then been used in
+   anger rather than only designed.
+5. **Rooms with more than one agent**, and then — if voice identity is ever
+   answered — with more than one person.
 
 Every step leaves something a person can run. What is deliberately not in this
 list, and what would make each worth adding, is
@@ -221,5 +263,7 @@ list, and what would make each worth adding, is
 
 ## What is still unsettled
 
-Eleven of them, with what would settle each, in
-[`open-questions.md`](open-questions.md). Read that before building step 2.
+Five of them, in [`open-questions.md`](open-questions.md), which also records
+where each of the six that were answered on 2026-09-16 went. None of the five
+blocks step 2; four of them are answered *by* step 2, which is most of the
+argument for building it next.
