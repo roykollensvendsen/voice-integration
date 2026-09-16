@@ -1,12 +1,18 @@
 # The voice contract
 
-What the realtime model is given, and why it is this small.
+What the bridge will do, and why it is this small.
 
-A realtime session is billed for its own instructions on every cached miss, and
-a model choosing between six well-named tools is more reliable than one choosing
-between thirty. So the surface is fixed at six, each one standing for exactly
-one gateway call, and adding a seventh is a decision record rather than a
-commit.
+The voice model is given no functions at all. `gpt-live-1` in client delegation
+mode says only that it wants help, with an opaque identifier and no task text;
+the bridge keeps the transcript, works out what was asked, does it, and appends
+a string for the model to say aloud.
+[ADR-VI-019](../decisions/ADR-VI-019-a-delegation-not-a-tool-list.md) records
+why that is the mode.
+
+So these six are not a menu handed to a model. They are the only six things the
+bridge will do when a delegation arrives, which makes them the boundary
+[`permissions.md`](permissions.md) describes rather than a suggestion to
+something else. Adding a seventh is a decision record rather than a commit.
 
 ## The surface
 
@@ -24,6 +30,27 @@ commit.
 `voice_bridge.contract.VOICE_TOOLS` holds the same six, and `voicebridge check`
 fails when this table and that tuple disagree.
 
+## How a turn works
+
+1. The page streams audio. `session.input_transcript.delta` arrives on the data
+   channel as the person speaks; the bridge keeps it.
+2. The model decides it needs the backend and emits
+   `session.delegation.created` with `delegation.id`. It carries no task text.
+3. The bridge asks Hermes what to do with the transcript so far, which is
+   `POST /v1/runs` — the gateway plans, as
+   [ADR-VI-001](../decisions/ADR-VI-001-hermes-is-the-control-plane.md) says.
+4. The bridge appends the answer with `session.commentary.append`, quoting the
+   same `delegation_id`, and the model paraphrases it aloud.
+
+`session.thinking.append` carries something the model should know and not say.
+Both take a plain string and both require the delegation identifier, including
+when it is null.
+
+An acknowledgment is not a receipt. The guide is explicit that it "is not proof
+that the model has consumed or spoken the result, or that an external action
+succeeded", so a person can hear nothing about something that has already run.
+That is why approvals live in Hermes and not here.
+
 ## The shape a session is configured with
 
 ```console
@@ -36,8 +63,9 @@ run_stop
 session_recall
 ```
 
-The full function definitions, in the form the Realtime API takes, come from
-`voicebridge tools` without `--names`.
+The full definitions come from `voicebridge tools` without `--names`. They are
+not sent to OpenAI: they are what the bridge dispatches against, and what a
+reviewer reads to see the whole boundary in one place.
 
 ## What each call becomes
 

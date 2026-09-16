@@ -1,0 +1,127 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>voice-bridge</title>
+<style>
+  :root { color-scheme: light dark; --ink: #17181c; --dim: #6c7079; --line: #d7d9de; --live: #1a7f4b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
+  }
+  body { margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+         font: 15px/1.55 ui-sans-serif, system-ui, sans-serif; color: var(--ink);
+         background: Canvas; max-width: 42rem; margin-inline: auto; }
+  h1 { font-size: 1rem; font-weight: 600; letter-spacing: .01em; margin: 0 0 .25rem; }
+  p.sub { color: var(--dim); margin: 0 0 1.5rem; }
+  button { font: inherit; padding: .7rem 1.4rem; border-radius: 999px; border: 1px solid var(--line);
+           background: transparent; color: inherit; cursor: pointer; }
+  button[data-live="yes"] { border-color: var(--live); color: var(--live); }
+  #state { margin-left: .9rem; color: var(--dim); }
+  #log { margin-top: 1.75rem; border-top: 1px solid var(--line); }
+  .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 4.5rem 1fr; gap: .8rem; }
+  .who { color: var(--dim); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; padding-top: .15rem; }
+</style>
+
+<h1>voice-bridge</h1>
+<p class="sub">Hold the microphone and talk to the agents. Nothing is listening until you say so.</p>
+
+<button id="talk">Take the microphone</button><span id="state">idle</span>
+<div id="log"></div>
+
+<script type="module">
+const talk = document.getElementById("talk");
+const state = document.getElementById("state");
+const log = document.getElementById("log");
+
+let pc = null, channel = null, heard = "", said = "";
+
+const show = (who, text) => {
+  const row = document.createElement("div");
+  row.className = "turn";
+  row.innerHTML = `<div class="who"></div><div class="what"></div>`;
+  row.querySelector(".who").textContent = who;
+  row.querySelector(".what").textContent = text;
+  log.prepend(row);
+};
+
+const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
+
+// The model asks for help with an identifier and no task text: what was wanted
+// lives in the transcript we have been keeping. docs/voice-contract.md.
+async function answer(delegationId) {
+  const transcript = heard.trim();
+  heard = "";
+  show("asked", transcript || "(nothing heard)");
+  let content;
+  try {
+    const reply = await fetch("/delegation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript }),
+    });
+    const body = await reply.json();
+    content = reply.ok ? body.content : `I could not do that: ${body.error}`;
+  } catch (failure) {
+    content = `The bridge did not answer: ${failure.message}`;
+  }
+  show("bridge", content);
+  send({ type: "session.commentary.append", event_id: `r_${Date.now()}`, delegation_id: delegationId, content });
+}
+
+function onEvent(event) {
+  switch (event.type) {
+    case "session.input_transcript.delta": heard += event.delta ?? ""; break;
+    case "session.output_transcript.delta": said += event.delta ?? ""; break;
+    case "session.output_transcript.done": if (said.trim()) show("said", said.trim()); said = ""; break;
+    case "session.delegation.created": answer(event.delegation.id); break;
+    case "error": show("error", event.error?.message ?? "unknown"); break;
+  }
+}
+
+async function start() {
+  state.textContent = "opening";
+  // Echo cancellation is the browser's, and it is the whole reason this is a
+  // page rather than a program: ADR-VI-018.
+  const mic = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
+
+  pc = new RTCPeerConnection();
+  pc.ontrack = (e) => { const a = new Audio(); a.srcObject = e.streams[0]; a.autoplay = true; };
+  pc.addTrack(mic.getTracks()[0], mic);
+
+  channel = pc.createDataChannel("oai-events");
+  channel.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch { /* not ours */ } };
+
+  await pc.setLocalDescription(await pc.createOffer());
+  await new Promise((done) => {
+    if (pc.iceGatheringState === "complete") return done();
+    pc.onicegatheringstatechange = () => pc.iceGatheringState === "complete" && done();
+  });
+
+  const reply = await fetch("/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sdp: pc.localDescription.sdp }),
+  });
+  const body = await reply.json();
+  if (!reply.ok) throw new Error(body.error ?? "the bridge refused");
+  await pc.setRemoteDescription({ type: "answer", sdp: body.sdp });
+
+  state.textContent = "listening";
+  talk.textContent = "Put it down";
+  talk.dataset.live = "yes";
+}
+
+function stop() {
+  pc?.close();
+  pc = channel = null;
+  state.textContent = "idle";
+  talk.textContent = "Take the microphone";
+  delete talk.dataset.live;
+}
+
+talk.onclick = async () => {
+  if (pc) return stop();
+  try { await start(); } catch (failure) { stop(); state.textContent = failure.message; }
+};
+</script>

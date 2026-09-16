@@ -31,7 +31,7 @@ version-file = "src/voice_bridge/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/voice_bridge"]
 # py.typed tells a consumer's type checker that these annotations are meant.
-artifacts = ["src/voice_bridge/py.typed"]
+artifacts = ["src/voice_bridge/py.typed", "src/voice_bridge/client/index.html"]
 
 [tool.ruff]
 line-length = 110
@@ -51,8 +51,10 @@ ignore = ["D203", "D213", "COM812", "ISC001", "CPY001", "D401", "N818"]
 # A command-line tool prints; that is its output channel, not a stray debug line.
 "src/voice_bridge/cli.py" = ["T201"]
 # A test's name is its docstring, its fixtures need no annotations, and a bare
-# assert is the point of pytest.
-"tests/*" = ["S101", "ANN", "D1", "PLR2004", "INP001", "S603", "S607"]
+# assert is the point of pytest. S310 warns that a URL may carry a surprising
+# scheme; in a test the URL is a literal built from a port this file just
+# opened, so there is nothing to audit.
+"tests/*" = ["S101", "ANN", "D1", "PLR2004", "INP001", "S603", "S607", "S310"]
 
 [tool.mypy]
 python_version = "3.11"

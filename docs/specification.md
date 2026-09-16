@@ -250,22 +250,21 @@ mutation row is a rule no test has ever been proven to catch.
 
 ## The order this gets built in
 
-1. **The walking skeleton, which is done.** A voice tool call, planned and sent
+0. **The walking skeleton, done.** A voice tool call, planned and sent
    as real HTTP to a real server speaking the gateway's contract, rendered back
    as a sentence, with the permission layer in the path. No audio, no model.
-2. **The browser client, on the laptop.** A `gpt-live-1` session established by
-   exchanging the page's WebRTC offer for an answer through the bridge, the six
-   tool definitions, and one microphone. It is built first because it is where
-   the person sits, and because it is the cheapest place to find out whether
-   this interaction is worth having at all
+1. **The browser client, on the laptop, done except for proof.** `voicebridge
+   serve` serves the page, exchanges its WebRTC offer for an answer, and answers
+   a delegation by asking Hermes. Everything but the handshake itself is tested;
+   the handshake needs a browser and a person
    ([ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md)).
-3. **The laptop view.** The same room, subscribed to
+2. **The laptop view.** The same room, subscribed to
    `/v1/runs/{run_id}/events`, showing what the voice plane is deliberately not
    saying.
-4. **A phone client that survives a locked screen**, against a tool surface that
+3. **A phone client that survives a locked screen**, against a tool surface that
    has by then been used in anger rather than only designed. The same page works
    on a phone today, as long as it stays in front.
-5. **Rooms with more than one agent**, and then — if voice identity is ever
+4. **Rooms with more than one agent**, and then — if voice identity is ever
    answered — with more than one person.
 
 Every step leaves something a person can run. What is deliberately not in this
