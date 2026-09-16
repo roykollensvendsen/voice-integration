@@ -89,6 +89,19 @@ not a preference.
 | [`docs/permissions.md`](docs/permissions.md) | three layers, and the invariant that makes them worth having |
 | [`decisions/`](decisions/README.md) | why it is this and not something else |
 
+## What it costs
+
+Voice is the only part billed by the second, and it bills while the microphone
+is open whether or not anyone is speaking. The ceiling is enforced, not noted:
+
+```console
+$ voicebridge budget --ledger /dev/null
+$20.00 left of $20.00 this month — 400 minutes
+```
+
+Twenty dollars is 400 minutes, or about thirteen minutes a day. `--ledger` names
+where the spend is kept; without it, this installation's own.
+
 ## Running the checks
 
 Every fact stated twice here is compared by something that can fail, and every
@@ -98,8 +111,8 @@ rule has to have a test that names it:
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 6 in docs/hermes-contract.md, 6 in the code, agreed
-rules: 9 in the source, 9 in scripts/mutations.toml, agreed
-rule tests: 9 rules, each with a test named after it
+rules: 10 in the source, 10 in scripts/mutations.toml, agreed
+rule tests: 10 rules, each with a test named after it
 ```
 
 The rest of the gates, and how a change is made, are in

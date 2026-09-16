@@ -13,8 +13,8 @@ import pathlib
 import sys
 from typing import TYPE_CHECKING, ClassVar
 
+from voice_bridge import budget, gateway
 from voice_bridge import check as drift
-from voice_bridge import gateway
 from voice_bridge.contract import DEFAULT_GATEWAY
 from voice_bridge.policy import Capabilities, Refused
 
@@ -52,6 +52,21 @@ def _dispatch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _budget(args: argparse.Namespace) -> int:
+    """Say what is left of this month's voice budget."""
+    ledger = budget.Ledger(pathlib.Path(args.ledger) if args.ledger else None)
+    try:
+        ledger.authorise()
+    except Refused as refusal:
+        print(f"refused: {refusal}", file=sys.stderr)
+        return 2
+    print(
+        f"${ledger.remaining_usd():.2f} left of ${budget.ceiling_usd():.2f} this month "
+        f"— {ledger.remaining_minutes()} minutes"
+    )
+    return 0
+
+
 def _check(args: argparse.Namespace) -> int:
     """Compare every fact the documents and the code both state."""
     try:
@@ -67,6 +82,7 @@ class Main:
     """The command, and the verbs it has, so a test can ask for the list."""
 
     commands: ClassVar[dict[str, Callable[[argparse.Namespace], int]]] = {
+        "budget": _budget,
         "check": _check,
         "dispatch": _dispatch,
         "tools": _tools,
@@ -85,6 +101,9 @@ class Main:
         dispatch.add_argument("arguments", nargs="?", default="", help="its arguments, as JSON")
         dispatch.add_argument("--gateway", default=DEFAULT_GATEWAY, help="the Hermes gateway")
         dispatch.add_argument("--dry-run", action="store_true", help="show the request, send nothing")
+
+        spend = verbs.add_parser("budget", help=_budget.__doc__)
+        spend.add_argument("--ledger", default="", help="where the spend is kept")
 
         check = verbs.add_parser("check", help=_check.__doc__)
         check.add_argument("root", nargs="?", default=".", help="the repository to check")
