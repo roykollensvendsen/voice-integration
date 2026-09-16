@@ -115,9 +115,9 @@ suite is run. A rule whose removal breaks no test is a rule nothing protects.
 
 That the rules are the right rules, or that a rule catches every case of what
 it names. It proves each rule is load-bearing: switch it off and a named test
-says so. A new rule follows the order in the `develop-cli` skill instead, a
-failing test first, and is added to `scripts/mutations.toml`, which a test in
-the suite requires.
+says so. A new rule follows the order in `CONTRIBUTING.md` instead, a failing
+test first, and is added to `scripts/mutations.toml`, which both a test in the
+suite and `voicebridge check` require.
 """
 
 
