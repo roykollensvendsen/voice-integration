@@ -1,12 +1,24 @@
-<!-- Four parts, in this order. The `write-commit` skill has the detail.
+<!-- Five parts, in this order. The `write-commit` skill has the detail.
+
+     Write for somebody who has never seen this project. They do not know the
+     file names, the settings or what any abbreviation here stands for, and they
+     should not have to open the code to follow you. Everyday words. Explain a
+     term before you lean on it, and never open on jargon.
+
      1. The ground: what this part is for, and where it stood before.
      2. What changed, and why this way rather than another way.
      3. What a reviewer should push on: the weakest parts of your own change.
-     4. The checklist below.
+     4. The details, for whoever maintains this: file names, settings, flags,
+        record numbers — gathered here so everything above can be read without
+        them.
+     5. The checklist below.
+
      Leave out what CI already reports on this page. -->
 
 ## The rules no script can measure
 
+- [ ] Somebody who has never seen this project could read everything above the
+      details section and understand what changed and why.
 - [ ] Every rule this change adds names the check, CI job or review step that
       enforces it, or says plainly that it is not enforced yet and when it will be.
 - [ ] The specification changed before the code, or this change only implements
