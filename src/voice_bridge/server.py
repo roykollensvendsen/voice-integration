@@ -36,6 +36,10 @@ PAGE = pathlib.Path(__file__).parent / "client" / "index.html"
 #: How often a watcher is handed what has arrived.
 WATCH_POLL_SECONDS = 0.4
 
+#: How long a conversation is worth resuming. Come back an hour later and you
+#: are starting something new, whatever the page still shows.
+REMEMBER_FOR_SECONDS = 45 * 60
+
 #: How many events the screen keeps. A run is a few dozen; a long session is
 #: thousands, and nobody scrolls back that far.
 WATCH_KEPT = 400
@@ -137,7 +141,13 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             body = self._read()
             if self.path == "/session":
-                self._send(200, {"sdp": live.open_session(str(body.get("sdp", "")), self.server.ledger)})
+                sdp = live.open_session(
+                    str(body.get("sdp", "")), self.server.ledger, history=self.server.recent()
+                )
+                self._send(200, {"sdp": sdp, "resumed": len(self.server.recent())})
+            elif self.path == "/turn":
+                self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
+                self._send(200, {})
             elif self.path == "/delegation":
                 spoken = answer_delegation(
                     str(body.get("transcript", "")),
@@ -165,6 +175,23 @@ class Bridge(ThreadingHTTPServer):
         self.capabilities = Capabilities()
         self.watching: list[dict[str, Any]] = []
         self.watching_lock = threading.Lock()
+        # The transcript belongs here rather than in the page. The delegation
+        # guide asks the application to keep it, and a page keeps it only until
+        # it is reloaded.
+        self.spoken: list[tuple[float, dict[str, str]]] = []
+
+    def remember(self, who: str, text: str) -> None:
+        """Keep a turn, so the next session can be given it."""
+        if not text.strip():
+            return
+        role = "user" if who == "You" else "assistant"
+        self.spoken.append((time.time(), {"role": role, "content": text.strip()}))
+        del self.spoken[: -live.TURNS_REMEMBERED * 2]
+
+    def recent(self) -> list[dict[str, str]]:
+        """The turns worth resuming, and none older than that."""
+        oldest = time.time() - REMEMBER_FOR_SECONDS
+        return [turn for when, turn in self.spoken if when >= oldest]
 
     def follow(self, run_id: str, asked: str) -> None:
         """Relay a run's events to whoever is watching, on its own thread."""

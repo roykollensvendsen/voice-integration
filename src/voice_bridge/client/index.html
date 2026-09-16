@@ -150,6 +150,12 @@ const show = (who, text) => {
   return row;
 };
 
+const keep = (turn) => fetch("/turn", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ who: turn.who, text: turn.text }),
+}).catch(() => {});
+
 // A fragment either continues the turn it belongs to or starts a new one.
 function heard(who, delta, startMs, endMs) {
   if (!delta) return;
@@ -162,9 +168,16 @@ function heard(who, delta, startMs, endMs) {
     last.end = endMs ?? last.end;
     last.row.querySelector(".what").textContent = last.text;
     last.row.scrollIntoView({ block: "nearest" });
+    clearTimeout(last.settle);
+    last.settle = setTimeout(() => keep(last), TURN_GAP_MS + 400);
     return;
   }
-  turns.push({ who, text: delta, start: startMs, end: endMs, session, row: show(who, delta) });
+  const fresh = { who, text: delta, start: startMs, end: endMs, session, row: show(who, delta) };
+  turns.push(fresh);
+  // A turn is kept by the bridge, not by this page: a page forgets on reload,
+  // and the bridge is what a new session asks for its history.
+  clearTimeout(fresh.settle);
+  fresh.settle = setTimeout(() => keep(fresh), TURN_GAP_MS + 400);
 }
 
 const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
@@ -247,7 +260,7 @@ async function start() {
   if (session > 1) {
     const rule = document.createElement("div");
     rule.className = "newer";
-    rule.textContent = "new conversation";
+    rule.textContent = "new session";
     log.append(rule);
   }
   holding = await fetch("/config").then((r) => r.json()).then((c) => c.holding).catch(() => "");
@@ -278,6 +291,7 @@ async function start() {
   const body = await reply.json();
   if (!reply.ok) throw new Error(body.error ?? "the bridge refused");
   await pc.setRemoteDescription({ type: "answer", sdp: body.sdp });
+  if (body.resumed) note("Picked up where you left off", `${body.resumed} turns`);
 
   state.textContent = "listening";
   talk.textContent = "Put it down";
