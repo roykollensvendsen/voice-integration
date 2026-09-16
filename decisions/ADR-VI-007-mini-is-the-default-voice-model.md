@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, by Roy Kollen Svendsen, 2026-09-16.
+Accepted, by Roy Kollen Svendsen, 2026-09-16. Superseded by [ADR-VI-017](ADR-VI-017-the-voice-model-is-gpt-live-1.md) the same day: the model it chose was the wrong family, found by a filter that missed two identifiers.
 
 ## Context
 

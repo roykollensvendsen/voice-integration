@@ -36,14 +36,14 @@ does not learn the diff.
 ## The shape
 
 ```
-  Android app            Linux client
-    │ microphone           │ microphone       │ screen
-    │  (over Tailscale)    │                  │
-    ▼                      ▼                  │
-        OpenAI Realtime API                   │      the voice plane
-                │ tool calls (JSON)           │
-                ▼                             │
-            voice-bridge  ◄───────────────────┘             the edge
+  a browser, on the laptop or the phone
+    │ microphone            │ screen
+    │ WebRTC audio          │
+    ▼                       │
+        gpt-live-1          │                        the voice plane
+                │ tool calls (JSON, over the data channel)
+                ▼           │
+            voice-bridge  ◄─┘                               the edge
                 │ HTTPS + Bearer, X-Hermes-Session-Id
                 ▼
       Hermes gateway  /v1/runs  /api/sessions          the control plane
@@ -54,10 +54,17 @@ does not learn the diff.
 
 Everything below the voice plane runs on one laptop, and the phone reaches it
 over Tailscale
-([ADR-VI-009](../decisions/ADR-VI-009-everything-runs-on-the-laptop.md)). Both
-clients are native, because the phone needs a session that survives a locked
-screen and a browser tab does not
-([ADR-VI-008](../decisions/ADR-VI-008-a-native-client-on-each-device.md)).
+([ADR-VI-009](../decisions/ADR-VI-009-everything-runs-on-the-laptop.md)). The
+client is a page the bridge serves, because `gpt-live-1` is reachable over
+WebRTC and nothing else, and a browser has WebRTC and echo cancellation already
+([ADR-VI-018](../decisions/ADR-VI-018-the-client-is-a-browser-page.md)).
+
+OpenAI's own guide calls this arrangement *client delegation*: the application
+connects "any model, agent harness, or service" and "owns permissions,
+confirmations, private function execution, and durable task state". Read against
+this page, the agent harness is Hermes, the permissions are
+[`permissions.md`](permissions.md), the confirmations are the approval flow, and
+the durable task state is a room and its runs.
 
 Both ends carry a microphone. The laptop carries a screen as well, and that is
 its only privilege: it is where the detail the voice plane deliberately does not
@@ -89,11 +96,10 @@ other drops to the screen and stops listening
 answers, better than a setting could, the question of when the system is
 listening: when somebody said so.
 
-Echo cancellation is therefore ours on both machines. On Linux it is PipeWire's
-echo-cancel module, which is configuration; on Android it is
-`AcousticEchoCanceler`, which is per-device and not guaranteed. Neither is
-written here and both have to work before either client is usable rather than
-merely annoying.
+Echo cancellation is the browser's, from `getUserMedia`, and so is noise
+suppression. That was the largest single cost in the client and it is now
+somebody else's. It comes back the day a phone client is written natively, which
+is why that is still deferred.
 
 ## Why the gateway is Hermes and not ours
 
@@ -128,14 +134,12 @@ arrangement in which the tool surface is ours to design.
 
 ## What it costs, and the rules that follow
 
-Realtime audio is billed per audio token, not per minute. One minute of the
-person speaking is about 600 tokens; one minute of the model speaking is about
-1200. On `gpt-realtime-2.1` that is $32 per million tokens in and $64 out; the
-mini model is $10 and $20. In practice a working agent runs about $0.06–0.11 a
-minute on the full model and $0.02–0.05 on the mini once prompt caching is
-holding, and $0.18–0.46 a minute when it is not.
-([the rates](https://www.eesel.ai/blog/gpt-realtime-mini-pricing),
-[measured sessions](https://hackernoon.com/openai-realtime-api-pricing-in-2026-real-world-data-from-4000-measured-sessions))
+A `gpt-live-1` voice session costs $0.05 a minute, billed per second, and the
+backend model and tools are charged separately
+([the model page](https://developers.openai.com/api/docs/models/gpt-live-1)).
+An hour of open microphone is $3.00. That is a number, not a range: the realtime
+models it replaced were billed per audio token and ran anywhere from $0.02 to
+$0.46 a minute depending on whether prompt caching was holding.
 
 Three normative rules fall straight out of those numbers.
 
@@ -151,11 +155,11 @@ Three normative rules fall straight out of those numbers.
    diffs, logs and stack traces reach the laptop view. The voice plane gets the
    fact that they exist and the identifier that fetches them.
 
-The corollary nobody likes: the mini model is the default, and the full model is
-a deliberate, per-session choice
-([ADR-VI-007](../decisions/ADR-VI-007-mini-is-the-default-voice-model.md)).
-Three times the price for a layer that is supposed to be routing and small talk
-is not a trade this system wants by default.
+The corollary nobody likes: there is no cheaper model to fall back to
+([ADR-VI-017](../decisions/ADR-VI-017-the-voice-model-is-gpt-live-1.md)). The
+only lever on the bill is how long the microphone is open, which is why claiming
+it is a deliberate act rather than a default
+([ADR-VI-010](../decisions/ADR-VI-010-one-live-microphone.md)).
 
 **What the ceiling does not cover.** The audio bill is the one this system can
 see. The agents' own cost lands elsewhere: on Claude Code's subscription quota,
@@ -221,9 +225,11 @@ short words is not a channel that should be able to say "always".
 * The browser's connection to the Realtime API uses an ephemeral client secret
   minted by the bridge per session, so a leaked one expires rather than
   persists.
-* The bridge is the only process that is reachable by both the audio provider
-  and the gateway, which is exactly why it is small, dependency-free and worth
-  reading in full.
+* The bridge is the only process reachable by both the audio provider and the
+  gateway. It is no longer dependency-free — it serves the page and terminates
+  the browser's request — and
+  [ADR-VI-018](../decisions/ADR-VI-018-the-client-is-a-browser-page.md) records
+  what that gave up.
 
 ## Conformance
 
@@ -244,16 +250,18 @@ mutation row is a rule no test has ever been proven to catch.
 1. **The walking skeleton, which is done.** A voice tool call, planned and sent
    as real HTTP to a real server speaking the gateway's contract, rendered back
    as a sentence, with the permission layer in the path. No audio, no model.
-2. **The Linux client.** A realtime session, the six tool definitions, ephemeral
-   client secrets, one microphone and PipeWire's echo canceller. It is built
-   first because it is where the person sits, and because it is the cheapest
-   place to find out whether this interaction is worth having at all
+2. **The browser client, on the laptop.** A `gpt-live-1` session established by
+   exchanging the page's WebRTC offer for an answer through the bridge, the six
+   tool definitions, and one microphone. It is built first because it is where
+   the person sits, and because it is the cheapest place to find out whether
+   this interaction is worth having at all
    ([ADR-VI-014](../decisions/ADR-VI-014-the-linux-client-is-built-first.md)).
 3. **The laptop view.** The same room, subscribed to
    `/v1/runs/{run_id}/events`, showing what the voice plane is deliberately not
    saying.
-4. **The Android client**, against a tool surface that has by then been used in
-   anger rather than only designed.
+4. **A phone client that survives a locked screen**, against a tool surface that
+   has by then been used in anger rather than only designed. The same page works
+   on a phone today, as long as it stays in front.
 5. **Rooms with more than one agent**, and then — if voice identity is ever
    answered — with more than one person.
 

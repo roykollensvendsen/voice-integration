@@ -34,9 +34,9 @@ decision nobody writes down.
 | [003](ADR-VI-003-the-voice-layer-can-only-narrow.md) | The voice layer can only ever narrow permissions | Accepted |
 | [004](ADR-VI-004-identifiers-up-context-down.md) | Context flows down and identifiers flow up | Accepted |
 | [005](ADR-VI-005-how-a-change-is-made.md) | Every fact stated twice is compared by something that can fail | Accepted |
-| [006](ADR-VI-006-no-runtime-dependencies.md) | The bridge has no runtime dependencies | Accepted |
-| [007](ADR-VI-007-mini-is-the-default-voice-model.md) | The mini model is the default, and the bill has a ceiling | Accepted |
-| [008](ADR-VI-008-a-native-client-on-each-device.md) | A native client on each device, and no browser anywhere | Accepted |
+| [006](ADR-VI-006-no-runtime-dependencies.md) | The bridge has no runtime dependencies | Superseded by 018 |
+| [007](ADR-VI-007-mini-is-the-default-voice-model.md) | The mini model is the default, and the bill has a ceiling | Superseded by 017 |
+| [008](ADR-VI-008-a-native-client-on-each-device.md) | A native client on each device, and no browser anywhere | Superseded by 018 |
 | [009](ADR-VI-009-everything-runs-on-the-laptop.md) | Hermes and the bridge run on the laptop, reached over Tailscale | Accepted |
 | [010](ADR-VI-010-one-live-microphone.md) | One live microphone, claimed rather than won | Accepted |
 | [011](ADR-VI-011-the-device-is-the-identity.md) | The device is the identity; there is no voice identity | Accepted |
@@ -45,6 +45,8 @@ decision nobody writes down.
 | [014](ADR-VI-014-the-linux-client-is-built-first.md) | The Linux client is built first, and it is evidence before it is a feature | Accepted |
 | [015](ADR-VI-015-public-so-the-pull-request-rule-has-a-mechanism.md) | Public, so that the pull request rule has a mechanism | Accepted |
 | [016](ADR-VI-016-rebase-merges-only.md) | Only a rebase merge, so every commit lands on its own | Accepted |
+| [017](ADR-VI-017-the-voice-model-is-gpt-live-1.md) | The voice model is gpt-live-1, priced flat per second | Accepted |
+| [018](ADR-VI-018-the-client-is-a-browser-page.md) | The client is a browser page, served by the bridge | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

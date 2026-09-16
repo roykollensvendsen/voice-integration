@@ -26,10 +26,11 @@ hearing, and the permission layer that can only ever narrow.
   Claude Code   OpenCode   DeepSeek Harness             the work plane
 ```
 
-Both ends carry a microphone; only the laptop carries a screen, and that is its
-only privilege. Everything below the voice plane runs on one laptop, reached
-from the phone over Tailscale. At most one client holds the microphone at a
-time, and taking it is a deliberate gesture.
+The client is a page. `gpt-live-1` is reachable over WebRTC and nothing else,
+and a browser brings WebRTC, echo cancellation and noise suppression with it.
+Everything below the voice plane runs on one laptop, reached from the phone over
+Tailscale. At most one page holds the microphone at a time, and taking it is a
+deliberate act.
 
 **Context flows down, identifiers flow up.** The voice plane learns that
 `run_ab12` is waiting on an approval. It never learns the diff.
@@ -38,9 +39,9 @@ time, and taking it is a deliberate gesture.
 
 Step one of five is done: a voice tool call travels through the permission
 layer, becomes a real request to a real gateway, and comes back as a sentence.
-Step two is the native Linux client — built before the phone, because it is
-where the person sits and where the premise this rests on gets tested for the
-first time.
+Step two is the browser client on the laptop — built before the phone, because
+it is where the person sits and where the premise this rests on gets tested for
+the first time.
 
 ## The surface
 
@@ -82,7 +83,7 @@ not a preference.
 | Start here | For |
 |---|---|
 | [`docs/specification.md`](docs/specification.md) | the system, and the rules the cost of audio forces on it |
-| [`docs/open-questions.md`](docs/open-questions.md) | the five things still unsettled, and where the answered ones went |
+| [`docs/open-questions.md`](docs/open-questions.md) | the four things still unsettled, and where the answered ones went |
 | [`docs/voice-contract.md`](docs/voice-contract.md) | the six tools, and what the model is told |
 | [`docs/hermes-contract.md`](docs/hermes-contract.md) | what we call on the gateway, and what we deliberately do not |
 | [`docs/permissions.md`](docs/permissions.md) | three layers, and the invariant that makes them worth having |

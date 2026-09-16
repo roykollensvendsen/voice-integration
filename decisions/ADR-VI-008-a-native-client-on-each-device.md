@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, by Roy Kollen Svendsen, 2026-09-16.
+Accepted, by Roy Kollen Svendsen, 2026-09-16. Superseded by [ADR-VI-018](ADR-VI-018-the-client-is-a-browser-page.md) the same day: the model that was actually wanted is reachable only over WebRTC, which a browser has and a native client would have to build.
 
 ## Context
 
