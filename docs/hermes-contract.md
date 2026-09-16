@@ -43,10 +43,16 @@ this page used to state were wrong and no test could see it.
 ## The fields we send
 
 * `POST /v1/runs` takes `input` (the instruction), `model` (the route, which is
-  how an agent alias is selected) and `session_id` (the room). It also accepts
-  `instructions`, `previous_response_id` and `conversation_history`; the bridge
-  sends none of them, because carrying conversation history through the voice
-  plane is precisely what this design refuses to do.
+  how an agent alias is selected) and `session_id` (the room). It also takes
+  `instructions`, and the bridge sends one: a voice turn must end with something
+  to say, and the gateway's default is to dispatch long work to a background
+  subagent, complete the run at once, and deliver the answer later as a message
+  in the session. Heard from the person's side that is the system saying it has
+  started and then never coming back. `server.TURN_INSTRUCTIONS` is what asks it
+  to finish inside the turn.
+* `previous_response_id` and `conversation_history` are not sent, because
+  carrying conversation history through the voice plane is precisely what this
+  design refuses to do.
 * `POST /v1/runs/{run_id}/approval` takes `choice`, one of `once`, `session`,
   `always` or `deny`. The bridge will only ever send two of them, for the reason
   in [`permissions.md`](permissions.md).

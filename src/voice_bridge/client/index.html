@@ -45,8 +45,10 @@
   .ev[data-kind="tool.started"]::before, .ev[data-kind="run.asked"]::before { color: var(--live); }
   .ev .kind { font-weight: 600; }
   .ev .what { color: var(--dim); overflow-wrap: anywhere; white-space: pre-wrap; }
-  .ev[data-kind="approval.requested"] { background: color-mix(in srgb, var(--live) 12%, transparent);
+  .ev[data-asking] { background: color-mix(in srgb, var(--live) 12%, transparent);
         margin-inline: -.5rem; padding-inline: 1.6rem .5rem; border-radius: .3rem; }
+  .ev .answer { display: flex; gap: .5rem; margin-top: .45rem; }
+  .ev .answer button { padding: .25rem .9rem; font-size: .8rem; }
   #log { max-height: 60vh; overflow-y: auto; }
   .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid;
           grid-template-columns: 5.5rem 1fr; gap: .8rem; }
@@ -125,7 +127,9 @@ const PLAINLY = {
   "tool.completed": (e) => `Finished ${e.tool ?? "that"}`,
   "run.completed": "Done",
   "run.failed": "That went wrong",
+  "approval.request": "Waiting for your permission",
   "approval.requested": "Waiting for your permission",
+  "approval.resolved": "You answered",
   "watch.lost": "Lost track of that one",
   "error": "Something went wrong",
 };
@@ -222,6 +226,36 @@ function onEvent(event) {
 
 // The gateway streams every tool an agent starts and every token it writes.
 // The voice plane must not read that out; this is where it goes instead.
+// A permission question is the one row you can answer. Buttons here and a
+// spoken yes or no do the same thing, and the gateway only ever gets "once" or
+// "deny" — never a standing permission. ADR-VI-003.
+function asking(row, event) {
+  row.dataset.asking = "yes";
+  const command = String(event.approval?.command ?? event.command ?? event.preview ?? "");
+  if (command) row.querySelector(".what").textContent = command.split("\n").find((l) => l.trim()) ?? command;
+  const buttons = document.createElement("div");
+  buttons.className = "answer";
+  for (const [label, choice] of [["Allow once", "once"], ["Refuse", "deny"]]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.onclick = async () => {
+      buttons.remove();
+      delete row.dataset.asking;
+      const reply = await fetch("/approval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ choice }),
+      }).then((r) => r.json()).catch((f) => ({ content: String(f) }));
+      note(label, reply.content ?? reply.error ?? "");
+      if (reply.content) send({ type: "session.commentary.append", event_id: `a_${Date.now()}`,
+                                delegation_id: null, content: reply.content });
+    };
+    buttons.append(button);
+  }
+  row.append(buttons);
+}
+
 // One row in the panel underneath, in words rather than event names.
 function note(kind, detail) {
   const row = document.createElement("div");
@@ -248,7 +282,9 @@ function watch() {
     }
     writing = null;
     const detail = e.asked ?? e.preview ?? e.why ?? "";
-    note(plainly(e), String(detail)).dataset.kind = e.event ?? "";
+    const row = note(plainly(e), String(detail));
+    row.dataset.kind = e.event ?? "";
+    if (e.event === "approval.request") asking(row, e);
   };
   stream.onerror = () => { /* the browser reconnects on its own */ };
 }
