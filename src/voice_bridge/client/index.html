@@ -16,28 +16,38 @@
            background: transparent; color: inherit; cursor: pointer; }
   button[data-live="yes"] { border-color: var(--live); color: var(--live); }
   #state { margin-left: .9rem; color: var(--dim); }
-  #log { margin-top: 1.75rem; border-top: 1px solid var(--line); }
+  #log { border-top: 1px solid var(--line); }
   h2 { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
        color: var(--dim); margin: 2.25rem 0 .5rem; }
   #under { border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-  .ev { display: grid; grid-template-columns: 9rem 1fr; gap: .8rem; padding: .35rem 0;
-        border-bottom: 1px solid var(--line); font-size: .85rem; }
-  .ev .kind { color: var(--dim); }
-  .ev .what { overflow-wrap: anywhere; }
-  .ev[data-kind="tool.started"] .kind, .ev[data-kind="run.asked"] .kind { color: var(--live); }
-  .ev[data-kind="approval.requested"] { background: color-mix(in srgb, var(--live) 10%, transparent); }
-  .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 4.5rem 1fr; gap: .8rem; }
-  .who { color: var(--dim); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; padding-top: .15rem; }
+  #under { border-top: 1px solid var(--line); padding-top: .6rem; max-height: 22rem; overflow-y: auto; }
+  .ev { padding: .2rem 0 .2rem 1.1rem; position: relative; font-size: .85rem; line-height: 1.5; }
+  .ev::before { content: "\2022"; position: absolute; left: 0; color: var(--dim); }
+  .ev[data-kind="tool.started"]::before, .ev[data-kind="run.asked"]::before { color: var(--live); }
+  .ev .kind { font-weight: 600; }
+  .ev .what { color: var(--dim); overflow-wrap: anywhere; white-space: pre-wrap; }
+  .ev[data-kind="approval.requested"] { background: color-mix(in srgb, var(--live) 12%, transparent);
+        margin-inline: -.5rem; padding-inline: 1.6rem .5rem; border-radius: .3rem; }
+  #log { max-height: 26rem; overflow-y: auto; }
+  .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid;
+          grid-template-columns: 5.5rem 1fr; gap: .8rem; }
+  .turn[data-who="You"] .who { color: var(--ink); font-weight: 600; }
+  .turn .what { overflow-wrap: anywhere; }
+  @media (max-width: 34rem) { .turn { grid-template-columns: 1fr; gap: .15rem; } }
+  .who { color: var(--dim); font-size: .8rem; letter-spacing: .02em; padding-top: .15rem; }
 </style>
 
 <h1>voice-bridge</h1>
-<p class="sub">Hold the microphone and talk to the agents. Nothing is listening until you say so.</p>
+<p class="sub">Talk to your coding agents. Nothing is listening until you press the button.</p>
 
 <button id="talk">Take the microphone</button><span id="state">idle</span>
+
+<h2>The conversation</h2>
+<p class="sub">What was actually said out loud, by you and by it.</p>
 <div id="log"></div>
 
 <h2>Underneath</h2>
-<p class="sub" id="under-note">What the agents are doing, which the voice deliberately does not read out.</p>
+<p class="sub">What the agents did to answer. The voice never reads this out — that is what it is for.</p>
 <div id="under"></div>
 
 <script type="module">
@@ -48,13 +58,48 @@ const log = document.getElementById("log");
 
 let pc = null, channel = null, heard = "", said = "", holding = "";
 
+// Machine names are for machines. Every row a person reads says what happened
+// in words they did not have to learn.
+const PLAINLY = {
+  "run.asked": "Passed on to the agents",
+  "tool.started": (e) => `Running ${e.tool ?? "a tool"}`,
+  "tool.completed": (e) => `Finished ${e.tool ?? "that"}`,
+  "run.completed": "Done",
+  "run.failed": "That went wrong",
+  "approval.requested": "Waiting for your permission",
+  "watch.lost": "Lost track of that one",
+  "error": "Something went wrong",
+};
+
+const plainly = (e) => {
+  const said = PLAINLY[e.event];
+  if (typeof said === "function") return said(e);
+  return said ?? e.event ?? "";
+};
+
+// A conversation reads downwards. So does a list of what an agent did, which
+// is why both append and neither reverses.
 const show = (who, text) => {
   const row = document.createElement("div");
   row.className = "turn";
+  row.dataset.who = who;
   row.innerHTML = `<div class="who"></div><div class="what"></div>`;
   row.querySelector(".who").textContent = who;
   row.querySelector(".what").textContent = text;
-  log.prepend(row);
+  log.append(row);
+  row.scrollIntoView({ block: "nearest" });
+  return row;
+};
+
+// What the voice actually said is the turn worth keeping. The agents' own words
+// go underneath. If nothing was ever spoken, this is what the turn falls back
+// to, so a turn is never left half-written.
+let pendingAnswer = null;
+
+const settleTurn = () => {
+  if (!pendingAnswer) return;
+  show("It said", pendingAnswer);
+  pendingAnswer = null;
 };
 
 const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
@@ -64,7 +109,7 @@ const send = (event) => channel?.readyState === "open" && channel.send(JSON.stri
 async function answer(delegationId) {
   const transcript = heard.trim();
   heard = "";
-  show("asked", transcript || "(nothing heard)");
+  show("You", transcript || "(nothing heard)");
   // Work can take ten seconds or more, and silence sounds like a dropped call.
   // A repeated append continues the same delegation, so this is allowed.
   if (holding) send({ type: "session.commentary.append", event_id: `w_${Date.now()}`, delegation_id: delegationId, content: holding });
@@ -80,7 +125,7 @@ async function answer(delegationId) {
   } catch (failure) {
     content = `The bridge did not answer: ${failure.message}`;
   }
-  show("bridge", content);
+  note("Answer from the agents", content);
   send({ type: "session.commentary.append", event_id: `r_${Date.now()}`, delegation_id: delegationId, content });
 }
 
@@ -88,14 +133,30 @@ function onEvent(event) {
   switch (event.type) {
     case "session.input_transcript.delta": heard += event.delta ?? ""; break;
     case "session.output_transcript.delta": said += event.delta ?? ""; break;
-    case "session.output_transcript.done": if (said.trim()) show("said", said.trim()); said = ""; break;
+    case "session.output_transcript.done":
+      if (said.trim()) { show("It said", said.trim()); pendingAnswer = null; }
+      said = "";
+      break;
     case "session.delegation.created": answer(event.delegation.id); break;
-    case "error": show("error", event.error?.message ?? "unknown"); break;
+    case "error": note("Something went wrong", event.error?.message ?? "unknown"); break;
   }
 }
 
 // The gateway streams every tool an agent starts and every token it writes.
 // The voice plane must not read that out; this is where it goes instead.
+// One row in the panel underneath, in words rather than event names.
+function note(kind, detail) {
+  const row = document.createElement("div");
+  row.className = "ev";
+  row.innerHTML = `<div class="kind"></div><div class="what"></div>`;
+  row.querySelector(".kind").textContent = kind;
+  row.querySelector(".what").textContent = detail ?? "";
+  under.append(row);
+  while (under.children.length > 300) under.firstElementChild.remove();
+  row.scrollIntoView({ block: "nearest" });
+  return row;
+}
+
 function watch() {
   const stream = new EventSource("/watch");
   let writing = null;
@@ -103,26 +164,13 @@ function watch() {
     let e;
     try { e = JSON.parse(m.data); } catch { return; }
     if (e.event === "message.delta") {
-      if (!writing) {
-        writing = document.createElement("div");
-        writing.className = "ev";
-        writing.dataset.kind = "message";
-        writing.innerHTML = `<div class="kind">writing</div><div class="what"></div>`;
-        under.prepend(writing);
-      }
+      if (!writing) writing = note("Writing the answer", "");
       writing.querySelector(".what").textContent += e.delta ?? "";
       return;
     }
     writing = null;
-    const detail = e.asked ?? e.tool ?? e.preview ?? e.why ?? e.status ?? "";
-    const row = document.createElement("div");
-    row.className = "ev";
-    row.dataset.kind = e.event ?? "";
-    row.innerHTML = `<div class="kind"></div><div class="what"></div>`;
-    row.querySelector(".kind").textContent = (e.event ?? "?").replace(/^run\./, "");
-    row.querySelector(".what").textContent = String(detail);
-    under.prepend(row);
-    while (under.children.length > 300) under.lastElementChild.remove();
+    const detail = e.asked ?? e.preview ?? e.why ?? "";
+    note(plainly(e), String(detail)).dataset.kind = e.event ?? "";
   };
   stream.onerror = () => { /* the browser reconnects on its own */ };
 }
@@ -165,6 +213,7 @@ async function start() {
 }
 
 function stop() {
+  settleTurn();
   pc?.close();
   pc = channel = null;
   state.textContent = "idle";

@@ -110,3 +110,23 @@ def test_what_the_voice_does_not_say_is_kept_for_the_screen(bridge):
                 break
     assert seen[0]["event"] == "run.asked"
     assert seen[0]["asked"] == "run the tests"
+
+
+def test_the_page_says_what_happened_in_words_a_person_did_not_have_to_learn(bridge):
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    for machine_word in ('"tool.started">', ">run.asked<", ">message.delta<", ">writing</div>"):
+        assert machine_word not in page, f"{machine_word} is shown to a reader"
+    for plain in ("Running ", "Waiting for your permission", "Writing the answer", "The conversation"):
+        assert plain in page
+
+
+def test_the_conversation_reads_downwards_and_the_agent_log_beside_it(bridge):
+    """Two lists, not one: what was said, and what was done to be able to say it."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "log.append(row)" in page, "the conversation must read oldest first"
+    assert "under.append(row)" in page, "so must the agent log"
+    assert "log.prepend" not in page
+    assert "under.prepend" not in page
+    assert page.index('<div id="log">') < page.index('<div id="under">')
