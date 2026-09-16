@@ -149,3 +149,12 @@ def test_what_the_voice_says_is_drawn_as_it_arrives(bridge):
         page = reply.read().decode()
     assert 'heard("It said", event.delta' in page
     assert "output_transcript.done" not in page, "that event does not exist"
+
+
+def test_the_two_sides_sit_beside_each_other_and_swipe_on_a_phone(bridge):
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "grid-template-columns: 1fr 1fr" in page, "two columns when there is room"
+    assert "scroll-snap-type: x mandatory" in page, "one screen each, swiped, when there is not"
+    assert "scroll-snap-align: start" in page
+    assert page.count('class="pane"') == 2

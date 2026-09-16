@@ -9,7 +9,26 @@
   }
   body { margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
          font: 15px/1.55 ui-sans-serif, system-ui, sans-serif; color: var(--ink);
-         background: Canvas; max-width: 42rem; margin-inline: auto; }
+         background: Canvas; max-width: 76rem; margin-inline: auto; }
+
+  /* Wide: the conversation on the left, the agents on the right, side by side.
+     Narrow: the same two panes, one screen each, swiped between. Scroll snap
+     does the swiping, so there is no gesture code to get wrong. */
+  #panes { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+  .pane { min-width: 0; }
+  #tabs { display: none; gap: .4rem; margin: 1.5rem 0 0; }
+  #tabs button { padding: .4rem .9rem; font-size: .85rem; border-radius: 999px; }
+  #tabs button[aria-current="true"] { border-color: var(--live); color: var(--live); }
+
+  @media (max-width: 54rem) {
+    #tabs { display: flex; }
+    #panes { display: flex; grid-template-columns: none; gap: 0;
+             overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+             margin-inline: -16px; scroll-behavior: smooth; overscroll-behavior-x: contain; }
+    #panes::-webkit-scrollbar { display: none; }
+    .pane { flex: 0 0 100%; scroll-snap-align: start; padding-inline: 16px; }
+    .pane h2 { margin-top: 1rem; }
+  }
   h1 { font-size: 1rem; font-weight: 600; letter-spacing: .01em; margin: 0 0 .25rem; }
   p.sub { color: var(--dim); margin: 0 0 1.5rem; }
   button { font: inherit; padding: .7rem 1.4rem; border-radius: 999px; border: 1px solid var(--line);
@@ -20,7 +39,7 @@
   h2 { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
        color: var(--dim); margin: 2.25rem 0 .5rem; }
   #under { border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-  #under { border-top: 1px solid var(--line); padding-top: .6rem; max-height: 22rem; overflow-y: auto; }
+  #under { border-top: 1px solid var(--line); padding-top: .6rem; max-height: 60vh; overflow-y: auto; }
   .ev { padding: .2rem 0 .2rem 1.1rem; position: relative; font-size: .85rem; line-height: 1.5; }
   .ev::before { content: "\2022"; position: absolute; left: 0; color: var(--dim); }
   .ev[data-kind="tool.started"]::before, .ev[data-kind="run.asked"]::before { color: var(--live); }
@@ -28,7 +47,7 @@
   .ev .what { color: var(--dim); overflow-wrap: anywhere; white-space: pre-wrap; }
   .ev[data-kind="approval.requested"] { background: color-mix(in srgb, var(--live) 12%, transparent);
         margin-inline: -.5rem; padding-inline: 1.6rem .5rem; border-radius: .3rem; }
-  #log { max-height: 26rem; overflow-y: auto; }
+  #log { max-height: 60vh; overflow-y: auto; }
   .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid;
           grid-template-columns: 5.5rem 1fr; gap: .8rem; }
   .turn[data-who="You"] .who { color: var(--ink); font-weight: 600; }
@@ -42,17 +61,39 @@
 
 <button id="talk">Take the microphone</button><span id="state">idle</span>
 
-<h2>The conversation</h2>
-<p class="sub">What was actually said out loud, by you and by it.</p>
-<div id="log"></div>
+<nav id="tabs" aria-label="Which side to show">
+  <button type="button" data-pane="0" aria-current="true">The conversation</button>
+  <button type="button" data-pane="1">Underneath</button>
+</nav>
 
-<h2>Underneath</h2>
-<p class="sub">What the agents did to answer. The voice never reads this out — that is what it is for.</p>
-<div id="under"></div>
+<div id="panes">
+  <section class="pane">
+    <h2>The conversation</h2>
+    <p class="sub">What was actually said out loud, by you and by it.</p>
+    <div id="log"></div>
+  </section>
+  <section class="pane">
+    <h2>Underneath</h2>
+    <p class="sub">What the agents did to answer. The voice never reads this out — that is what it is for.</p>
+    <div id="under"></div>
+  </section>
+</div>
 
 <script type="module">
 const talk = document.getElementById("talk");
 const under = document.getElementById("under");
+const panes = document.getElementById("panes");
+const tabs = [...document.querySelectorAll("#tabs button")];
+
+// The tabs follow the swipe rather than driving it, so a finger and a click
+// cannot disagree about which side is showing.
+tabs.forEach((tab, i) => {
+  tab.onclick = () => panes.children[i].scrollIntoView({ inline: "start", block: "nearest" });
+});
+panes.onscroll = () => {
+  const showing = Math.round(panes.scrollLeft / Math.max(1, panes.clientWidth));
+  tabs.forEach((tab, i) => tab.setAttribute("aria-current", String(i === showing)));
+};
 const state = document.getElementById("state");
 const log = document.getElementById("log");
 
