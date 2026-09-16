@@ -58,6 +58,14 @@ the wrong reasons. It is the one rule here enforced by something the suite
 cannot see, and [`decisions/ADR-VI-015`](decisions/ADR-VI-015-public-so-the-pull-request-rule-has-a-mechanism.md)
 says why the repository is public so that it could exist at all.
 
+A pull request lands by rebase, and by nothing else. Every commit on a branch
+therefore arrives on `main` individually, so write each one to stand alone:
+green, lintable, and readable from `git blame` without the others. A branch
+cannot be tidied at the end by squashing it, which is why `committed.toml`
+refuses a fixup and a work-in-progress commit rather than trusting you to clean
+up later. The reasoning is
+[`decisions/ADR-VI-016`](decisions/ADR-VI-016-rebase-merges-only.md).
+
 ## Documents that restate a fact
 
 Point rather than copy. Where a document has to copy anyway, two test files
