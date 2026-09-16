@@ -130,3 +130,22 @@ def test_the_conversation_reads_downwards_and_the_agent_log_beside_it(bridge):
     assert "log.prepend" not in page
     assert "under.prepend" not in page
     assert page.index('<div id="log">') < page.index('<div id="under">')
+
+
+def test_speech_is_grouped_into_turns_rather_than_glued_into_one(bridge):
+    """The API has no turn-completed event, so the page groups by silence."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "TURN_GAP_MS" in page, "a turn must end on a gap, not on a request"
+    assert "start_ms" in page, "grouping needs the timeline"
+    assert "end_ms" in page, "grouping needs the timeline"
+    assert 'heard("You", event.delta' in page, "a fragment shows as it arrives"
+    assert 'show("You", transcript' not in page, "a turn is not drawn at request time"
+
+
+def test_what_the_voice_says_is_drawn_as_it_arrives(bridge):
+    """There is no transcript-done event, so waiting for one drew nothing at all."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert 'heard("It said", event.delta' in page
+    assert "output_transcript.done" not in page, "that event does not exist"

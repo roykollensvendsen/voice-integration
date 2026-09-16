@@ -56,7 +56,16 @@ const under = document.getElementById("under");
 const state = document.getElementById("state");
 const log = document.getElementById("log");
 
-let pc = null, channel = null, heard = "", said = "", holding = "";
+let pc = null, channel = null, holding = "";
+
+// Transcript fragments carry start_ms and end_ms on the session timeline, and
+// there is no turn-completed event: the guide says so outright and tells you to
+// group by gap and keep the grouping revisable. So a turn is a run of fragments
+// from one speaker with no long silence in it, and a late fragment still lands
+// in the row it belongs to.
+const TURN_GAP_MS = 1200;
+const turns = [];      // {who, text, start, end, row}
+let unsent = "";       // what the person has said since the last request
 
 // Machine names are for machines. Every row a person reads says what happened
 // in words they did not have to learn.
@@ -91,25 +100,30 @@ const show = (who, text) => {
   return row;
 };
 
-// What the voice actually said is the turn worth keeping. The agents' own words
-// go underneath. If nothing was ever spoken, this is what the turn falls back
-// to, so a turn is never left half-written.
-let pendingAnswer = null;
-
-const settleTurn = () => {
-  if (!pendingAnswer) return;
-  show("It said", pendingAnswer);
-  pendingAnswer = null;
-};
+// A fragment either continues the turn it belongs to or starts a new one.
+function heard(who, delta, startMs, endMs) {
+  if (!delta) return;
+  const last = turns.findLast((turn) => turn.who === who);
+  const continues = last && startMs != null && last.end != null
+    ? startMs - last.end <= TURN_GAP_MS
+    : Boolean(last) && startMs == null;
+  if (continues) {
+    last.text += delta;
+    last.end = endMs ?? last.end;
+    last.row.querySelector(".what").textContent = last.text;
+    last.row.scrollIntoView({ block: "nearest" });
+    return;
+  }
+  turns.push({ who, text: delta, start: startMs, end: endMs, row: show(who, delta) });
+}
 
 const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
 
 // The model asks for help with an identifier and no task text: what was wanted
 // lives in the transcript we have been keeping. docs/voice-contract.md.
 async function answer(delegationId) {
-  const transcript = heard.trim();
-  heard = "";
-  show("You", transcript || "(nothing heard)");
+  const transcript = unsent.trim();
+  unsent = "";
   // Work can take ten seconds or more, and silence sounds like a dropped call.
   // A repeated append continues the same delegation, so this is allowed.
   if (holding) send({ type: "session.commentary.append", event_id: `w_${Date.now()}`, delegation_id: delegationId, content: holding });
@@ -131,11 +145,12 @@ async function answer(delegationId) {
 
 function onEvent(event) {
   switch (event.type) {
-    case "session.input_transcript.delta": heard += event.delta ?? ""; break;
-    case "session.output_transcript.delta": said += event.delta ?? ""; break;
-    case "session.output_transcript.done":
-      if (said.trim()) { show("It said", said.trim()); pendingAnswer = null; }
-      said = "";
+    case "session.input_transcript.delta":
+      heard("You", event.delta, event.start_ms, event.end_ms);
+      unsent += event.delta ?? "";
+      break;
+    case "session.output_transcript.delta":
+      heard("It said", event.delta, event.start_ms, event.end_ms);
       break;
     case "session.delegation.created": answer(event.delegation.id); break;
     case "error": note("Something went wrong", event.error?.message ?? "unknown"); break;
@@ -213,7 +228,6 @@ async function start() {
 }
 
 function stop() {
-  settleTurn();
   pc?.close();
   pc = channel = null;
   state.textContent = "idle";
