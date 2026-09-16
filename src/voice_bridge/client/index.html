@@ -51,6 +51,9 @@
   .turn { padding: .7rem 0; border-bottom: 1px solid var(--line); display: grid;
           grid-template-columns: 5.5rem 1fr; gap: .8rem; }
   .turn[data-who="You"] .who { color: var(--ink); font-weight: 600; }
+  .newer { display: flex; align-items: center; gap: .7rem; color: var(--dim); font-size: .75rem;
+           text-transform: uppercase; letter-spacing: .08em; padding: 1rem 0 .2rem; }
+  .newer::before, .newer::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
   .turn .what { overflow-wrap: anywhere; }
   @media (max-width: 34rem) { .turn { grid-template-columns: 1fr; gap: .15rem; } }
   .who { color: var(--dim); font-size: .8rem; letter-spacing: .02em; padding-top: .15rem; }
@@ -105,8 +108,14 @@ let pc = null, channel = null, holding = "";
 // from one speaker with no long silence in it, and a late fragment still lands
 // in the row it belongs to.
 const TURN_GAP_MS = 1200;
-const turns = [];      // {who, text, start, end, row}
+const turns = [];      // {who, text, start, end, row, session}
 let unsent = "";       // what the person has said since the last request
+
+// Every session starts its own timeline at zero. Comparing a fragment against
+// a turn from an earlier session therefore compares two different clocks, and
+// the difference comes out negative — which passed a "small enough gap" test
+// and welded a new conversation onto the end of the last one.
+let session = 0;
 
 // Machine names are for machines. Every row a person reads says what happened
 // in words they did not have to learn.
@@ -144,10 +153,10 @@ const show = (who, text) => {
 // A fragment either continues the turn it belongs to or starts a new one.
 function heard(who, delta, startMs, endMs) {
   if (!delta) return;
-  const last = turns.findLast((turn) => turn.who === who);
-  const continues = last && startMs != null && last.end != null
-    ? startMs - last.end <= TURN_GAP_MS
-    : Boolean(last) && startMs == null;
+  const last = turns.findLast((turn) => turn.who === who && turn.session === session);
+  const gap = last && startMs != null && last.end != null ? startMs - last.end : null;
+  // A gap below zero means the clocks do not agree, never that no time passed.
+  const continues = gap != null ? gap >= 0 && gap <= TURN_GAP_MS : Boolean(last);
   if (continues) {
     last.text += delta;
     last.end = endMs ?? last.end;
@@ -155,7 +164,7 @@ function heard(who, delta, startMs, endMs) {
     last.row.scrollIntoView({ block: "nearest" });
     return;
   }
-  turns.push({ who, text: delta, start: startMs, end: endMs, row: show(who, delta) });
+  turns.push({ who, text: delta, start: startMs, end: endMs, session, row: show(who, delta) });
 }
 
 const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
@@ -234,6 +243,13 @@ watch();
 
 async function start() {
   state.textContent = "opening";
+  session += 1;
+  if (session > 1) {
+    const rule = document.createElement("div");
+    rule.className = "newer";
+    rule.textContent = "new conversation";
+    log.append(rule);
+  }
   holding = await fetch("/config").then((r) => r.json()).then((c) => c.holding).catch(() => "");
   // Echo cancellation is the browser's, and it is the whole reason this is a
   // page rather than a program: ADR-VI-018.

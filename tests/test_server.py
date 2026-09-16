@@ -158,3 +158,12 @@ def test_the_two_sides_sit_beside_each_other_and_swipe_on_a_phone(bridge):
     assert "scroll-snap-type: x mandatory" in page, "one screen each, swiped, when there is not"
     assert "scroll-snap-align: start" in page
     assert page.count('class="pane"') == 2
+
+
+def test_a_new_conversation_never_continues_the_last_one(bridge):
+    """Each session restarts the clock at zero, so a gap can come out negative."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "turn.session === session" in page, "a turn belongs to one session"
+    assert "gap >= 0 && gap <= TURN_GAP_MS" in page, "a negative gap is not a small gap"
+    assert "session += 1" in page
