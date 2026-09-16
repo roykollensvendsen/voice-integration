@@ -32,10 +32,30 @@ class _Gateway(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == f"/v1/runs/{RUN_ID}":
-            self._reply(
-                200,
-                {"object": "hermes.run", "run_id": RUN_ID, "status": "running", "last_event": "tool.started"},
-            )
+            # A real run is running before it is finished, so a poll has to see
+            # both. The first look is always "running".
+            self.server.polls += 1
+            if self.server.polls < 2:
+                self._reply(
+                    200,
+                    {
+                        "object": "hermes.run",
+                        "run_id": RUN_ID,
+                        "status": "running",
+                        "last_event": "tool.started",
+                    },
+                )
+            else:
+                self._reply(
+                    200,
+                    {
+                        "object": "hermes.run",
+                        "run_id": RUN_ID,
+                        "status": "completed",
+                        "output": "The tests pass.",
+                        "last_event": "run.completed",
+                    },
+                )
         elif self.path == f"/v1/runs/{FAILED_RUN_ID}":
             # A run that failed is a 200 with the failure inside it, not a refusal.
             self._reply(
@@ -83,6 +103,7 @@ def hermes():
     """A gateway on a real port, yielding its base URL and what it was sent."""
     server = HTTPServer(("127.0.0.1", 0), _Gateway)
     server.seen = []
+    server.polls = 0
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

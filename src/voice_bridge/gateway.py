@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from voice_bridge.contract import BY_NAME, DEFAULT_GATEWAY, Tool
 from voice_bridge.policy import Capabilities, Refused
@@ -93,6 +97,35 @@ def send(request: Request, key: str | None = None) -> Any:  # noqa: ANN401 — t
             return json.loads(response.read() or b"{}")
     except urllib.error.HTTPError as failure:
         return json.loads(failure.read() or b'{"error": {"message": "no detail"}}')
+
+
+#: How long a spoken request may take before the person is told to come back to
+#: it. Long enough for the short questions people actually ask out loud, short
+#: enough that nobody thinks the line went dead.
+PATIENCE_SECONDS = 25.0
+
+#: How often to look. A run finishes when it finishes; looking oftener than this
+#: only costs requests.
+POLL_SECONDS = 1.5
+
+
+def wait_for(
+    run_id: str,
+    gateway: str = DEFAULT_GATEWAY,
+    patience: float = PATIENCE_SECONDS,
+    key: str | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:  # noqa: ANN401 — the gateway's own JSON
+    """Poll a run until it stops running, or until patience runs out."""
+    request = plan("run_status", {"run_id": run_id}, gateway)
+    deadline = time.monotonic() + patience
+    seen: Any = {}
+    while True:
+        seen = send(request, key)
+        status = seen.get("status") if isinstance(seen, dict) else None
+        if status not in ("queued", "running", None) or time.monotonic() >= deadline:
+            return seen
+        sleep(POLL_SECONDS)
 
 
 def tool_schemas() -> list[dict[str, object]]:

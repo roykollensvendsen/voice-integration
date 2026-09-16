@@ -62,6 +62,11 @@ def _approved(payload: dict[str, Any]) -> str:
 
 def _status(payload: dict[str, Any]) -> str:
     state = payload.get("status", "unknown")
+    output = payload.get("output")
+    if state == "completed" and str(output or "").strip():
+        return str(output).strip()
+    if state in ("queued", "running"):
+        return f"Still working. Ask me about {payload.get('run_id', 'that run')}."
     failure = payload.get("error")
     if failure:
         detail = failure.get("message", "") if isinstance(failure, dict) else str(failure)

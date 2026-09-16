@@ -58,7 +58,7 @@ def test_nothing_else_is_reachable(bridge):
 def test_a_delegation_becomes_a_run_and_comes_back_as_a_sentence(bridge, hermes):
     status, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
     assert status == 200
-    assert body["content"] == "Started. The run is run_ab12."
+    assert body["content"] == "The tests pass."
     path, sent, _ = hermes.seen[0]
     assert path == "/v1/runs"
     assert sent == {"input": "run the tests", "model": "hermes-agent", "session_id": "voice"}
@@ -71,8 +71,27 @@ def test_an_empty_transcript_is_not_sent_anywhere(bridge, hermes):
     assert hermes.seen == []
 
 
+def test_a_delegation_waits_for_the_work_rather_than_reading_back_a_receipt(bridge, hermes):
+    """A run identifier is not an answer, and nobody asks a question to be given one."""
+    _, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
+    assert "run_ab12" not in body["content"]
+    assert hermes.polls >= 2
+
+
+def test_work_that_outlasts_our_patience_hands_the_identifier_back(url):
+    spoken = server.answer_delegation("run the tests", url, patience=0.0)
+    assert spoken == "Still working. Ask me about run_ab12."
+
+
 def test_a_spent_month_refuses_the_session_rather_than_opening_one(bridge, tmp_path):
     budget.Ledger(tmp_path / "spend.json").record(400 * 60)
     status, body = post(f"{bridge}/session", {"sdp": "v=0"})
     assert status == 403
     assert "ceiling" in body["error"]
+
+
+def test_the_page_is_given_one_phrase_and_nothing_else(bridge):
+    with urllib.request.urlopen(f"{bridge}/config", timeout=10) as reply:
+        config = json.loads(reply.read())
+    assert set(config) == {"holding"}
+    assert config["holding"] == "Si kort at du setter i gang, og vent."
