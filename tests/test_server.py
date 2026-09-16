@@ -95,3 +95,18 @@ def test_the_page_is_given_one_phrase_and_nothing_else(bridge):
         config = json.loads(reply.read())
     assert set(config) == {"holding"}
     assert config["holding"] == "Si kort at du setter i gang, og vent."
+
+
+def test_what_the_voice_does_not_say_is_kept_for_the_screen(bridge):
+    post(f"{bridge}/delegation", {"transcript": "run the tests"})
+    request = urllib.request.Request(f"{bridge}/watch", headers={"Accept": "text/event-stream"})
+    seen = []
+    with urllib.request.urlopen(request, timeout=10) as stream:
+        for raw in stream:
+            line = raw.decode().strip()
+            if line.startswith("data:"):
+                seen.append(json.loads(line[5:]))
+            if len(seen) >= 1:
+                break
+    assert seen[0]["event"] == "run.asked"
+    assert seen[0]["asked"] == "run the tests"

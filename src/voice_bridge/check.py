@@ -27,6 +27,7 @@ import re
 import tomllib
 
 from voice_bridge.contract import BY_NAME
+from voice_bridge.gateway import BESIDES_THE_TOOLS
 
 ANCHOR = "<!-- normative: {} -->"
 _ROW = re.compile(r"^\|\s*`([^`]+)`")
@@ -112,7 +113,7 @@ def report(root: pathlib.Path) -> list[str]:
             "gateway paths",
             table_after(root / "docs/hermes-contract.md", "gateway paths", _PATH_ROW),
             "docs/hermes-contract.md",
-            {tool.path for tool in BY_NAME.values()},
+            {tool.path for tool in BY_NAME.values()} | set(BESIDES_THE_TOOLS),
             "the code",
         )
     )

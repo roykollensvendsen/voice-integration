@@ -108,6 +108,10 @@ Open the address it prints, press **Take the microphone**, and talk. Nothing is
 listening before that, and the page holds no key: it makes a WebRTC offer, the
 bridge exchanges it for an answer, and the audio goes straight to OpenAI.
 
+Under the conversation is **Underneath**: which tool each agent started, and the
+answer as it is written. That is where the detail the voice deliberately does
+not read out goes.
+
 ## What it costs
 
 Voice is the only part billed by the second, and it bills while the microphone
@@ -129,7 +133,7 @@ rule has to have a test that names it:
 ```console
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
-gateway paths: 6 in docs/hermes-contract.md, 6 in the code, agreed
+gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed
 rules: 13 in the source, 13 in scripts/mutations.toml, agreed
 rule tests: 13 rules, each with a test named after it
 ```
