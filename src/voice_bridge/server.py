@@ -22,6 +22,7 @@ from typing import Any
 from voice_bridge import gateway, live
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
+from voice_bridge.speech import say
 
 PAGE = pathlib.Path(__file__).parent / "client" / "index.html"
 
@@ -31,16 +32,24 @@ PAGE = pathlib.Path(__file__).parent / "client" / "index.html"
 ROOM = "voice"
 
 
-def answer_delegation(transcript: str, url: str, capabilities: Capabilities | None = None) -> str:
+def answer_delegation(
+    transcript: str,
+    url: str,
+    capabilities: Capabilities | None = None,
+    patience: float = gateway.PATIENCE_SECONDS,
+) -> str:
     """Turn what was heard into something to say back."""
     if not transcript.strip():
         return "I did not catch that."
-    return gateway.call(
-        "agent_task",
-        {"agent": "hermes-agent", "instruction": transcript.strip(), "room": ROOM},
-        url,
-        capabilities,
-    )
+    arguments: dict[str, Any] = {"agent": "hermes-agent", "instruction": transcript.strip(), "room": ROOM}
+    (capabilities or Capabilities()).permit("agent_task", arguments)
+    started = gateway.send(gateway.plan("agent_task", arguments, url))
+    run_id = started.get("run_id") if isinstance(started, dict) else None
+    if not run_id:
+        return say("agent_task", started)
+    # RULE: a delegation waits for the work rather than reading back a receipt
+    finished = gateway.wait_for(str(run_id), url, patience)
+    return say("run_status", finished)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -69,6 +78,10 @@ class _Handler(BaseHTTPRequestHandler):
         """Serve the page, and only the page."""
         if self.path in ("/", "/index.html"):
             self._send(200, page=PAGE.read_bytes())
+        elif self.path == "/config":
+            # The page needs one phrase in the session's language and nothing
+            # else. It is never given a key, a model name or a gateway address.
+            self._send(200, {"holding": live.holding()})
         else:
             self._send(404, {"error": "no such path"})
 

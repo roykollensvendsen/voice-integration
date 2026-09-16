@@ -92,3 +92,9 @@ file = "src/voice_bridge/live.py"
 # which turns every test red and proves nothing about this rule.
 find = 'if chosen not in INSTRUCTIONS:'
 replace = 'if False:'
+
+[[rule]]
+name = "a delegation waits for the work rather than reading back a receipt"
+file = "src/voice_bridge/server.py"
+find = 'finished = gateway\.wait_for'
+replace = 'finished = started'

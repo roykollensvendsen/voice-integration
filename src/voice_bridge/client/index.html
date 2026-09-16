@@ -32,7 +32,7 @@ const talk = document.getElementById("talk");
 const state = document.getElementById("state");
 const log = document.getElementById("log");
 
-let pc = null, channel = null, heard = "", said = "";
+let pc = null, channel = null, heard = "", said = "", holding = "";
 
 const show = (who, text) => {
   const row = document.createElement("div");
@@ -51,6 +51,9 @@ async function answer(delegationId) {
   const transcript = heard.trim();
   heard = "";
   show("asked", transcript || "(nothing heard)");
+  // Work can take ten seconds or more, and silence sounds like a dropped call.
+  // A repeated append continues the same delegation, so this is allowed.
+  if (holding) send({ type: "session.commentary.append", event_id: `w_${Date.now()}`, delegation_id: delegationId, content: holding });
   let content;
   try {
     const reply = await fetch("/delegation", {
@@ -79,6 +82,7 @@ function onEvent(event) {
 
 async function start() {
   state.textContent = "opening";
+  holding = await fetch("/config").then((r) => r.json()).then((c) => c.holding).catch(() => "");
   // Echo cancellation is the browser's, and it is the whole reason this is a
   // page rather than a program: ADR-VI-018.
   const mic = await navigator.mediaDevices.getUserMedia({

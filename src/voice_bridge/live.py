@@ -54,6 +54,21 @@ INSTRUCTIONS: dict[str, str] = {
 }
 
 
+#: What the model is told to say while the backend works. Written in each
+#: language for the same reason the instructions are: a prompt is in the
+#: language it produces. Without it a slow answer is silence, and silence on a
+#: phone call is indistinguishable from a dropped one.
+HOLDING: dict[str, str] = {
+    "nb": "Si kort at du setter i gang, og vent.",
+    "en": "Say briefly that you are on it, then wait.",
+}
+
+
+def holding(language: str | None = None) -> str:
+    """What to say while the work runs."""
+    return HOLDING.get(language or LANGUAGE, HOLDING["en"])
+
+
 def instructions(language: str | None = None) -> str:
     """The session instructions, in the language the session speaks."""
     chosen = language or LANGUAGE
