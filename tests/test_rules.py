@@ -67,3 +67,10 @@ def test_a_refused_call_says_why_and_exits_non_zero(capsys):
     refused = '{"run_id": "run_ab12", "choice": "always"}'
     assert main(["dispatch", "--dry-run", "approval_resolve", refused]) == 2
     assert "refused:" in capsys.readouterr().err
+
+
+def test_a_run_that_failed_is_not_a_refused_request(url, failed_run_id):
+    spoken = gateway.call("run_status", {"run_id": failed_run_id}, url)
+    assert not spoken.startswith("The gateway refused")
+    assert "failed" in spoken
+    assert "Unknown provider" in spoken

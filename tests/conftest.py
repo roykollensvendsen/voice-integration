@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 
 RUN_ID = "run_ab12"
+FAILED_RUN_ID = "run_cd34"
 
 
 class _Gateway(BaseHTTPRequestHandler):
@@ -35,8 +36,29 @@ class _Gateway(BaseHTTPRequestHandler):
                 200,
                 {"object": "hermes.run", "run_id": RUN_ID, "status": "running", "last_event": "tool.started"},
             )
+        elif self.path == f"/v1/runs/{FAILED_RUN_ID}":
+            # A run that failed is a 200 with the failure inside it, not a refusal.
+            self._reply(
+                200,
+                {
+                    "object": "hermes.run",
+                    "run_id": FAILED_RUN_ID,
+                    "status": "failed",
+                    "error": "Provider authentication failed: Unknown provider",
+                },
+            )
         elif self.path == "/api/sessions":
-            self._reply(200, {"data": [{"session_id": "evening"}, {"session_id": "morning"}]})
+            self._reply(
+                200,
+                {
+                    "object": "list",
+                    "data": [
+                        {"id": "evening", "title": "Run the tests", "message_count": 4},
+                        {"id": "morning", "title": "Look at the parser", "message_count": 2},
+                    ],
+                    "has_more": False,
+                },
+            )
         else:
             self._reply(404, {"error": {"message": f"Run not found: {self.path}"}})
 
@@ -73,8 +95,14 @@ def hermes():
 
 @pytest.fixture
 def run_id():
-    """The one run the gateway above knows about."""
+    """The run the gateway above is still working on."""
     return RUN_ID
+
+
+@pytest.fixture
+def failed_run_id():
+    """A run that finished badly, which is not the same as a refused request."""
+    return FAILED_RUN_ID
 
 
 @pytest.fixture
