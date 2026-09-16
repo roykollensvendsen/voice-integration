@@ -130,8 +130,8 @@ rule has to have a test that names it:
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 6 in docs/hermes-contract.md, 6 in the code, agreed
-rules: 11 in the source, 11 in scripts/mutations.toml, agreed
-rule tests: 11 rules, each with a test named after it
+rules: 12 in the source, 12 in scripts/mutations.toml, agreed
+rule tests: 12 rules, each with a test named after it
 ```
 
 The rest of the gates, and how a change is made, are in

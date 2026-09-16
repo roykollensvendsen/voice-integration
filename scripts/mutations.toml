@@ -83,3 +83,9 @@ name = "the month is checked before a session is opened"
 file = "src/voice_bridge/live.py"
 find = '\(ledger or Ledger\(\)\)\.authorise\(\)'
 replace = 'pass'
+
+[[rule]]
+name = "a session is never opened without a language rule in its own language"
+file = "src/voice_bridge/live.py"
+find = 'if chosen not in INSTRUCTIONS:'
+replace = 'return INSTRUCTIONS.get(chosen, "")'
