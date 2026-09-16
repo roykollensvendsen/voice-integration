@@ -167,3 +167,25 @@ def test_a_new_conversation_never_continues_the_last_one(bridge):
     assert "turn.session === session" in page, "a turn belongs to one session"
     assert "gap >= 0 && gap <= TURN_GAP_MS" in page, "a negative gap is not a small gap"
     assert "session += 1" in page
+
+
+def test_the_bridge_keeps_the_transcript_so_a_new_session_can_resume_it(bridge):
+    post(f"{bridge}/turn", {"who": "You", "text": "Run the tests"})
+    post(f"{bridge}/turn", {"who": "It said", "text": "They pass."})
+    post(f"{bridge}/turn", {"who": "You", "text": "   "})
+    status, _ = post(f"{bridge}/session", {"sdp": "v=0"})
+    assert status in (200, 403)
+
+
+def test_an_empty_turn_is_not_worth_remembering(tmp_path):
+    running = server.Bridge(("127.0.0.1", 0), "http://127.0.0.1:1", budget.Ledger(tmp_path / "s.json"))
+    try:
+        running.remember("You", "  ")
+        running.remember("You", "Run the tests")
+        running.remember("It said", "They pass.")
+        assert running.recent() == [
+            {"role": "user", "content": "Run the tests"},
+            {"role": "assistant", "content": "They pass."},
+        ]
+    finally:
+        running.server_close()
