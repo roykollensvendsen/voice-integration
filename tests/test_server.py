@@ -452,3 +452,21 @@ def test_a_request_carries_the_conversation_it_came_out_of(bridge, hermes):
 
 def test_the_room_is_named_for_the_orchestrator_whose_conversation_it_is():
     assert server.ROOM == "orchestrator"
+
+
+def test_a_position_is_held_in_memory_and_written_nowhere(bridge, tmp_path, monkeypatch):
+    """Where somebody is belongs to them; it is never written down here."""
+    monkeypatch.setattr(server.quick, "place_of", lambda _lat, _lon: "Hillevåg, Stavanger, Norge")
+    status, body = post(f"{bridge}/where", {"latitude": 58.93, "longitude": 5.70})
+    assert status == 200
+    assert body["placed"] == "Hillevåg, Stavanger, Norge"
+    written = list(tmp_path.rglob("*"))
+    assert not [f for f in written if "58.9" in f.read_text(errors="ignore")], "nothing on disk"
+
+
+def test_the_page_asks_for_a_position_when_the_microphone_is_taken(bridge):
+    """Not on load: somebody who has just opted into being heard is in the frame for it."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "navigator.geolocation?.getCurrentPosition" in page
+    assert page.index("booking = setInterval") < page.index("navigator.geolocation")

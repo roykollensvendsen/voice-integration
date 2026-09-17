@@ -54,3 +54,38 @@ def test_real_work_is_never_answered_here(tmp_path):
             assert quick.answer(made, asked) is None
     finally:
         made.server_close()
+
+
+def test_a_question_for_the_web_is_asked_of_the_web_not_of_an_agent(tmp_path, monkeypatch):
+    """Looking something up does not need an agent, a repository or twelve seconds."""
+    asked = {}
+
+    def instead(question, key=None):  # noqa: ARG001 — the signature it replaces
+        asked["question"] = question
+        return "Antonelli vant."
+
+    monkeypatch.setattr(quick, "on_the_web", instead)
+    made = bridge(tmp_path)
+    try:
+        assert quick.answer(made, "Hvem vant siste Formel 1-løp?") == "Antonelli vant."
+        assert asked["question"] == "Hvem vant siste Formel 1-løp?"
+        assert quick.answer(made, "Kjør testene") is None
+    finally:
+        made.server_close()
+
+
+def test_a_web_answer_loses_its_footnotes_before_it_is_spoken():
+    """A spoken URL is noise, and the model writes them inline as links."""
+    written = "Antonelli vant. ([formula1.com](https://www.formula1.com/en/latest/x?utm_source=openai))"
+    assert quick.CITATION.sub("", written).strip() == "Antonelli vant."
+
+
+def test_a_place_is_a_name_a_person_can_say(tmp_path):
+    made, placed = bridge(tmp_path), bridge(tmp_path)
+    placed.placed = "Hillevåg, Stavanger, Norge"
+    try:
+        assert quick.answer(made, "Hvor er jeg?") == "Jeg vet ikke hvor du er."
+        assert quick.answer(placed, "Hvor er jeg?") == "Du er i Hillevåg, Stavanger, Norge."
+    finally:
+        made.server_close()
+        placed.server_close()

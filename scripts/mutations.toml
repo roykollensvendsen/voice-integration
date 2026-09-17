@@ -164,3 +164,15 @@ name = "only a short question is ever answered without the gateway"
 file = "src/voice_bridge/quick.py"
 find = 'if len\(said\) > SHORTEST_IS_SAFEST:'
 replace = 'if False:'
+
+[[rule]]
+name = "a question for the web is asked of the web, not of an agent"
+file = "src/voice_bridge/quick.py"
+find = 'return on_the_web\(transcript\.strip\(\)\)'
+replace = 'return None'
+
+[[rule]]
+name = "a position is held in memory and written nowhere"
+file = "src/voice_bridge/server.py"
+find = 'self\.server\.placed = quick\.place_of\('
+replace = 'self.server.placed = None; _ = ('

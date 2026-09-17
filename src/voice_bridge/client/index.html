@@ -440,6 +440,19 @@ async function start() {
   talk.dataset.live = "yes";
   booked = Date.now();
   booking = setInterval(book, BOOK_EVERY_MS);
+  // Asked once per session, when the microphone is taken — a person who has
+  // just opted into being listened to is in the right frame for this question,
+  // and asking on page load is not. Declining is answered honestly rather than
+  // guessed at, and the coordinates never leave the bridge's memory.
+  navigator.geolocation?.getCurrentPosition(
+    ({ coords }) => fetch("/where", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude }),
+    }).then((r) => r.json()).then((p) => p.placed && note("Where you are", p.placed)).catch(() => {}),
+    () => {},
+    { maximumAge: 600_000, timeout: 8_000 },
+  );
   addEventListener("pagehide", book, { once: true });
 }
 

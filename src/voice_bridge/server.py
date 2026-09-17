@@ -9,6 +9,7 @@ holding two keys small enough to read — which was
     GET  /config          one phrase, in the session's language
     GET  /watch           every run's lifecycle, as server-sent events
     POST /spent           seconds of open microphone, booked against the month
+    POST /where           coordinates the browser was allowed to give, kept in memory
     POST /session         the browser's WebRTC offer, exchanged for an answer
     POST /delegation      a transcript, answered with something to say aloud
 
@@ -340,6 +341,21 @@ class _Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
+    def _small(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        """The three routes that only put something away and answer briefly."""
+        if path == "/spent":
+            # RULE: an open microphone is booked while it is open
+            self.server.ledger.record(float(body.get("seconds", 0)))
+            return {"remaining_usd": round(self.server.ledger.remaining_usd(), 2)}
+        if path == "/where":
+            # RULE: a position is held in memory and written nowhere
+            self.server.placed = quick.place_of(
+                float(body.get("latitude", 0)), float(body.get("longitude", 0))
+            )
+            return {"placed": self.server.placed}
+        self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
+        return {}
+
     def do_POST(self) -> None:
         """Open a session, or answer a delegation."""
         try:
@@ -355,13 +371,9 @@ class _Handler(BaseHTTPRequestHandler):
                     self._send(400, {"error": "a permission is answered once or deny"})
                 else:
                     self._send(200, {"content": resolve_pending(self.server, choice)})
-            elif self.path == "/spent":
-                # RULE: an open microphone is booked while it is open
-                self.server.ledger.record(float(body.get("seconds", 0)))
-                self._send(200, {"remaining_usd": round(self.server.ledger.remaining_usd(), 2)})
-            elif self.path == "/turn":
-                self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
-                self._send(200, {})
+
+            elif self.path in ("/where", "/turn", "/spent"):
+                self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
                 self.server.following = None
                 spoken = answer_delegation(
@@ -411,6 +423,9 @@ class Bridge(ThreadingHTTPServer):
         self.following: str | None = None
         #: A phrase the last answer insisted on hearing back word for word.
         self.demanded: str | None = None
+        #: Where the person is, if the browser was allowed to say. Held here and
+        #: nowhere else: never written to disk, never sent to an agent.
+        self.placed: str | None = None
 
     def remember(self, who: str, text: str) -> None:
         """Keep a turn, for whoever needs to know what was already said."""

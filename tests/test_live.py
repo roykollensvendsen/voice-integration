@@ -13,16 +13,29 @@ def test_the_session_is_created_in_client_delegation_mode():
 
 
 def test_the_voice_model_is_given_no_tools():
-    """ADR-VI-019: in client delegation the Live session runs no tools of ours."""
+    """ADR-VI-019: in client delegation the Live session runs no tools of ours.
+
+    Which is why the instructions have to say what stands behind it — asked what
+    it could do, it answered truthfully that it had nothing.
+    """
     assert "tools" not in live.session_config()
     assert "tool_choice" not in live.session_config()
 
 
-def test_the_instructions_never_carry_a_repository_or_an_agent_name():
+def test_the_instructions_never_carry_a_repository_or_a_catalogue():
+    """They name two agents as examples and never a repository or a full list.
+
+    The rule was once "no agent names at all", which was right about the
+    preamble not growing with the number of agents and wrong about the cost:
+    with nothing named, it told the person it had no tools and no agents, which
+    is true of itself and false of the system. Two names in a fixed sentence do
+    not grow with anything.
+    """
     for written in live.INSTRUCTIONS.values():
-        assert "hermes" not in written.lower()
-        assert "claude" not in written.lower()
-        assert len(written) < 600
+        assert "voice-integration" not in written
+        assert "/home/" not in written
+        assert written.lower().count("code") <= 3
+        assert len(written) < 1000
 
 
 def test_a_session_is_never_opened_without_a_language_rule_in_its_own_language():
@@ -57,7 +70,7 @@ def test_the_voice_answers_small_talk_without_asking_the_backend():
     assert "småprat" in live.INSTRUCTIONS["nb"]
     assert "small talk" in live.INSTRUCTIONS["en"]
     for written in live.INSTRUCTIONS.values():
-        assert len(written) < 600
+        assert len(written) < 1000
 
 
 def test_the_instructions_do_not_ask_for_an_identifier_to_be_read_out():
@@ -66,3 +79,12 @@ def test_the_instructions_do_not_ask_for_an_identifier_to_be_read_out():
         assert "identifikator" in written or "identifier" in written
         assert "langsomt" not in written
         assert "slowly" not in written
+
+
+def test_the_voice_never_says_it_has_no_tools():
+    """In client delegation it has none, and said so when asked what it could do."""
+    for written in live.INSTRUCTIONS.values():
+        assert "no tools" in written or "ingen verktøy" in written
+        assert "Claude Code" in written
+    assert "Si aldri at du ikke har verktøy" in live.INSTRUCTIONS["nb"]
+    assert "Never say you have no tools" in live.INSTRUCTIONS["en"]
