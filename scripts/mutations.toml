@@ -140,3 +140,9 @@ name = "an open microphone is booked while it is open"
 file = "src/voice_bridge/server.py"
 find = 'self\.server\.ledger\.record\(float\(body\.get\("seconds", 0\)\)\)'
 replace = 'pass'
+
+[[rule]]
+name = "a phrase the gateway demanded is said for the person, not by them"
+file = "src/voice_bridge/server.py"
+find = 'transcript, bridge\.demanded = bridge\.demanded, None'
+replace = 'bridge.demanded = None'
