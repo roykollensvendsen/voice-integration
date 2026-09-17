@@ -112,7 +112,7 @@ TURNS_REMEMBERED = 12
 
 def session_config(
     language: str | None = None,
-    history: list[dict[str, str]] | None = None,
+    history: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """What the session is created with, and deliberately nothing more."""
     return {
@@ -130,7 +130,7 @@ def open_session(
     ledger: Ledger | None = None,
     key: str | None = None,
     language: str | None = None,
-    history: list[dict[str, str]] | None = None,
+    history: list[dict[str, object]] | None = None,
 ) -> str:
     """Exchange the page's offer for an answer, or refuse and say why."""
     # RULE: the month is checked before a session is opened

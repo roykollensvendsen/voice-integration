@@ -14,8 +14,8 @@ def test_the_documents_and_the_code_still_agree():
     assert drift.report(ROOT) == [
         "voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed",
         "gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed",
-        "rules: 16 in the source, 16 in scripts/mutations.toml, agreed",
-        "rule tests: 16 rules, each with a test named after it",
+        "rules: 17 in the source, 17 in scripts/mutations.toml, agreed",
+        "rule tests: 17 rules, each with a test named after it",
     ]
 
 

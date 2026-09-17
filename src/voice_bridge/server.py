@@ -49,6 +49,11 @@ TURN_INSTRUCTIONS = (
     "If it truly cannot be finished now, say in one sentence what you started and what is left."
 )
 
+#: The startup history is capped at 8,192 tokens across every message. Four
+#: characters to the token is the usual rough measure, and this stays well under
+#: it: being cut off mid-resume is worse than resuming less.
+HISTORY_CHARACTERS = 24_000
+
 #: How long a conversation is worth resuming. Come back an hour later and you
 #: are starting something new, whatever the page still shows.
 REMEMBER_FOR_SECONDS = 45 * 60
@@ -233,7 +238,7 @@ class Bridge(ThreadingHTTPServer):
         # The transcript belongs here rather than in the page. The delegation
         # guide asks the application to keep it, and a page keeps it only until
         # it is reloaded.
-        self.spoken: list[tuple[float, dict[str, str]]] = []
+        self.spoken: list[tuple[float, dict[str, Any]]] = []
         #: The run whose permission question is open, if one is.
         self.awaiting: str | None = None
 
@@ -241,14 +246,34 @@ class Bridge(ThreadingHTTPServer):
         """Keep a turn, so the next session can be given it."""
         if not text.strip():
             return
-        role = "user" if who == "You" else "assistant"
-        self.spoken.append((time.time(), {"role": role, "content": text.strip()}))
+        said = who == "You"
+        # RULE: a remembered turn is a message item, not a bare string
+        turn = {
+            "type": "message",
+            "role": "user" if said else "assistant",
+            # A user message carries `input_text` and an assistant one
+            # `output_text`; a plain string is refused outright, which is how
+            # this was found.
+            "content": [{"type": "input_text" if said else "output_text", "text": text.strip()}],
+        }
+        self.spoken.append((time.time(), turn))
         del self.spoken[: -live.TURNS_REMEMBERED * 2]
 
-    def recent(self) -> list[dict[str, str]]:
-        """The turns worth resuming, and none older than that."""
+    def recent(self) -> list[dict[str, Any]]:
+        """The turns worth resuming: recent enough, few enough, short enough."""
         oldest = time.time() - REMEMBER_FOR_SECONDS
-        return [turn for when, turn in self.spoken if when >= oldest]
+        fresh = [turn for when, turn in self.spoken if when >= oldest]
+        # The list takes at most 128 messages and 8,192 tokens together. Turns
+        # are counted from the end, because the last thing said matters most.
+        kept: list[dict[str, Any]] = []
+        room = HISTORY_CHARACTERS
+        for turn in reversed(fresh[-live.TURNS_REMEMBERED :]):
+            spent = len(str(turn["content"][0]["text"]))
+            if spent > room:
+                break
+            room -= spent
+            kept.insert(0, turn)
+        return kept
 
     def follow(self, run_id: str, asked: str) -> None:
         """Relay a run's events to whoever is watching, on its own thread."""
