@@ -52,6 +52,25 @@ TURN_INSTRUCTIONS = (
     # four numbered options containing file paths and hyphenated flags. Nobody
     # can say that back. A question a person cannot answer is worse than no
     # question: the work simply stops.
+    # Five attempts at driving an interactive coding agent through its own
+    # screen produced five "no visible answer"; the same question in print mode
+    # answered correctly every time. ADR-VI-020.
+    "Reach a coding agent in print mode and read its output directly: "
+    "`claude -p '<question>' --output-format json`, which answers with the text, "
+    "the session identifier, the duration and the cost. Keep that session "
+    "identifier and add `--resume <session-id>` to every later question in this "
+    "conversation, so the agent remembers what was already said and does not read "
+    "the project again from nothing. "
+    "Never type into an interactive session on a screen and read the screen back, "
+    "unless the person asked for a session they will use themselves. "
+    # The person's own words, at the point they gave up: "why are you asking me
+    # this, I do not know why I should choose this". Being asked to pick between
+    # two ways of doing the same thing is not a question — it is the work,
+    # handed back.
+    "Do not ask the person to choose how you do something, or whether to try "
+    "another way when one fails, or which of two sources to trust. Decide, do it, "
+    "and say what you did in one sentence. Ask only about things that are theirs "
+    "to decide: permission to change or run something, and what they actually want. "
     "When you need something from the person, ask one short question they can "
     "answer in a few spoken words. Never require exact wording, never read out a "
     "numbered list of options, never ask them to say a file path, a flag, a "

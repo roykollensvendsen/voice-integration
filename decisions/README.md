@@ -48,6 +48,8 @@ decision nobody writes down.
 | [017](ADR-VI-017-the-voice-model-is-gpt-live-1.md) | The voice model is gpt-live-1, priced flat per second | Accepted |
 | [018](ADR-VI-018-the-client-is-a-browser-page.md) | The client is a browser page, served by the bridge | Accepted |
 | [019](ADR-VI-019-a-delegation-not-a-tool-list.md) | The voice model gets a delegation, not a tool list | Accepted |
+| [020](ADR-VI-020-print-mode-not-a-screen.md) | Reach a coding agent in print mode, not through its screen | Superseded by 021 |
+| [021](ADR-VI-021-a-resumable-print-session.md) | Talk to a coding agent over a resumable print session | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing
