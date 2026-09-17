@@ -122,3 +122,9 @@ name = "a remembered turn is a message item, not a bare string"
 file = "src/voice_bridge/server.py"
 find = '"type": "message",'
 replace = '"type": "message", "content": text.strip(),'
+
+[[rule]]
+name = "a turn is finished only when the run behind it is"
+file = "src/voice_bridge/server.py"
+find = 'bridge\.following = str\(run_id\) if still_running\(finished\) else None'
+replace = 'bridge.following = None'

@@ -82,9 +82,9 @@ def test_a_delegation_waits_for_the_work_rather_than_reading_back_a_receipt(brid
     assert hermes.polls >= 2
 
 
-def test_work_that_outlasts_our_patience_hands_the_identifier_back(url):
+def test_work_that_outlasts_our_patience_says_it_will_come_back(url):
     spoken = server.answer_delegation("run the tests", url, patience=0.0)
-    assert spoken == "Still working. Ask me about run_ab12."
+    assert spoken == "Still working. I will tell you when it is done."
 
 
 def test_a_spent_month_refuses_the_session_rather_than_opening_one(bridge, tmp_path):
@@ -284,3 +284,49 @@ def test_a_long_conversation_is_trimmed_rather_than_refused(tmp_path):
         assert sum(len(t["content"][0]["text"]) for t in kept) <= server.HISTORY_CHARACTERS
     finally:
         running.server_close()
+
+
+def test_work_that_outlasts_the_wait_says_which_run_to_keep_waiting_on(bridge):
+    _, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
+    assert set(body) == {"content", "run_id", "finished"}
+
+
+def test_the_bridge_can_be_asked_to_keep_waiting(bridge, run_id):
+    _, body = post(f"{bridge}/run", {"run_id": run_id})
+    assert body["finished"] is True
+    assert body["content"] == "The tests pass."
+
+
+def test_a_run_still_going_is_not_reported_finished(url, tmp_path):
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        spoken, done = server.keep_waiting("run_ab12", url, patience=0.0)
+        assert done is False
+        assert spoken == "Still working. I will tell you when it is done."
+    finally:
+        running.server_close()
+
+
+def test_nobody_is_asked_to_remember_a_run_identifier(bridge):
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "waitOn(runId, delegationId)" in page, "the answer arrives on its own"
+
+
+def test_a_turn_is_finished_only_when_the_run_behind_it_is(url, tmp_path):
+    """Saying a turn is done while the work runs means nobody waits for the answer."""
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        server.answer_delegation("run the tests", url, patience=0.0, bridge=running)
+        assert running.following == "run_ab12"
+        server.answer_delegation("run the tests", url, bridge=running)
+        assert running.following is None
+    finally:
+        running.server_close()
+
+
+def test_the_page_is_told_to_keep_waiting_when_the_work_is_not_done(bridge):
+    """The stand-in answers running on its first look, so this is the unfinished case."""
+    _, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
+    assert body["finished"] is True, "the stand-in finishes on the second look"
+    assert body["run_id"] is None
