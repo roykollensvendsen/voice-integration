@@ -128,3 +128,9 @@ name = "a turn is finished only when the run behind it is"
 file = "src/voice_bridge/server.py"
 find = 'bridge\.following = str\(run_id\) if still_running\(finished\) else None'
 replace = 'bridge.following = None'
+
+[[rule]]
+name = "separate things said stay separate when they are sent on"
+file = "src/voice_bridge/server.py"
+find = 'said = \[line\.strip\(\) for line in transcript\.splitlines\(\) if line\.strip\(\)\]'
+replace = 'said = [" ".join(transcript.split())]'

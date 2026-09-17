@@ -209,7 +209,7 @@ def test_a_voice_turn_asks_the_gateway_to_finish_inside_it(bridge, hermes):
     _, sent, _ = hermes.seen[0]
     assert "instructions" in sent, "a voice turn is not an ordinary run"
     assert "Do not dispatch background subagents" in sent["instructions"]
-    assert "waiting to hear the answer" in sent["instructions"]
+    assert "A person is listening" in sent["instructions"]
 
 
 def test_only_a_word_that_is_plainly_yes_or_no_answers_a_permission_question(url, tmp_path):
@@ -330,3 +330,28 @@ def test_the_page_is_told_to_keep_waiting_when_the_work_is_not_done(bridge):
     _, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
     assert body["finished"] is True, "the stand-in finishes on the second look"
     assert body["run_id"] is None
+
+
+def test_separate_things_said_stay_separate_when_they_are_sent_on(bridge, hermes):
+    """Flattening two turns made one confused instruction out of a question and an answer."""
+    post(f"{bridge}/delegation", {"transcript": "can we do something meanwhile\nyes run claude"})
+    _, sent, _ = hermes.seen[0]
+    assert sent["input"] == "can we do something meanwhile\nyes run claude"
+
+
+def test_a_voice_turn_asks_for_questions_a_person_can_say(bridge, hermes):
+    """It asked out loud for one of four numbered options containing file paths."""
+    post(f"{bridge}/delegation", {"transcript": "run the tests"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "answer in a few spoken words" in asked
+    assert "never read out a numbered list" in asked
+    assert "say a file path" in asked
+
+
+def test_a_choice_the_agents_offer_can_be_tapped_instead_of_pronounced(bridge):
+    """It asked out loud for one of four numbered options, and then for an exact phrase."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "function choices(text)" in page
+    assert "offer(note(" in page, "an answer with choices gets buttons"
+    assert "async function answerWith(text)" in page
