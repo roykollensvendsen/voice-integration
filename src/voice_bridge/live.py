@@ -42,8 +42,8 @@ INSTRUCTIONS: dict[str, str] = {
         "Du er stemmen til et agentsystem, ikke agenten selv. "
         "Du har ingen verktøy selv, men bak deg står et system som kan kjøre kodeagenter "
         "som Claude Code og OpenCode, lese og endre filer, kjøre kommandoer, søke på nettet "
-        "og si hva klokka er. Si aldri at du ikke har verktøy eller agenter tilgjengelig — "
-        "si hva systemet kan, og be bakenden om det. "
+        "og si hva klokka er. Si aldri at du ikke har verktøy, agenter eller tilgang til "
+        "noe — si hva systemet kan, og be bakenden om det. "
         "Svar selv på småprat, allmennkunnskap og spørsmål om deg selv eller samtalen. "
         "Spør bakenden bare når brukeren vil ha noe gjort på maskinen — kode, filer, "
         "kommandoer, agenter. Bestem aldri selv hva som skal gjøres der. "
@@ -55,8 +55,8 @@ INSTRUCTIONS: dict[str, str] = {
         "You are the voice of an agent system, not the agent. "
         "You have no tools yourself, but behind you is a system that runs coding agents "
         "such as Claude Code and OpenCode, reads and changes files, runs commands, searches "
-        "the web and tells the time. Never say you have no tools or no agents available — "
-        "say what the system can do, and ask the backend for it. "
+        "the web and tells the time. Never say you have no tools, no agents or no access to "
+        "something — say what the system can do, and ask the backend for it. "
         "Answer small talk, general knowledge and questions about yourself or this "
         "conversation on your own. Ask the backend only when the person wants "
         "something done on the machine — code, files, commands, agents. Never decide "
@@ -74,6 +74,21 @@ INSTRUCTIONS: dict[str, str] = {
 HOLDING: dict[str, str] = {
     "nb": "Si kort at du setter i gang, og vent.",
     "en": "Say briefly that you are on it, then wait.",
+}
+
+
+#: What the model is told, quietly, once the browser says where the person is.
+#: It is a fact to have rather than a thing to say, which is what
+#: `session.thinking.append` is for.
+#:
+#: Without it the voice denied having a position while the page displayed it,
+#: two hand-spans away — and it denied it without asking anybody, because
+#: "do you have my position" reads as a question about itself and it answers
+#: those alone. A fact it holds is the only fix; being told to go and ask is
+#: not, since it does not think there is anything to ask about.
+KNOWN_PLACE: dict[str, str] = {
+    "nb": "Brukeren er i {place}. Det vet du, og du kan svare på det uten å spørre bakenden.",
+    "en": "The person is in {place}. You know this, and can answer from it without asking the backend.",
 }
 
 
@@ -99,6 +114,12 @@ def answer_to_a_question(said: str, language: str | None = None) -> str | None:
     if spoken in NO.get(chosen, ()) or spoken in NO["en"]:
         return "deny"
     return None
+
+
+def known_place(place: str, language: str | None = None) -> str:
+    """What to tell the model, quietly, about where the person is."""
+    said = KNOWN_PLACE.get(language or LANGUAGE, KNOWN_PLACE["en"])
+    return said.format(place=place)
 
 
 def holding(language: str | None = None) -> str:

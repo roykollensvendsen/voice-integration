@@ -176,3 +176,9 @@ name = "a position is held in memory and written nowhere"
 file = "src/voice_bridge/server.py"
 find = 'self\.server\.placed = quick\.place_of\('
 replace = 'self.server.placed = None; _ = ('
+
+[[rule]]
+name = "the page may only report events in its own name"
+file = "src/voice_bridge/server.py"
+find = 'if reported not in PAGE_EVENTS:'
+replace = 'if False:'

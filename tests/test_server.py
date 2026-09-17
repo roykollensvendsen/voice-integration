@@ -261,6 +261,27 @@ def test_a_permission_question_is_noticed_however_late_it_arrives(url, tmp_path)
         running.server_close()
 
 
+def test_the_page_may_only_report_events_in_its_own_name(bridge):
+    """The page is code in a browser, and the bridge acts on some event names."""
+    status, refusal = post(f"{bridge}/noticed", {"event": "approval.request", "run_id": "run_ab12"})
+    assert status == 403
+    assert "not the page's to report" in refusal["error"]
+    _, answered = post(f"{bridge}/approval", {"choice": "once"})
+    assert answered["content"] == "There is nothing waiting for permission."
+    kept, _ = post(f"{bridge}/noticed", {"event": "voice.told", "detail": "Klokka er 14:40."})
+    assert kept == 200
+
+
+def test_the_page_waits_to_hear_that_the_voice_took_the_answer(bridge):
+    """An append is not a delivery, and its acknowledgement is the only sign."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    for event in ("session.commentary.append", "session.thinking.append"):
+        named = page.count(f'"{event}"')
+        assert named == 1, f"{event} is named {named} times, so not every use waits to be acknowledged"
+    assert "session.commentary.appended" in page
+
+
 def test_a_remembered_turn_is_a_message_item_not_a_bare_string(tmp_path):
     """A string in `content` is refused outright, which is how this was found."""
     running = server.Bridge(("127.0.0.1", 0), "http://127.0.0.1:1", budget.Ledger(tmp_path / "s.json"))
@@ -462,6 +483,17 @@ def test_a_position_is_held_in_memory_and_written_nowhere(bridge, tmp_path, monk
     assert body["placed"] == "Hillevåg, Stavanger, Norge"
     written = list(tmp_path.rglob("*"))
     assert not [f for f in written if "58.9" in f.read_text(errors="ignore")], "nothing on disk"
+
+
+def test_the_voice_is_told_where_the_person_is_and_not_only_the_screen(bridge, monkeypatch):
+    """It denied having a position while the page displayed one, two hand-spans away."""
+    monkeypatch.setattr(server.quick, "place_of", lambda _lat, _lon: "Harebakken, Arendal, Norge")
+    _, body = post(f"{bridge}/where", {"latitude": 58.47, "longitude": 8.75})
+    assert "Harebakken, Arendal, Norge" in body["known"]
+    assert "bakenden" in body["known"], "it is told it need not go and ask"
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "think(p.known)" in page, "the page passes it on rather than only drawing it"
 
 
 def test_the_page_asks_for_a_position_when_the_microphone_is_taken(bridge):

@@ -10,6 +10,7 @@ holding two keys small enough to read — which was
     GET  /watch           every run's lifecycle, as server-sent events
     POST /spent           seconds of open microphone, booked against the month
     POST /where           coordinates the browser was allowed to give, kept in memory
+    POST /noticed         what the voice plane did with what the page told it
     POST /session         the browser's WebRTC offer, exchanged for an answer
     POST /delegation      a transcript, answered with something to say aloud
 
@@ -40,6 +41,22 @@ PAGE = pathlib.Path(__file__).parent / "client" / "index.html"
 
 #: How often a watcher is handed what has arrived.
 WATCH_POLL_SECONDS = 0.4
+
+#: What the page is allowed to report about the voice plane.
+#:
+#: The bridge hands an answer to the page and the page hands it to the voice,
+#: and that second hop happens where the bridge cannot see it. So the answer
+#: could arrive, be shown on screen, and never reach the voice at all — which
+#: is exactly what it looked like from the outside, and there was no way to
+#: tell that apart from a voice that heard it and chose to stay quiet.
+#:
+#: The list is closed rather than open because `notice` acts on some event
+#: names: a page that could report `approval.request` could make the bridge
+#: believe a permission question is open when none is.
+PAGE_EVENTS = ("voice.told", "voice.unheard", "voice.lost")
+
+#: How much of what the page reports is kept. It is a line of speech, not a log.
+NOTICED_CHARACTERS = 400
 
 #: What the gateway is told about this particular turn. A voice turn has to end
 #: with something to say: dispatching work to a background subagent completes
@@ -342,7 +359,18 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
     def _small(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        """The three routes that only put something away and answer briefly."""
+        """The four routes that only put something away and answer briefly."""
+        if path == "/noticed":
+            reported = str(body.get("event", ""))
+            # RULE: the page may only report events in its own name
+            if reported not in PAGE_EVENTS:
+                refusal = f"{reported or 'that'} is not the page's to report"
+                raise Refused(refusal)
+            notice(
+                self.server,
+                {"event": reported, "detail": str(body.get("detail", ""))[:NOTICED_CHARACTERS]},
+            )
+            return {}
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
             self.server.ledger.record(float(body.get("seconds", 0)))
@@ -352,7 +380,11 @@ class _Handler(BaseHTTPRequestHandler):
             self.server.placed = quick.place_of(
                 float(body.get("latitude", 0)), float(body.get("longitude", 0))
             )
-            return {"placed": self.server.placed}
+            if not self.server.placed:
+                return {"placed": None}
+            # The page passes this on to the voice, which otherwise holds no
+            # position at all and says so while the page displays one.
+            return {"placed": self.server.placed, "known": live.known_place(self.server.placed)}
         self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
         return {}
 
@@ -372,7 +404,7 @@ class _Handler(BaseHTTPRequestHandler):
                 else:
                     self._send(200, {"content": resolve_pending(self.server, choice)})
 
-            elif self.path in ("/where", "/turn", "/spent"):
+            elif self.path in ("/where", "/turn", "/spent", "/noticed"):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
                 self.server.following = None
