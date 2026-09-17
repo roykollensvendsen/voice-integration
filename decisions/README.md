@@ -50,6 +50,7 @@ decision nobody writes down.
 | [019](ADR-VI-019-a-delegation-not-a-tool-list.md) | The voice model gets a delegation, not a tool list | Accepted |
 | [020](ADR-VI-020-print-mode-not-a-screen.md) | Reach a coding agent in print mode, not through its screen | Superseded by 021 |
 | [021](ADR-VI-021-a-resumable-print-session.md) | Talk to a coding agent over a resumable print session | Accepted |
+| [022](ADR-VI-022-a-short-path-past-the-control-plane.md) | A short path past the control plane, for questions it owns | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

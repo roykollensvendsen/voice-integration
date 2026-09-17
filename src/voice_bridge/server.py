@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from voice_bridge import gateway, live
+from voice_bridge import gateway, live, quick
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
 from voice_bridge.speech import say
@@ -218,6 +218,16 @@ def pending_answer(bridge: Bridge, transcript: str) -> str | None:
     return resolve_pending(bridge, answered)
 
 
+def answered_here(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
+    """Whatever the bridge can settle without the gateway, and what is left to send."""
+    # RULE: a question the bridge can answer never travels further
+    immediate = quick.answer(bridge, transcript)
+    if immediate is not None:
+        return immediate, transcript
+    transcript = said_for_them(bridge, transcript)
+    return pending_answer(bridge, transcript), transcript
+
+
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
@@ -233,10 +243,9 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     # A question that is waiting takes precedence over a new request: "yes" is
     # an answer to it, not a thing to go and do.
     if bridge is not None:
-        transcript = said_for_them(bridge, transcript)
-        settled = pending_answer(bridge, transcript)
-        if settled is not None:
-            return settled
+        here, transcript = answered_here(bridge, transcript)
+        if here is not None:
+            return here
     arguments: dict[str, Any] = {
         "agent": "hermes-agent",
         "instruction": as_said(transcript),
