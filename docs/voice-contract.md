@@ -72,19 +72,46 @@ same delegation. Nobody has to remember a run identifier or ask again; that is
 what repeated appends are for. The identifier stays on the screen, where it is
 addressable without being spoken.
 
-Waiting is not silence. The page appends a holding line the moment a delegation
-arrives, because a slow answer with nothing said is indistinguishable from a
+Waiting is not silence. The page appends a holding line when an answer is slow
+to come, because a slow answer with nothing said is indistinguishable from a
 dropped call. A repeated append continues the same delegation, which is what
 makes that allowed.
+
+It waits `HOLD_AFTER_MS` first, and that wait is the point of it. The bridge
+answers some questions itself in under a millisecond, and a voice that says "on
+it" and then the answer in the same breath is not reporting progress: it is two
+things to paraphrase, a few milliseconds apart, and only one of them matters.
+The holding line is for waiting that is actually happening.
 
 `session.thinking.append` carries something the model should know and not say.
 Both take a plain string and both require the delegation identifier, including
 when it is null.
 
+Where the person is arrives that way. The browser is asked once, when the
+microphone is taken; the bridge turns coordinates into a name and hands the name
+back; the page tells the voice. Asked instead to go and fetch it, the voice
+answers that it has no access — "do you have my position" is a question about
+itself, and those it answers alone. A fact it holds is the only thing that fixes
+that.
+
 An acknowledgment is not a receipt. The guide is explicit that it "is not proof
 that the model has consumed or spoken the result, or that an external action
 succeeded", so a person can hear nothing about something that has already run.
 That is why approvals live in Hermes and not here.
+
+It is still the only sign there is. Every append is acknowledged by
+`session.commentary.appended` carrying the `event_id` it was sent under, and
+nothing else tells the page that the voice plane received anything. Without
+watching for it, an answer that never arrived looks exactly like an answer that
+arrived and was not spoken, and those two need different fixes. So the page
+waits `ACKNOWLEDGED_WITHIN_MS` for each one, says it again once if nothing
+comes back, and reports both to the bridge.
+
+That report is what `POST /noticed` is for. The second hop, page to voice,
+happens where the bridge cannot see it, so the page is the only witness to it.
+What it is allowed to report is a closed list, because the bridge acts on some
+event names — a page that could report an approval request could make the
+bridge believe a permission question is open when none is.
 
 ## The shape a session is configured with
 

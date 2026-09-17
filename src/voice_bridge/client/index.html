@@ -130,6 +130,9 @@ async function book() {
 // from one speaker with no long silence in it, and a late fragment still lands
 // in the row it belongs to.
 const TURN_GAP_MS = 1200;
+
+// How long an answer has to arrive before the voice says it is working on it.
+const HOLD_AFTER_MS = 600;
 const turns = [];      // {who, text, start, end, row, session}
 let unsent = [];       // the turns the person has said since the last request
 
@@ -151,6 +154,9 @@ const PLAINLY = {
   "approval.requested": "Waiting for your permission",
   "approval.resolved": "You answered",
   "watch.lost": "Lost track of that one",
+  "voice.told": "The voice has it",
+  "voice.unheard": "The voice did not confirm — saying it again",
+  "voice.lost": "The voice never took it",
   "error": "Something went wrong",
 };
 
@@ -205,16 +211,98 @@ function heard(who, delta, startMs, endMs) {
   return fresh;
 }
 
-const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
+const send = (event) => {
+  if (channel?.readyState !== "open") return false;
+  channel.send(JSON.stringify(event));
+  return true;
+};
+
+// One line in the panel, and one line the bridge can keep. What the voice does
+// with an answer happens out here, past where the bridge can see, so the only
+// record of it is the one this page sends back.
+const noticed = (event, detail) => fetch("/noticed", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ event, detail }),
+}).catch(() => {});
+
+// Handing the voice an answer is not the same as the voice receiving it. Each
+// append is acknowledged with the event_id it was sent under, and that
+// acknowledgement is the only sign this page gets. Without watching for it, an
+// answer that never arrived looks exactly like an answer that arrived and was
+// not spoken — which is the shape the trouble actually took: the right answer
+// on screen, and a voice that plainly did not have it.
+//
+// So every append goes through here, is waited for, and is said once more if
+// nothing comes back.
+const APPEND = {
+  // Spoken: the model paraphrases it aloud.
+  commentary: "session.commentary.append",
+  // Not spoken: something the model should simply know.
+  thinking: "session.thinking.append",
+};
+const ACKNOWLEDGED_WITHIN_MS = 2500;
+const unacknowledged = new Map();
+const said = new Map();
+let appends = 0;
+
+// The channel opens a moment after it is created, and the first thing there is
+// to say can arrive inside that moment: the browser can return a position
+// before the handshake finishes. Dropping it there would lose exactly the fact
+// this was built to deliver, so it waits instead.
+const WAITING_TO_BE_SAID = 8;
+let queued = [];
+
+function append(kind, delegationId, content, again = true) {
+  if (!content) return;
+  if (channel?.readyState !== "open") {
+    if (queued.length < WAITING_TO_BE_SAID) queued.push(() => append(kind, delegationId, content, again));
+    return;
+  }
+  const id = `c${(appends += 1)}_${Date.now()}`;
+  if (!send({ type: APPEND[kind], event_id: id, delegation_id: delegationId, content })) return;
+  said.set(id, content);
+  unacknowledged.set(id, setTimeout(() => {
+    unacknowledged.delete(id);
+    said.delete(id);
+    if (again) {
+      noticed("voice.unheard", content);
+      append(kind, delegationId, content, false);
+    } else {
+      noticed("voice.lost", content);
+    }
+  }, ACKNOWLEDGED_WITHIN_MS));
+}
+
+const tell = (delegationId, content) => append("commentary", delegationId, content);
+
+// A fact the voice should have and not read out. Where the person is arrives
+// this way rather than as an answer, because "do you have my position" is a
+// question about itself, and it answers those without asking anybody.
+const think = (content) => append("thinking", null, content);
+
+function acknowledged(eventId) {
+  const waiting = unacknowledged.get(eventId);
+  if (waiting === undefined) return;
+  clearTimeout(waiting);
+  unacknowledged.delete(eventId);
+  noticed("voice.told", said.get(eventId) ?? "");
+  said.delete(eventId);
+}
 
 // The model asks for help with an identifier and no task text: what was wanted
 // lives in the transcript we have been keeping. docs/voice-contract.md.
 async function answer(delegationId) {
   const transcript = unsent.map((t) => t.text.trim()).filter(Boolean).join("\n");
   unsent = [];
-  // Work can take ten seconds or more, and silence sounds like a dropped call.
-  // A repeated append continues the same delegation, so this is allowed.
-  if (holding) send({ type: "session.commentary.append", event_id: `w_${Date.now()}`, delegation_id: delegationId, content: holding });
+  // Work can take ten seconds or more, and silence sounds like a dropped call,
+  // so the voice says it is on it. But the bridge now answers the clock, the
+  // budget and where you are in under a millisecond, and "I'm on it" followed
+  // in the same breath by the answer is not a progress report — it is two
+  // things to say at once. So the holding line waits to find out whether there
+  // is any waiting to cover.
+  let settled = false;
+  if (holding) setTimeout(() => settled || tell(delegationId, holding), HOLD_AFTER_MS);
   let content, runId = null, finished = true;
   try {
     const reply = await fetch("/delegation", {
@@ -228,8 +316,9 @@ async function answer(delegationId) {
   } catch (failure) {
     content = `The bridge did not answer: ${failure.message}`;
   }
+  settled = true;
   offer(note("Answer from the agents", content), content);
-  send({ type: "session.commentary.append", event_id: `r_${Date.now()}`, delegation_id: delegationId, content });
+  tell(delegationId, content);
   if (!finished && runId) waitOn(runId, delegationId);
 }
 
@@ -251,6 +340,9 @@ function onEvent(event) {
       heard("It said", event.delta, event.start_ms, event.end_ms);
       break;
     case "session.delegation.created": answer(event.delegation.id); break;
+    case "session.commentary.appended":
+    case "session.thinking.appended":
+    case "session.instructions.appended": acknowledged(event.event_id); break;
     case "error": note("Something went wrong", event.error?.message ?? "unknown"); break;
   }
 }
@@ -299,8 +391,7 @@ async function answerWith(text) {
   }).then((r) => r.json()).catch((f) => ({ content: String(f) }));
   const row = note("Answer from the agents", reply.content ?? reply.error ?? "");
   offer(row, reply.content);
-  send({ type: "session.commentary.append", event_id: `t_${Date.now()}`,
-         delegation_id: null, content: reply.content ?? "" });
+  tell(null, reply.content ?? "");
   if (reply.finished === false && reply.run_id) waitOn(reply.run_id, null);
 }
 
@@ -326,8 +417,7 @@ function asking(row, event) {
         body: JSON.stringify({ choice }),
       }).then((r) => r.json()).catch((f) => ({ content: String(f) }));
       note(label, reply.content ?? reply.error ?? "");
-      if (reply.content) send({ type: "session.commentary.append", event_id: `a_${Date.now()}`,
-                                delegation_id: null, content: reply.content });
+      tell(null, reply.content ?? "");
     };
     buttons.append(button);
   }
@@ -354,8 +444,7 @@ async function waitOn(runId, delegationId) {
     }
     if (body.finished) {
       offer(note("Answer from the agents", body.content), body.content);
-      send({ type: "session.commentary.append", event_id: `l_${Date.now()}`,
-             delegation_id: delegationId, content: body.content });
+      tell(delegationId, body.content);
       return;
     }
   }
@@ -387,7 +476,7 @@ function watch() {
       return;
     }
     writing = null;
-    const detail = e.asked ?? e.preview ?? e.why ?? "";
+    const detail = e.asked ?? e.preview ?? e.why ?? e.detail ?? "";
     const row = note(plainly(e), String(detail));
     row.dataset.kind = e.event ?? "";
     if (e.event === "approval.request") asking(row, e);
@@ -418,6 +507,7 @@ async function start() {
 
   channel = pc.createDataChannel("oai-events");
   channel.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch { /* not ours */ } };
+  channel.onopen = () => queued.splice(0).forEach((waiting) => waiting());
 
   await pc.setLocalDescription(await pc.createOffer());
   await new Promise((done) => {
@@ -449,7 +539,11 @@ async function start() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude }),
-    }).then((r) => r.json()).then((p) => p.placed && note("Where you are", p.placed)).catch(() => {}),
+    }).then((r) => r.json()).then((p) => {
+      if (!p.placed) return;
+      note("Where you are", p.placed);
+      think(p.known);
+    }).catch(() => {}),
     () => {},
     { maximumAge: 600_000, timeout: 8_000 },
   );
@@ -458,6 +552,7 @@ async function start() {
 
 function stop() {
   book();
+  queued = [];
   clearInterval(booking);
   booked = booking = null;
   pc?.close();
