@@ -151,7 +151,11 @@ def still_running(payload: object) -> bool:
 #: terminal outweighed both the skill and the instruction telling it not to, and
 #: it kept reaching for a session that no longer existed. Changing the room is
 #: how you stop paying for a habit.
-ROOM = os.environ.get("VOICE_BRIDGE_ROOM", "voice-3")
+#:
+#: It is named for the orchestrator rather than for the voice, because that is
+#: whose conversation it is. The voice holds a few turns and forgets them; this
+#: is where the thinking and the memory live.
+ROOM = os.environ.get("VOICE_BRIDGE_ROOM", "orchestrator")
 
 
 def as_said(transcript: str) -> str:
@@ -195,6 +199,25 @@ def resolve_pending(bridge: Bridge, choice: str) -> str:
     return say("run_status", finished)
 
 
+def said_for_them(bridge: Bridge, transcript: str) -> str:
+    """Substitute the phrase an answer demanded, when the person simply agreed."""
+    if bridge.demanded and live.answer_to_a_question(transcript) == "once":
+        # RULE: a phrase the gateway demanded is said for the person, not by them
+        transcript, bridge.demanded = bridge.demanded, None
+    return transcript
+
+
+def pending_answer(bridge: Bridge, transcript: str) -> str | None:
+    """Resolve a waiting permission question, if this was an answer to one."""
+    if not bridge.awaiting:
+        return None
+    answered = live.answer_to_a_question(transcript)
+    # RULE: only a word that is plainly yes or no answers a permission question
+    if answered is None:
+        return None
+    return resolve_pending(bridge, answered)
+
+
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
@@ -209,15 +232,11 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
         return "I did not catch that."
     # A question that is waiting takes precedence over a new request: "yes" is
     # an answer to it, not a thing to go and do.
-    # An answer that demanded a phrase gets that phrase, said for the person.
-    if bridge is not None and bridge.demanded and live.answer_to_a_question(transcript) == "once":
-        # RULE: a phrase the gateway demanded is said for the person, not by them
-        transcript, bridge.demanded = bridge.demanded, None
-    if bridge is not None and bridge.awaiting:
-        answered = live.answer_to_a_question(transcript)
-        # RULE: only a word that is plainly yes or no answers a permission question
-        if answered is not None:
-            return resolve_pending(bridge, answered)
+    if bridge is not None:
+        transcript = said_for_them(bridge, transcript)
+        settled = pending_answer(bridge, transcript)
+        if settled is not None:
+            return settled
     arguments: dict[str, Any] = {
         "agent": "hermes-agent",
         "instruction": as_said(transcript),
@@ -226,7 +245,11 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     (capabilities or Capabilities()).permit("agent_task", arguments)
     planned = gateway.plan("agent_task", arguments, url)
     # RULE: a voice turn asks the gateway to finish inside it
-    asking = replace(planned, body={**(planned.body or {}), "instructions": TURN_INSTRUCTIONS})
+    carrying: dict[str, Any] = {"instructions": TURN_INSTRUCTIONS}
+    if bridge is not None:
+        # RULE: a request carries the conversation it came out of
+        carrying["conversation_history"] = bridge.context()
+    asking = replace(planned, body={**(planned.body or {}), **carrying})
     started = gateway.send(asking)
     run_id = started.get("run_id") if isinstance(started, dict) else None
     if not run_id:
@@ -372,7 +395,7 @@ class Bridge(ThreadingHTTPServer):
         # The transcript belongs here rather than in the page. The delegation
         # guide asks the application to keep it, and a page keeps it only until
         # it is reloaded.
-        self.spoken: list[tuple[float, dict[str, Any]]] = []
+        self.spoken: list[tuple[float, str, str]] = []
         #: The run whose permission question is open, if one is.
         self.awaiting: str | None = None
         #: The run the last request left unfinished, if it left one.
@@ -381,37 +404,48 @@ class Bridge(ThreadingHTTPServer):
         self.demanded: str | None = None
 
     def remember(self, who: str, text: str) -> None:
-        """Keep a turn, so the next session can be given it."""
+        """Keep a turn, for whoever needs to know what was already said."""
         if not text.strip():
             return
-        said = who == "You"
-        # RULE: a remembered turn is a message item, not a bare string
-        turn = {
-            "type": "message",
-            "role": "user" if said else "assistant",
-            # A user message carries `input_text` and an assistant one
-            # `output_text`; a plain string is refused outright, which is how
-            # this was found.
-            "content": [{"type": "input_text" if said else "output_text", "text": text.strip()}],
-        }
-        self.spoken.append((time.time(), turn))
+        self.spoken.append((time.time(), "user" if who == "You" else "assistant", text.strip()))
         del self.spoken[: -live.TURNS_REMEMBERED * 2]
 
-    def recent(self) -> list[dict[str, Any]]:
-        """The turns worth resuming: recent enough, few enough, short enough."""
+    def _worth_keeping(self) -> list[tuple[str, str]]:
+        """The turns worth passing on: recent enough, few enough, short enough."""
         oldest = time.time() - REMEMBER_FOR_SECONDS
-        fresh = [turn for when, turn in self.spoken if when >= oldest]
-        # The list takes at most 128 messages and 8,192 tokens together. Turns
-        # are counted from the end, because the last thing said matters most.
-        kept: list[dict[str, Any]] = []
+        fresh = [(role, text) for when, role, text in self.spoken if when >= oldest]
+        kept: list[tuple[str, str]] = []
         room = HISTORY_CHARACTERS
-        for turn in reversed(fresh[-live.TURNS_REMEMBERED :]):
-            spent = len(str(turn["content"][0]["text"]))
-            if spent > room:
+        for role, text in reversed(fresh[-live.TURNS_REMEMBERED :]):
+            if len(text) > room:
                 break
-            room -= spent
-            kept.insert(0, turn)
+            room -= len(text)
+            kept.insert(0, (role, text))
         return kept
+
+    def recent(self) -> list[dict[str, Any]]:
+        """The turns a new voice session is given, in the shape it takes."""
+        # A user message carries `input_text` and an assistant one
+        # `output_text`; a plain string is refused outright, which is how this
+        # was found. The list takes 128 messages and 8,192 tokens together.
+        return [
+            {
+                "type": "message",
+                "role": role,
+                # RULE: a remembered turn is a message item, not a bare string
+                "content": [{"type": "input_text" if role == "user" else "output_text", "text": text}],
+            }
+            for role, text in self._worth_keeping()
+        ]
+
+    def context(self) -> list[dict[str, str]]:
+        """The same turns, in the shape the gateway takes them.
+
+        The gateway plans against what was said, and most of what was said it
+        never hears: the voice answers small talk itself. Without this, "run the
+        tests there" arrives with no idea what "there" is.
+        """
+        return [{"role": role, "content": text} for role, text in self._worth_keeping()]
 
     def follow(self, run_id: str, asked: str) -> None:
         """Relay a run's events to whoever is watching, on its own thread."""
