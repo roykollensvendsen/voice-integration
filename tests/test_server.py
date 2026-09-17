@@ -62,7 +62,7 @@ def test_a_delegation_becomes_a_run_and_comes_back_as_a_sentence(bridge, hermes)
     assert body["content"] == "The tests pass."
     path, sent, _ = hermes.seen[0]
     assert path == "/v1/runs"
-    assert {k: v for k, v in sent.items() if k != "instructions"} == {
+    assert {k: v for k, v in sent.items() if k not in ("instructions", "conversation_history")} == {
         "input": "run the tests",
         "model": "hermes-agent",
         "session_id": server.ROOM,
@@ -436,3 +436,19 @@ def test_small_talk_the_voice_answered_itself_never_reaches_the_agents(bridge):
         page = reply.read().decode()
     assert "if (unsent.length) unsent = [];" in page
     assert page.index("session.output_transcript.delta") < page.index('heard("It said"')
+
+
+def test_a_request_carries_the_conversation_it_came_out_of(bridge, hermes):
+    """The voice answers small talk itself, so the gateway never hears most of it."""
+    post(f"{bridge}/turn", {"who": "You", "text": "Look at the voice-integration project"})
+    post(f"{bridge}/turn", {"who": "It said", "text": "Right, I am looking at it."})
+    post(f"{bridge}/delegation", {"transcript": "run the tests there"})
+    _, sent, _ = hermes.seen[0]
+    assert sent["conversation_history"] == [
+        {"role": "user", "content": "Look at the voice-integration project"},
+        {"role": "assistant", "content": "Right, I am looking at it."},
+    ]
+
+
+def test_the_room_is_named_for_the_orchestrator_whose_conversation_it_is():
+    assert server.ROOM == "orchestrator"

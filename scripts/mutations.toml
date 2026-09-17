@@ -146,3 +146,9 @@ name = "a phrase the gateway demanded is said for the person, not by them"
 file = "src/voice_bridge/server.py"
 find = 'transcript, bridge\.demanded = bridge\.demanded, None'
 replace = 'bridge.demanded = None'
+
+[[rule]]
+name = "a request carries the conversation it came out of"
+file = "src/voice_bridge/server.py"
+find = 'carrying\["conversation_history"\] = bridge\.context\(\)'
+replace = 'carrying.pop("conversation_history", None)'

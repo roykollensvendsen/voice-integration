@@ -50,9 +50,14 @@ this page used to state were wrong and no test could see it.
   in the session. Heard from the person's side that is the system saying it has
   started and then never coming back. `server.TURN_INSTRUCTIONS` is what asks it
   to finish inside the turn.
-* `previous_response_id` and `conversation_history` are not sent, because
-  carrying conversation history through the voice plane is precisely what this
-  design refuses to do.
+* `conversation_history` carries the spoken turns. It has to: the voice answers
+  small talk, general knowledge and questions about itself without telling
+  anyone, so most of what was said never reaches the gateway otherwise, and
+  "run the tests there" arrives with no idea what "there" is. This is context
+  flowing *down*, which
+  [ADR-VI-004](../decisions/ADR-VI-004-identifiers-up-context-down.md) asks for;
+  what it forbids is the gateway's own output flowing back up.
+* `previous_response_id` is not sent. The room is the continuity.
 * `POST /v1/runs/{run_id}/approval` takes `choice`, one of `once`, `session`,
   `always` or `deny`. The bridge will only ever send two of them, for the reason
   in [`permissions.md`](permissions.md).
