@@ -1,6 +1,7 @@
 """The three routes the browser can reach, and nothing else."""
 
 import json
+import pathlib
 import threading
 import urllib.error
 import urllib.request
@@ -64,7 +65,7 @@ def test_a_delegation_becomes_a_run_and_comes_back_as_a_sentence(bridge, hermes)
     assert {k: v for k, v in sent.items() if k != "instructions"} == {
         "input": "run the tests",
         "model": "hermes-agent",
-        "session_id": "voice",
+        "session_id": server.ROOM,
     }
 
 
@@ -359,3 +360,9 @@ def test_a_choice_the_agents_offer_can_be_tapped_instead_of_pronounced(bridge):
     assert "function choices(text)" in page
     assert "offer(note(" in page, "an answer with choices gets buttons"
     assert "async function answerWith(text)" in page
+
+
+def test_the_room_can_be_changed_to_leave_a_habit_behind():
+    """A room remembers how things were done, and a bad way outlives being told not to."""
+    assert server.ROOM, "there is always a room"
+    assert "VOICE_BRIDGE_ROOM" in pathlib.Path(server.__file__).read_text()
