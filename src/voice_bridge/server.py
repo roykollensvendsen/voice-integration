@@ -17,6 +17,7 @@ The page never sees a key. It cannot: it is code handed to a browser.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import threading
 import time
@@ -101,7 +102,13 @@ def still_running(payload: object) -> bool:
 #: How a delegation becomes work. The transcript is the only thing the model
 #: gives us, so the gateway is asked to plan against it — which is the whole
 #: argument of ADR-VI-001, arriving here as one HTTP call.
-ROOM = "voice"
+#:
+#: The room is also the gateway's memory, and a room remembers how things were
+#: done — including badly. A hundred turns of driving a coding agent through its
+#: terminal outweighed both the skill and the instruction telling it not to, and
+#: it kept reaching for a session that no longer existed. Changing the room is
+#: how you stop paying for a habit.
+ROOM = os.environ.get("VOICE_BRIDGE_ROOM", "voice-2")
 
 
 def as_said(transcript: str) -> str:
