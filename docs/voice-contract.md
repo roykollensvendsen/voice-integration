@@ -30,6 +30,25 @@ something else. Adding a seventh is a decision record rather than a commit.
 `voice_bridge.contract.VOICE_TOOLS` holds the same six, and `voicebridge check`
 fails when this table and that tuple disagree.
 
+## The voice model calls nothing
+
+It is worth saying plainly, because it comes up every time somebody looks at
+this design: `gpt-live-1` never calls a tool. The vendor's own summary is that
+it "listens, speaks, and decides when to ask the backend for help", while "the
+backend reasons, uses tools, and returns results for GPT-Live to communicate".
+
+That holds in both delegation modes. Client delegation gives it no functions at
+all. Responses delegation registers functions, but a model of OpenAI's picks
+them and the application still runs them — the voice model is outside either
+way.
+
+The tools people have seen it list in the ChatGPT app — web, files, images —
+belong to that app's own backend, which stands exactly where the bridge and the
+gateway stand here. Asking for the voice model to call tools directly is asking
+for the Realtime API, which
+[ADR-VI-017](../decisions/ADR-VI-017-the-voice-model-is-gpt-live-1.md) turned
+down.
+
 ## How a turn works
 
 1. The page streams audio. `session.input_transcript.delta` arrives on the data

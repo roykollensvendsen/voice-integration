@@ -152,3 +152,15 @@ name = "a request carries the conversation it came out of"
 file = "src/voice_bridge/server.py"
 find = 'carrying\["conversation_history"\] = bridge\.context\(\)'
 replace = 'carrying.pop("conversation_history", None)'
+
+[[rule]]
+name = "a question the bridge can answer never travels further"
+file = "src/voice_bridge/server.py"
+find = 'if immediate is not None:'
+replace = 'if False:'
+
+[[rule]]
+name = "only a short question is ever answered without the gateway"
+file = "src/voice_bridge/quick.py"
+find = 'if len\(said\) > SHORTEST_IS_SAFEST:'
+replace = 'if False:'
