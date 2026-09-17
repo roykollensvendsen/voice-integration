@@ -375,3 +375,19 @@ def test_a_voice_turn_asks_for_an_answer_short_enough_to_hear(bridge, hermes):
     assert "one or two spoken sentences" in asked
     assert "Never pass on raw command output" in asked
     assert "Do not explain how you did it" in asked
+
+
+def test_an_open_microphone_is_booked_while_it_is_open(bridge):
+    """The ceiling had a rule, a test and no caller: nothing ever wrote to it."""
+    _, before = post(f"{bridge}/spent", {"seconds": 0})
+    _, after = post(f"{bridge}/spent", {"seconds": 600})
+    assert before["remaining_usd"] == 20.00
+    assert after["remaining_usd"] == 19.50
+
+
+def test_the_page_reports_its_own_time_rather_than_waiting_to_be_closed(bridge):
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert '"/spent"' in page, "somebody has to count"
+    assert "setInterval(book, BOOK_EVERY_MS)" in page, "a closed tab reports nothing"
+    assert 'addEventListener("pagehide", book' in page

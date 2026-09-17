@@ -134,3 +134,9 @@ name = "separate things said stay separate when they are sent on"
 file = "src/voice_bridge/server.py"
 find = 'said = \[line\.strip\(\) for line in transcript\.splitlines\(\) if line\.strip\(\)\]'
 replace = 'said = [" ".join(transcript.split())]'
+
+[[rule]]
+name = "an open microphone is booked while it is open"
+file = "src/voice_bridge/server.py"
+find = 'self\.server\.ledger\.record\(float\(body\.get\("seconds", 0\)\)\)'
+replace = 'pass'
