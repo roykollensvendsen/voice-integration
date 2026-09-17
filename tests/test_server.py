@@ -346,6 +346,10 @@ def test_a_voice_turn_asks_for_questions_a_person_can_say(bridge, hermes):
     assert "answer in a few spoken words" in asked
     assert "never read out a numbered list" in asked
     assert "say a file path" in asked
+    assert "Do not ask the person to choose how you do something" in asked
+    assert "Ask only about things that are theirs" in asked
+    assert "Reach a coding agent in print mode" in asked
+    assert "--resume <session-id>" in asked
 
 
 def test_a_choice_the_agents_offer_can_be_tapped_instead_of_pronounced(bridge):
