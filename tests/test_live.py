@@ -22,7 +22,7 @@ def test_the_instructions_never_carry_a_repository_or_an_agent_name():
     for written in live.INSTRUCTIONS.values():
         assert "hermes" not in written.lower()
         assert "claude" not in written.lower()
-        assert len(written) < 400
+        assert len(written) < 600
 
 
 def test_a_session_is_never_opened_without_a_language_rule_in_its_own_language():
@@ -50,3 +50,19 @@ def test_a_session_without_a_key_is_refused_rather_than_attempted(tmp_path, monk
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with pytest.raises(Refused, match="no OPENAI_API_KEY"):
         live.open_session("v=0", budget.Ledger(tmp_path / "spend.json"))
+
+
+def test_the_voice_answers_small_talk_without_asking_the_backend():
+    """Ten chatted turns once reached the agents because nothing said not to."""
+    assert "småprat" in live.INSTRUCTIONS["nb"]
+    assert "small talk" in live.INSTRUCTIONS["en"]
+    for written in live.INSTRUCTIONS.values():
+        assert len(written) < 600
+
+
+def test_the_instructions_do_not_ask_for_an_identifier_to_be_read_out():
+    """They once asked for the opposite, written before anything else could show one."""
+    for written in live.INSTRUCTIONS.values():
+        assert "identifikator" in written or "identifier" in written
+        assert "langsomt" not in written
+        assert "slowly" not in written
