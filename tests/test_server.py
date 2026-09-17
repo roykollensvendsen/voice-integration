@@ -7,7 +7,7 @@ import urllib.request
 
 import pytest
 
-from voice_bridge import budget, server
+from voice_bridge import budget, live, server
 
 
 @pytest.fixture
@@ -188,8 +188,16 @@ def test_an_empty_turn_is_not_worth_remembering(tmp_path):
         running.remember("You", "Run the tests")
         running.remember("It said", "They pass.")
         assert running.recent() == [
-            {"role": "user", "content": "Run the tests"},
-            {"role": "assistant", "content": "They pass."},
+            {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "Run the tests"}],
+            },
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "They pass."}],
+            },
         ]
     finally:
         running.server_close()
@@ -248,5 +256,31 @@ def test_a_permission_question_is_noticed_however_late_it_arrives(url, tmp_path)
         assert running.awaiting is None
         server.notice(running, {"event": "approval.request", "run_id": "run_ab12"})
         assert running.awaiting == "run_ab12"
+    finally:
+        running.server_close()
+
+
+def test_a_remembered_turn_is_a_message_item_not_a_bare_string(tmp_path):
+    """A string in `content` is refused outright, which is how this was found."""
+    running = server.Bridge(("127.0.0.1", 0), "http://127.0.0.1:1", budget.Ledger(tmp_path / "s.json"))
+    try:
+        running.remember("You", "Run the tests")
+        turn = running.recent()[0]
+        assert turn["type"] == "message"
+        assert isinstance(turn["content"], list)
+        assert turn["content"][0] == {"type": "input_text", "text": "Run the tests"}
+    finally:
+        running.server_close()
+
+
+def test_a_long_conversation_is_trimmed_rather_than_refused(tmp_path):
+    """The startup list takes 8,192 tokens across every message, and no more."""
+    running = server.Bridge(("127.0.0.1", 0), "http://127.0.0.1:1", budget.Ledger(tmp_path / "s.json"))
+    try:
+        for _ in range(live.TURNS_REMEMBERED):
+            running.remember("You", "x" * 5000)
+        kept = running.recent()
+        assert 0 < len(kept) < live.TURNS_REMEMBERED
+        assert sum(len(t["content"][0]["text"]) for t in kept) <= server.HISTORY_CHARACTERS
     finally:
         running.server_close()

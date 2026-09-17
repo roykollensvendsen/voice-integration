@@ -116,3 +116,9 @@ name = "a permission question is noticed however late it arrives"
 file = "src/voice_bridge/server.py"
 find = 'if str\(event\.get\("event", ""\)\)\.startswith\("approval\.request"\):'
 replace = 'if False:'
+
+[[rule]]
+name = "a remembered turn is a message item, not a bare string"
+file = "src/voice_bridge/server.py"
+find = '"type": "message",'
+replace = '"type": "message", "content": text.strip(),'
