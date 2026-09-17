@@ -43,10 +43,21 @@ WATCH_POLL_SECONDS = 0.4
 #: listening for. Heard from the person's side, that is the system saying "I am
 #: starting it" and then never coming back.
 TURN_INSTRUCTIONS = (
-    "This request came in by voice and someone is waiting to hear the answer. "
+    "This request came in by voice. A person is listening and will answer by speaking. "
+    "Never ask them to reply with exact words, a quoted phrase, or a number from a list. "
     "Do the work in this turn and answer with the result. "
     "Do not dispatch background subagents; run the tools yourself and wait for them. "
-    "If it truly cannot be finished now, say in one sentence what you started and what is left."
+    "If it truly cannot be finished now, say in one sentence what you started and what is left. "
+    # Everything below is here because the gateway asked, out loud, for one of
+    # four numbered options containing file paths and hyphenated flags. Nobody
+    # can say that back. A question a person cannot answer is worse than no
+    # question: the work simply stops.
+    "When you need something from the person, ask one short question they can "
+    "answer in a few spoken words. Never require exact wording, never read out a "
+    "numbered list of options, never ask them to say a file path, a flag, a "
+    "setting name or anything with punctuation in it. Offer at most two choices "
+    "and name them in ordinary words. If you need a detail they cannot say, pick "
+    "the sensible default, say which one you picked, and carry on."
 )
 
 #: The startup history is capped at 8,192 tokens across every message. Four
@@ -72,6 +83,19 @@ def still_running(payload: object) -> bool:
 #: gives us, so the gateway is asked to plan against it — which is the whole
 #: argument of ADR-VI-001, arriving here as one HTTP call.
 ROOM = "voice"
+
+
+def as_said(transcript: str) -> str:
+    """What was heard, as the separate things it was, not one run-on line.
+
+    The page sends its turns one to a line. Flattening them into a single
+    sentence produced requests like "can we do something meanwhile yes run
+    claude", which reads as one confused instruction rather than a question and
+    then an answer to a different one.
+    """
+    # RULE: separate things said stay separate when they are sent on
+    said = [line.strip() for line in transcript.splitlines() if line.strip()]
+    return "\n".join(said)
 
 
 def notice(server: Bridge, event: dict[str, Any]) -> None:
@@ -121,7 +145,11 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
         # RULE: only a word that is plainly yes or no answers a permission question
         if answered is not None:
             return resolve_pending(bridge, answered)
-    arguments: dict[str, Any] = {"agent": "hermes-agent", "instruction": transcript.strip(), "room": ROOM}
+    arguments: dict[str, Any] = {
+        "agent": "hermes-agent",
+        "instruction": as_said(transcript),
+        "room": ROOM,
+    }
     (capabilities or Capabilities()).permit("agent_task", arguments)
     planned = gateway.plan("agent_task", arguments, url)
     # RULE: a voice turn asks the gateway to finish inside it
@@ -131,7 +159,7 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     if not run_id:
         return say("agent_task", started)
     if watcher is not None:
-        watcher(str(run_id), transcript.strip())
+        watcher(str(run_id), as_said(transcript))
     # RULE: a delegation waits for the work rather than reading back a receipt
     finished = gateway.wait_for(str(run_id), url, patience)
     if bridge is not None:

@@ -111,7 +111,7 @@ let pc = null, channel = null, holding = "";
 // in the row it belongs to.
 const TURN_GAP_MS = 1200;
 const turns = [];      // {who, text, start, end, row, session}
-let unsent = "";       // what the person has said since the last request
+let unsent = [];       // the turns the person has said since the last request
 
 // Every session starts its own timeline at zero. Comparing a fragment against
 // a turn from an earlier session therefore compares two different clocks, and
@@ -174,7 +174,7 @@ function heard(who, delta, startMs, endMs) {
     last.row.scrollIntoView({ block: "nearest" });
     clearTimeout(last.settle);
     last.settle = setTimeout(() => keep(last), TURN_GAP_MS + 400);
-    return;
+    return last;
   }
   const fresh = { who, text: delta, start: startMs, end: endMs, session, row: show(who, delta) };
   turns.push(fresh);
@@ -182,6 +182,7 @@ function heard(who, delta, startMs, endMs) {
   // and the bridge is what a new session asks for its history.
   clearTimeout(fresh.settle);
   fresh.settle = setTimeout(() => keep(fresh), TURN_GAP_MS + 400);
+  return fresh;
 }
 
 const send = (event) => channel?.readyState === "open" && channel.send(JSON.stringify(event));
@@ -189,8 +190,8 @@ const send = (event) => channel?.readyState === "open" && channel.send(JSON.stri
 // The model asks for help with an identifier and no task text: what was wanted
 // lives in the transcript we have been keeping. docs/voice-contract.md.
 async function answer(delegationId) {
-  const transcript = unsent.trim();
-  unsent = "";
+  const transcript = unsent.map((t) => t.text.trim()).filter(Boolean).join("\n");
+  unsent = [];
   // Work can take ten seconds or more, and silence sounds like a dropped call.
   // A repeated append continues the same delegation, so this is allowed.
   if (holding) send({ type: "session.commentary.append", event_id: `w_${Date.now()}`, delegation_id: delegationId, content: holding });
@@ -207,17 +208,20 @@ async function answer(delegationId) {
   } catch (failure) {
     content = `The bridge did not answer: ${failure.message}`;
   }
-  note("Answer from the agents", content);
+  offer(note("Answer from the agents", content), content);
   send({ type: "session.commentary.append", event_id: `r_${Date.now()}`, delegation_id: delegationId, content });
   if (!finished && runId) waitOn(runId, delegationId);
 }
 
 function onEvent(event) {
   switch (event.type) {
-    case "session.input_transcript.delta":
-      heard("You", event.delta, event.start_ms, event.end_ms);
-      unsent += event.delta ?? "";
+    case "session.input_transcript.delta": {
+      const turn = heard("You", event.delta, event.start_ms, event.end_ms);
+      // Each turn is sent as itself. Gluing them together made one request out
+      // of a question and an answer to a different one.
+      if (turn && !unsent.includes(turn)) unsent.push(turn);
       break;
+    }
     case "session.output_transcript.delta":
       heard("It said", event.delta, event.start_ms, event.end_ms);
       break;
@@ -228,6 +232,53 @@ function onEvent(event) {
 
 // The gateway streams every tool an agent starts and every token it writes.
 // The voice plane must not read that out; this is where it goes instead.
+// The agents sometimes answer with choices — "1) start here 2) start there",
+// or a line asking for an exact phrase. Those are unsayable, and asking them
+// not to only half works, so anything that looks like a choice also becomes
+// something you can tap.
+const CHOICE = /(?:^|\n)\s*(?:\d[).]|[-*\u2022])\s*(.{3,80}?)\s*(?=\n|$)/g;
+const QUOTED = /[«"\u201c]([^»"\u201d\n]{3,60})[»"\u201d]/g;
+
+function choices(text) {
+  const found = [...text.matchAll(CHOICE)].map((m) => m[1]);
+  return (found.length >= 2 ? found : [...text.matchAll(QUOTED)].map((m) => m[1])).slice(0, 6);
+}
+
+function offer(row, content) {
+  const options = choices(content ?? "");
+  if (options.length < 1) return;
+  const buttons = document.createElement("div");
+  buttons.className = "answer";
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = option.length > 40 ? `${option.slice(0, 38)}…` : option;
+    button.title = option;
+    button.onclick = () => {
+      buttons.remove();
+      show("You", option);
+      answerWith(option);
+    };
+    buttons.append(button);
+  }
+  buttons.style.flexWrap = "wrap";
+  row.append(buttons);
+}
+
+// Tapping a choice says it, exactly, without anybody having to pronounce it.
+async function answerWith(text) {
+  const reply = await fetch("/delegation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript: text }),
+  }).then((r) => r.json()).catch((f) => ({ content: String(f) }));
+  const row = note("Answer from the agents", reply.content ?? reply.error ?? "");
+  offer(row, reply.content);
+  send({ type: "session.commentary.append", event_id: `t_${Date.now()}`,
+         delegation_id: null, content: reply.content ?? "" });
+  if (reply.finished === false && reply.run_id) waitOn(reply.run_id, null);
+}
+
 // A permission question is the one row you can answer. Buttons here and a
 // spoken yes or no do the same thing, and the gateway only ever gets "once" or
 // "deny" — never a standing permission. ADR-VI-003.
@@ -277,7 +328,7 @@ async function waitOn(runId, delegationId) {
       return;
     }
     if (body.finished) {
-      note("Answer from the agents", body.content);
+      offer(note("Answer from the agents", body.content), body.content);
       send({ type: "session.commentary.append", event_id: `l_${Date.now()}`,
              delegation_id: delegationId, content: body.content });
       return;
