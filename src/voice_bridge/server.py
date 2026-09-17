@@ -8,6 +8,7 @@ holding two keys small enough to read — which was
     GET  /                the page
     GET  /config          one phrase, in the session's language
     GET  /watch           every run's lifecycle, as server-sent events
+    POST /spent           seconds of open microphone, booked against the month
     POST /session         the browser's WebRTC offer, exchanged for an answer
     POST /delegation      a transcript, answered with something to say aloud
 
@@ -284,6 +285,10 @@ class _Handler(BaseHTTPRequestHandler):
                     self._send(400, {"error": "a permission is answered once or deny"})
                 else:
                     self._send(200, {"content": resolve_pending(self.server, choice)})
+            elif self.path == "/spent":
+                # RULE: an open microphone is booked while it is open
+                self.server.ledger.record(float(body.get("seconds", 0)))
+                self._send(200, {"remaining_usd": round(self.server.ledger.remaining_usd(), 2)})
             elif self.path == "/turn":
                 self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
                 self._send(200, {})

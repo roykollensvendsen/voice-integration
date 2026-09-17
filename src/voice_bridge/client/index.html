@@ -104,6 +104,26 @@ const log = document.getElementById("log");
 
 let pc = null, channel = null, holding = "";
 
+// The ceiling only means something if somebody counts. Nothing did: the ledger
+// had a rule, a test and a mutation row, and no caller — so it always read
+// empty and could never refuse. A session reports while it is open rather than
+// only when it closes, because a tab that is closed abruptly reports nothing.
+const BOOK_EVERY_MS = 60_000;
+let booked = null, booking = null;
+
+async function book() {
+  if (booked === null) return;
+  const seconds = Math.max(0, Math.round((Date.now() - booked) / 1000));
+  if (seconds < 1) return;
+  booked = Date.now();
+  const left = await fetch("/spent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seconds }),
+  }).then((r) => r.json()).catch(() => null);
+  if (left) state.textContent = `listening · $${left.remaining_usd.toFixed(2)} left`;
+}
+
 // Transcript fragments carry start_ms and end_ms on the session timeline, and
 // there is no turn-completed event: the guide says so outright and tells you to
 // group by gap and keep the grouping revisable. So a turn is a run of fragments
@@ -413,9 +433,15 @@ async function start() {
   state.textContent = "listening";
   talk.textContent = "Put it down";
   talk.dataset.live = "yes";
+  booked = Date.now();
+  booking = setInterval(book, BOOK_EVERY_MS);
+  addEventListener("pagehide", book, { once: true });
 }
 
 function stop() {
+  book();
+  clearInterval(booking);
+  booked = booking = null;
   pc?.close();
   pc = channel = null;
   state.textContent = "idle";
