@@ -366,3 +366,12 @@ def test_the_room_can_be_changed_to_leave_a_habit_behind():
     """A room remembers how things were done, and a bad way outlives being told not to."""
     assert server.ROOM, "there is always a room"
     assert "VOICE_BRIDGE_ROOM" in pathlib.Path(server.__file__).read_text()
+
+
+def test_a_voice_turn_asks_for_an_answer_short_enough_to_hear(bridge, hermes):
+    """A wall of command output, cut off mid-number, is the worst of both."""
+    post(f"{bridge}/delegation", {"transcript": "how much disk is free"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "one or two spoken sentences" in asked
+    assert "Never pass on raw command output" in asked
+    assert "Do not explain how you did it" in asked

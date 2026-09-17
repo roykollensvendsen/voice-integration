@@ -45,6 +45,17 @@ WATCH_POLL_SECONDS = 0.4
 #: starting it" and then never coming back.
 TURN_INSTRUCTIONS = (
     "This request came in by voice. A person is listening and will answer by speaking. "
+    # Heard aloud, verbatim: "CLOCK: 2026-09-17T12:38:47+02:00 DISK (/home):
+    # Totalt 692G, Brukt 651G, Ledig 5,6G, 100% brukt MINNE: ..." — a wall of
+    # command output, cut off mid-number by the spoken-length cap. The person's
+    # own words: "why did you give me more information than I asked for".
+    "Answer in one or two spoken sentences and stop. Round numbers and say the "
+    "unit. Never pass on raw command output, a table, a heading, a bullet list, "
+    "a path, a timestamp or a figure to more than two significant digits. If a "
+    "tool gave you a wall of text, read it and say what it means; the detail is "
+    "already on the person's screen. Do not explain how you did it, do not offer "
+    "next steps, and do not describe how the system works unless that is what "
+    "was asked. "
     "Never ask them to reply with exact words, a quoted phrase, or a number from a list. "
     "Do the work in this turn and answer with the result. "
     "Do not dispatch background subagents; run the tools yourself and wait for them. "
@@ -108,7 +119,7 @@ def still_running(payload: object) -> bool:
 #: terminal outweighed both the skill and the instruction telling it not to, and
 #: it kept reaching for a session that no longer existed. Changing the room is
 #: how you stop paying for a habit.
-ROOM = os.environ.get("VOICE_BRIDGE_ROOM", "voice-2")
+ROOM = os.environ.get("VOICE_BRIDGE_ROOM", "voice-3")
 
 
 def as_said(transcript: str) -> str:
