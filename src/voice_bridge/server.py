@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import threading
 import time
 from dataclasses import replace
@@ -50,6 +51,18 @@ TURN_INSTRUCTIONS = (
     # Totalt 692G, Brukt 651G, Ledig 5,6G, 100% brukt MINNE: ..." — a wall of
     # command output, cut off mid-number by the spoken-length cap. The person's
     # own words: "why did you give me more information than I asked for".
+    # Heard aloud: "ID 562691a8-f468-41cb-a58c-b938f929b14a". Nobody can hold
+    # that, write it down or say it back, and nobody needs to.
+    "Never say an identifier out loud — not a session, a run, a process or a "
+    "file path. Nobody can hold one in their head and they are all on the screen. "
+    # Asked in passing whether questions were going to one place, it set up a
+    # standing rule to forward everything there, started a second coding agent,
+    # and began talking to one coding agent through another.
+    "Decide who does each request as it arrives, and never set up a standing "
+    "rule to send everything somewhere until told otherwise. Answer questions "
+    "about this conversation yourself. Send work to a coding agent only when it "
+    "needs a repository, a file or a command, and never reach one coding agent "
+    "through another. "
     "Answer in one or two spoken sentences and stop. Round numbers and say the "
     "unit. Never pass on raw command output, a table, a heading, a bullet list, "
     "a path, a timestamp or a figure to more than two significant digits. If a "
@@ -104,6 +117,24 @@ REMEMBER_FOR_SECONDS = 45 * 60
 #: How many events the screen keeps. A run is a few dozen; a long session is
 #: thousands, and nobody scrolls back that far.
 WATCH_KEPT = 400
+
+
+#: A phrase the last answer demanded back word for word. The gateway keeps
+#: asking for these however often it is told not to, and a person walking down
+#: the street cannot pronounce «Ja, kjør claude» on cue any more than they can
+#: read out a session identifier.
+DEMANDED = re.compile(
+    r"(?:n\u00f8yaktig|eksakt|exactly|precisely|reply with|svar)"
+    r"\s*[:\-]?\s*[\u00ab\"\u201c]"
+    r"([^\u00bb\"\u201d\n]{2,60})[\u00bb\"\u201d]",
+    re.IGNORECASE,
+)
+
+
+def demanded_phrase(spoken: str) -> str | None:
+    """The words an answer insisted on hearing back, if it insisted on any."""
+    found = DEMANDED.search(spoken)
+    return found.group(1).strip() if found else None
 
 
 def still_running(payload: object) -> bool:
@@ -178,6 +209,10 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
         return "I did not catch that."
     # A question that is waiting takes precedence over a new request: "yes" is
     # an answer to it, not a thing to go and do.
+    # An answer that demanded a phrase gets that phrase, said for the person.
+    if bridge is not None and bridge.demanded and live.answer_to_a_question(transcript) == "once":
+        # RULE: a phrase the gateway demanded is said for the person, not by them
+        transcript, bridge.demanded = bridge.demanded, None
     if bridge is not None and bridge.awaiting:
         answered = live.answer_to_a_question(transcript)
         # RULE: only a word that is plainly yes or no answers a permission question
@@ -205,7 +240,10 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
             bridge.awaiting = str(run_id)
         # RULE: a turn is finished only when the run behind it is
         bridge.following = str(run_id) if still_running(finished) else None
-    return say("run_status", finished)
+    spoken = say("run_status", finished)
+    if bridge is not None:
+        bridge.demanded = demanded_phrase(str((finished or {}).get("output") or spoken))
+    return spoken
 
 
 def keep_waiting(run_id: str, url: str, patience: float = gateway.PATIENCE_SECONDS) -> tuple[str, bool]:
@@ -339,6 +377,8 @@ class Bridge(ThreadingHTTPServer):
         self.awaiting: str | None = None
         #: The run the last request left unfinished, if it left one.
         self.following: str | None = None
+        #: A phrase the last answer insisted on hearing back word for word.
+        self.demanded: str | None = None
 
     def remember(self, who: str, text: str) -> None:
         """Keep a turn, so the next session can be given it."""

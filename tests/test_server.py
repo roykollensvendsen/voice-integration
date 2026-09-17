@@ -391,3 +391,40 @@ def test_the_page_reports_its_own_time_rather_than_waiting_to_be_closed(bridge):
     assert '"/spent"' in page, "somebody has to count"
     assert "setInterval(book, BOOK_EVERY_MS)" in page, "a closed tab reports nothing"
     assert 'addEventListener("pagehide", book' in page
+
+
+def test_a_voice_turn_forbids_identifiers_and_standing_routing(bridge, hermes):
+    """It read a session UUID aloud, then forwarded everything to it, then chained two."""
+    post(f"{bridge}/delegation", {"transcript": "what does this project do"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "Never say an identifier out loud" in asked
+    assert "never set up a standing" in asked
+    assert "never reach one coding agent" in asked
+
+
+def test_a_phrase_the_gateway_demanded_is_said_for_the_person_not_by_them(url, tmp_path, hermes):
+    """It kept asking for «Ja, kjør claude» back word for word, four instructions later."""
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        running.demanded = "Ja, kjør claude"
+        server.answer_delegation("ja", url, bridge=running)
+        assert hermes.seen[0][1]["input"] == "Ja, kjør claude"
+        assert running.demanded is None
+    finally:
+        running.server_close()
+
+
+def test_a_phrase_is_only_said_for_somebody_who_agreed(url, tmp_path, hermes):
+    running = server.Bridge(("127.0.0.1", 0), url, budget.Ledger(tmp_path / "s.json"))
+    try:
+        running.demanded = "Ja, kjør claude"
+        server.answer_delegation("what does this project do", url, bridge=running)
+        assert hermes.seen[0][1]["input"] == "what does this project do"
+    finally:
+        running.server_close()
+
+
+def test_the_demanded_phrase_is_read_out_of_the_answer():
+    assert server.demanded_phrase("Svar nøyaktig: «Ja, kjør claude»") == "Ja, kjør claude"
+    assert server.demanded_phrase('reply with "Try without tmux"') == "Try without tmux"
+    assert server.demanded_phrase("It says the disk is full.") is None
