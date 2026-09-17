@@ -44,10 +44,17 @@ a later job rather than an alternative.
 
 ## Decision
 
-The bridge answers three kinds of question itself and sends everything else on:
-the time, what is left of the month, and whether anything is running. Only a
-question shorter than sixty characters qualifies, so a long question containing
-the word "time" still travels.
+The bridge answers five kinds of question itself and sends everything else on.
+
+Three it simply knows, in under a millisecond: the time, what is left of the
+month, and whether anything is running. Only a question shorter than sixty
+characters qualifies, so a long question containing the word "time" still
+travels.
+
+Two it fetches. Where the person is, from coordinates the browser was allowed to
+give, turned into a name somebody can say. And what the web says, through one
+search call rather than an agent — six seconds rather than twelve, and no
+repository is read to answer who won a motor race.
 
 ## Consequences
 
@@ -60,6 +67,13 @@ harnesses would not each have to be trusted to behave; this is a second place
 where a decision is made, and it is a place with no permission layer because it
 never touches anything. The list stays short for exactly that reason, and adding
 to it is a decision rather than a commit.
+
+The position is the part that needs watching. It is asked for once when the
+microphone is taken, by the browser, of the person; it is held in this process
+and written nowhere; and declining is answered with "I do not know where you
+are" rather than a guess. None of that makes it less sensitive, and it is the
+first thing here that would matter if the bridge were ever reachable by somebody
+else.
 
 The other cost is a wrong answer given confidently. A question matching one of
 these phrases is answered here even if the person meant something else, and
