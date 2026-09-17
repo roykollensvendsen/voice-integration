@@ -194,7 +194,7 @@ async function answer(delegationId) {
   // Work can take ten seconds or more, and silence sounds like a dropped call.
   // A repeated append continues the same delegation, so this is allowed.
   if (holding) send({ type: "session.commentary.append", event_id: `w_${Date.now()}`, delegation_id: delegationId, content: holding });
-  let content;
+  let content, runId = null, finished = true;
   try {
     const reply = await fetch("/delegation", {
       method: "POST",
@@ -203,11 +203,13 @@ async function answer(delegationId) {
     });
     const body = await reply.json();
     content = reply.ok ? body.content : `I could not do that: ${body.error}`;
+    ({ run_id: runId, finished } = body);
   } catch (failure) {
     content = `The bridge did not answer: ${failure.message}`;
   }
   note("Answer from the agents", content);
   send({ type: "session.commentary.append", event_id: `r_${Date.now()}`, delegation_id: delegationId, content });
+  if (!finished && runId) waitOn(runId, delegationId);
 }
 
 function onEvent(event) {
@@ -254,6 +256,34 @@ function asking(row, event) {
     buttons.append(button);
   }
   row.append(buttons);
+}
+
+// Work can take minutes. Asking the person to come back and ask again is not
+// an interface; the answer arrives on its own, as another append continuing the
+// same delegation, which is what the guide allows repeated appends for.
+const LONGEST_WAIT_MS = 15 * 60 * 1000;
+
+async function waitOn(runId, delegationId) {
+  const until = Date.now() + LONGEST_WAIT_MS;
+  while (Date.now() < until) {
+    let body;
+    try {
+      body = await fetch("/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_id: runId }),
+      }).then((r) => r.json());
+    } catch {
+      return;
+    }
+    if (body.finished) {
+      note("Answer from the agents", body.content);
+      send({ type: "session.commentary.append", event_id: `l_${Date.now()}`,
+             delegation_id: delegationId, content: body.content });
+      return;
+    }
+  }
+  note("Gave up waiting", "still running after fifteen minutes");
 }
 
 // One row in the panel underneath, in words rather than event names.

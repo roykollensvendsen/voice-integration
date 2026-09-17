@@ -71,7 +71,9 @@ def _status(payload: dict[str, Any]) -> str:
         first = next((line for line in command.splitlines() if line.strip()), "something")
         return f"It needs your permission to run {first.strip()}. Say yes or no."
     if state in ("queued", "running"):
-        return f"Still working. Ask me about {payload.get('run_id', 'that run')}."
+        # No identifier: the answer arrives on its own, so there is nothing for
+        # the person to address. The identifier is on the screen if they want it.
+        return "Still working. I will tell you when it is done."
     failure = payload.get("error")
     if failure:
         detail = failure.get("message", "") if isinstance(failure, dict) else str(failure)

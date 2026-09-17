@@ -27,7 +27,9 @@ def test_a_spoken_task_starts_a_run_and_answers_with_its_identifier(url, hermes,
 
 
 def test_the_person_can_ask_what_a_run_is_doing(url, run_id):
-    assert gateway.call("run_status", {"run_id": run_id}, url) == (f"Still working. Ask me about {run_id}.")
+    assert gateway.call("run_status", {"run_id": run_id}, url) == (
+        "Still working. I will tell you when it is done."
+    )
     assert gateway.call("run_status", {"run_id": run_id}, url) == "The tests pass."
 
 

@@ -44,9 +44,14 @@ fails when this table and that tuple disagree.
 
 Step 3 waits. A run is started and answered immediately with an identifier, and
 an identifier is not an answer — nobody asks a question out loud in order to be
-given a reference number. So the bridge polls the run and speaks its output,
-and only hands the identifier back when the work outlasts
-`gateway.PATIENCE_SECONDS`, which is what identifiers were for.
+given a reference number. So the bridge polls the run and speaks its output.
+
+Work that outlasts `gateway.PATIENCE_SECONDS` does not end the turn. The voice
+says it is still going and will say when it is done, and the page keeps asking
+the bridge until it is, then appends the answer as a second commentary on the
+same delegation. Nobody has to remember a run identifier or ask again; that is
+what repeated appends are for. The identifier stays on the screen, where it is
+addressable without being spoken.
 
 Waiting is not silence. The page appends a holding line the moment a delegation
 arrives, because a slow answer with nothing said is indistinguishable from a

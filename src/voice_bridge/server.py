@@ -62,6 +62,12 @@ REMEMBER_FOR_SECONDS = 45 * 60
 #: thousands, and nobody scrolls back that far.
 WATCH_KEPT = 400
 
+
+def still_running(payload: object) -> bool:
+    """Whether there is more to come, so somebody should keep waiting."""
+    return isinstance(payload, dict) and payload.get("status") in ("queued", "running")
+
+
 #: How a delegation becomes work. The transcript is the only thing the model
 #: gives us, so the gateway is asked to plan against it — which is the whole
 #: argument of ADR-VI-001, arriving here as one HTTP call.
@@ -128,9 +134,18 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
         watcher(str(run_id), transcript.strip())
     # RULE: a delegation waits for the work rather than reading back a receipt
     finished = gateway.wait_for(str(run_id), url, patience)
-    if bridge is not None and isinstance(finished, dict) and finished.get("status") == "waiting_for_approval":
-        bridge.awaiting = str(run_id)
+    if bridge is not None:
+        if isinstance(finished, dict) and finished.get("status") == "waiting_for_approval":
+            bridge.awaiting = str(run_id)
+        # RULE: a turn is finished only when the run behind it is
+        bridge.following = str(run_id) if still_running(finished) else None
     return say("run_status", finished)
+
+
+def keep_waiting(run_id: str, url: str, patience: float = gateway.PATIENCE_SECONDS) -> tuple[str, bool]:
+    """Wait another stretch for a run, and say what to speak and whether to stop."""
+    seen = gateway.wait_for(run_id, url, patience)
+    return say("run_status", seen), not still_running(seen)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -208,6 +223,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
                 self._send(200, {})
             elif self.path == "/delegation":
+                self.server.following = None
                 spoken = answer_delegation(
                     str(body.get("transcript", "")),
                     self.server.gateway_url,
@@ -215,7 +231,17 @@ class _Handler(BaseHTTPRequestHandler):
                     watcher=self.server.follow,
                     bridge=self.server,
                 )
-                self._send(200, {"content": spoken})
+                self._send(
+                    200,
+                    {
+                        "content": spoken,
+                        "run_id": self.server.following,
+                        "finished": self.server.following is None,
+                    },
+                )
+            elif self.path == "/run":
+                spoken, done = keep_waiting(str(body.get("run_id", "")), self.server.gateway_url)
+                self._send(200, {"content": spoken, "finished": done})
             else:
                 self._send(404, {"error": "no such path"})
         except Refused as refusal:
@@ -241,6 +267,8 @@ class Bridge(ThreadingHTTPServer):
         self.spoken: list[tuple[float, dict[str, Any]]] = []
         #: The run whose permission question is open, if one is.
         self.awaiting: str | None = None
+        #: The run the last request left unfinished, if it left one.
+        self.following: str | None = None
 
     def remember(self, who: str, text: str) -> None:
         """Keep a turn, so the next session can be given it."""

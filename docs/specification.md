@@ -154,9 +154,13 @@ Three normative rules fall straight out of those numbers.
    is the cap and it is 320 characters, which is one or two sentences and an
    identifier. Output audio is the most expensive token there is and the one a
    listener is least able to skip.
-3. **Nothing is read aloud that was not written to be heard.** Agent output,
-   diffs, logs and stack traces reach the laptop view. The voice plane gets the
-   fact that they exist and the identifier that fetches them.
+3. **A person is never asked to come back and ask again.** Work that outlasts
+   the wait is spoken when it lands, not left as a reference number. The voice
+   is what a person is using; making them poll it is making them do the
+   computer's job.
+4. **Nothing is read aloud that was not written to be heard.** Agent output,
+   diffs, logs and stack traces reach the screen. The voice plane gets the fact
+   that they exist and the identifier that fetches them.
 
 The corollary nobody likes: there is no cheaper model to fall back to
 ([ADR-VI-017](../decisions/ADR-VI-017-the-voice-model-is-gpt-live-1.md)). The
