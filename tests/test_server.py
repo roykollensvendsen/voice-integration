@@ -428,3 +428,11 @@ def test_the_demanded_phrase_is_read_out_of_the_answer():
     assert server.demanded_phrase("Svar nøyaktig: «Ja, kjør claude»") == "Ja, kjør claude"
     assert server.demanded_phrase('reply with "Try without tmux"') == "Try without tmux"
     assert server.demanded_phrase("It says the disk is full.") is None
+
+
+def test_small_talk_the_voice_answered_itself_never_reaches_the_agents(bridge):
+    """Ten chatted turns once arrived as one request because nothing cleared them."""
+    with urllib.request.urlopen(bridge, timeout=10) as reply:
+        page = reply.read().decode()
+    assert "if (unsent.length) unsent = [];" in page
+    assert page.index("session.output_transcript.delta") < page.index('heard("It said"')

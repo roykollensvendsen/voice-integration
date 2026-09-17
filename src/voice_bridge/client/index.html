@@ -243,6 +243,11 @@ function onEvent(event) {
       break;
     }
     case "session.output_transcript.delta":
+      // The voice answering is the turn being finished. Whatever was said
+      // before it has been dealt with, and must not ride along with the next
+      // request — ten turns of small talk once reached the agents as one
+      // confused instruction because nothing cleared this.
+      if (unsent.length) unsent = [];
       heard("It said", event.delta, event.start_ms, event.end_ms);
       break;
     case "session.delegation.created": answer(event.delegation.id); break;
