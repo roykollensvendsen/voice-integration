@@ -122,6 +122,23 @@ def test_a_session_still_working_is_not_quoted_until_it_has_answered(bridge, cla
     assert "build-7c" in spoken
 
 
+def test_a_busy_session_has_answered_as_soon_as_it_writes_something_after_the_question(bridge, claude_voice):
+    """A session that never goes idle had its answer held back for good."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.output = {
+        "turns": [
+            {"index": 5, "role": "assistant", "text": "Du kan snakke med tre økter."},
+            {"index": 6, "role": "assistant", "text": "Nå retter jeg noe annet."},
+        ],
+        "next_after": 6,
+        "status": "busy",
+    }
+    say(bridge, "list øktene")
+    spoken, done = server.keep_waiting(bridge.following, bridge.gateway_url, bridge=bridge, patience=5)
+    assert (spoken, done) == ("Du kan snakke med tre økter.", True)
+
+
 def test_news_and_permission_answers_come_first_whatever_is_chosen(bridge, claude_voice):
     say(bridge, "snakk med build-7c")
     bridge.hear(NEWS)
