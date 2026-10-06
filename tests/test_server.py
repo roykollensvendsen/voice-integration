@@ -370,8 +370,17 @@ def test_a_voice_turn_asks_for_questions_a_person_can_say(bridge, hermes):
     assert "say a file path" in asked
     assert "Do not ask the person to choose how you do something" in asked
     assert "Ask only about things that are theirs" in asked
-    assert "Reach a coding agent in print mode" in asked
+    assert "reach a coding agent in print mode" in asked
     assert "--resume <session-id>" in asked
+
+
+def test_a_running_session_is_reached_through_claude_voice_not_a_fresh_claude(bridge, hermes):
+    """Asked to list the sessions, it started a new `claude -p` to go and look."""
+    post(f"{bridge}/delegation", {"transcript": "list the sessions"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "use the claude_voice tools" in asked
+    assert "Never start a new `claude -p` to find out about other sessions" in asked
+    assert "without asking first" in asked
 
 
 def test_a_choice_the_agents_offer_can_be_tapped_instead_of_pronounced(bridge):
