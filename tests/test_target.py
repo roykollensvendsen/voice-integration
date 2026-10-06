@@ -272,6 +272,11 @@ def test_the_page_shows_who_you_are_talking_to_and_lets_you_tap_another():
     assert 'e.kind === "tree_changed"' in page
 
 
+def test_the_page_tells_the_voice_who_it_speaks_for_when_that_changes():
+    page = server.PAGE.read_text()
+    assert "body.steer !== steered" in page
+
+
 def test_the_page_matches_an_acknowledgement_by_the_id_it_sent():
     """Every answer was marked lost and said twice: the id comes back as client_event_id."""
     page = server.PAGE.read_text()

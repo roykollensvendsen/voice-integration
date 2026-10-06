@@ -272,3 +272,9 @@ name = "a turn to a session says who is speaking and that the answer is read alo
 file = "src/voice_bridge/server.py"
 find = '\{"session": chosen\.name, "message": relayed\(bridge, transcript\), "wait_seconds": ASK_SECONDS\},'
 replace = '{"session": chosen.name, "message": as_said(transcript), "wait_seconds": ASK_SECONDS},'
+
+[[rule]]
+name = "a chosen session hears everything that is said"
+file = "src/voice_bridge/server.py"
+find = 'steer=target\.steer\(self\.server\.chosen\),'
+replace = 'steer="",'

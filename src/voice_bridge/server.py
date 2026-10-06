@@ -646,6 +646,7 @@ class _Handler(BaseHTTPRequestHandler):
             ],
             "tree": self.server.tree(),
             "voice": self.server.voice_now(),
+            "steer": target.steer(self.server.chosen),
             "voices": self.server.voices,
             "available": list(live.VOICES),
         }
@@ -698,9 +699,17 @@ class _Handler(BaseHTTPRequestHandler):
                     history=self.server.recent(),
                     # RULE: a session opens in the voice of the chosen target
                     voice=self.server.voice_now(),
+                    # RULE: a chosen session hears everything that is said
+                    steer=target.steer(self.server.chosen),
                 )
                 self._send(
-                    200, {"sdp": sdp, "resumed": len(self.server.recent()), "voice": self.server.voice_now()}
+                    200,
+                    {
+                        "sdp": sdp,
+                        "resumed": len(self.server.recent()),
+                        "voice": self.server.voice_now(),
+                        "steer": target.steer(self.server.chosen),
+                    },
                 )
             elif self.path == "/approval":
                 self._send(*self._approval(body))
