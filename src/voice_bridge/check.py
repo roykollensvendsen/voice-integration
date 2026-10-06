@@ -1,11 +1,12 @@
 """The project's own check: the documents and the code have to say the same thing.
 
-Three facts are written down twice here, because a reader needs them in prose
+Four facts are written down twice here, because a reader needs them in prose
 and the program needs them in code. Each pair is compared, so the copy cannot
 quietly go stale:
 
 * the voice tools, in `docs/voice-contract.md` and in `voice_bridge.contract`
 * the gateway endpoints, in `docs/hermes-contract.md` and in `voice_bridge.gateway`
+* the claude-voice tools, in `docs/claude-voice-contract.md` and in `voice_bridge.sessions`
 * the rules, marked `# RULE:` in the source and rowed in `scripts/mutations.toml`
 * every rule, against a test in `tests/` named after it
 
@@ -28,6 +29,7 @@ import tomllib
 
 from voice_bridge.contract import BY_NAME
 from voice_bridge.gateway import BESIDES_THE_TOOLS
+from voice_bridge.sessions import TOOLS as CLAUDE_VOICE_TOOLS
 
 ANCHOR = "<!-- normative: {} -->"
 _ROW = re.compile(r"^\|\s*`([^`]+)`")
@@ -114,6 +116,15 @@ def report(root: pathlib.Path) -> list[str]:
             table_after(root / "docs/hermes-contract.md", "gateway paths", _PATH_ROW),
             "docs/hermes-contract.md",
             {tool.path for tool in BY_NAME.values()} | set(BESIDES_THE_TOOLS),
+            "the code",
+        )
+    )
+    lines.append(
+        _compare(
+            "claude-voice tools",
+            table_after(root / "docs/claude-voice-contract.md", "claude-voice tools", _ROW),
+            "docs/claude-voice-contract.md",
+            set(CLAUDE_VOICE_TOOLS),
             "the code",
         )
     )

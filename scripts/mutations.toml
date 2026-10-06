@@ -182,3 +182,39 @@ name = "the page may only report events in its own name"
 file = "src/voice_bridge/server.py"
 find = 'if reported not in PAGE_EVENTS:'
 replace = 'if False:'
+
+[[rule]]
+name = "the bridge calls claude-voice only to hear news and answer one request"
+file = "src/voice_bridge/sessions.py"
+find = 'if tool not in TOOLS:'
+replace = 'if False:'
+
+[[rule]]
+name = "an approval number is never read aloud"
+file = "src/voice_bridge/sessions.py"
+find = 'text = _ASKING\.sub\(" Yes or no\?", text\)'
+replace = 'return text'
+
+[[rule]]
+name = "old news is never read out"
+file = "src/voice_bridge/sessions.py"
+find = 'happened = \(got\.get\("events"\) or \[\]\) if cursor else \[\]'
+replace = 'happened = got.get("events") or []'
+
+[[rule]]
+name = "a spoken answer settles a coding session only when one request waits"
+file = "src/voice_bridge/server.py"
+find = 'if len\(bridge\.asked\) > 1:'
+replace = 'if False:'
+
+[[rule]]
+name = "a plain yes or no answers the coding session that asked"
+file = "src/voice_bridge/server.py"
+find = 'return answer_session\(bridge, answered\)'
+replace = 'return None'
+
+[[rule]]
+name = "a button answers only a request the bridge was told about"
+file = "src/voice_bridge/server.py"
+find = 'if asked not in self\.server\.asked:'
+replace = 'if False:'

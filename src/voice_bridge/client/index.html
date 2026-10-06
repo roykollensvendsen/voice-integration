@@ -154,6 +154,7 @@ const PLAINLY = {
   "approval.requested": "Waiting for your permission",
   "approval.resolved": "You answered",
   "watch.lost": "Lost track of that one",
+  "claude.lost": "Cannot reach the coding sessions",
   "voice.told": "The voice has it",
   "voice.unheard": "The voice did not confirm — saying it again",
   "voice.lost": "The voice never took it",
@@ -397,8 +398,9 @@ async function answerWith(text) {
 
 // A permission question is the one row you can answer. Buttons here and a
 // spoken yes or no do the same thing, and the gateway only ever gets "once" or
-// "deny" — never a standing permission. ADR-VI-003.
-function asking(row, event) {
+// "deny" — never a standing permission. ADR-VI-003. A request from a coding
+// session carries its own number, so its buttons answer that one and no other.
+function asking(row, event, approvalId = null) {
   row.dataset.asking = "yes";
   const command = String(event.approval?.command ?? event.command ?? event.preview ?? "");
   if (command) row.querySelector(".what").textContent = command.split("\n").find((l) => l.trim()) ?? command;
@@ -414,7 +416,7 @@ function asking(row, event) {
       const reply = await fetch("/approval", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ choice }),
+        body: JSON.stringify(approvalId == null ? { choice } : { choice, approval_id: approvalId }),
       }).then((r) => r.json()).catch((f) => ({ content: String(f) }));
       note(label, reply.content ?? reply.error ?? "");
       tell(null, reply.content ?? "");
@@ -464,6 +466,22 @@ function note(kind, detail) {
   return row;
 }
 
+// News from Claude Code sessions run elsewhere on this machine, which the
+// bridge hears from claude-voice. ADR-VI-024. A stream that reconnects replays
+// everything it already sent, so only news newer than the last seen is new, and
+// it is said only to a microphone that is open. Which kinds are said at all is
+// the bridge's decision, carried as `aloud`.
+let newsSeen = 0;
+
+function heardNews(e) {
+  const fresh = e.seq > newsSeen;
+  newsSeen = Math.max(newsSeen, e.seq);
+  const row = note(`From ${e.session}`, e.said);
+  row.dataset.kind = e.event;
+  if (e.kind === "needs_approval" && e.approval_id != null) asking(row, e, e.approval_id);
+  if (fresh && pc && e.aloud) tell(null, e.said);
+}
+
 function watch() {
   const stream = new EventSource("/watch");
   let writing = null;
@@ -476,6 +494,7 @@ function watch() {
       return;
     }
     writing = null;
+    if (e.event === "claude.news") return heardNews(e);
     const detail = e.asked ?? e.preview ?? e.why ?? e.detail ?? "";
     const row = note(plainly(e), String(detail));
     row.dataset.kind = e.event ?? "";

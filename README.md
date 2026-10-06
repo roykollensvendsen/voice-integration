@@ -134,8 +134,9 @@ rule has to have a test that names it:
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed
-rules: 27 in the source, 27 in scripts/mutations.toml, agreed
-rule tests: 27 rules, each with a test named after it
+claude-voice tools: 3 in docs/claude-voice-contract.md, 3 in the code, agreed
+rules: 33 in the source, 33 in scripts/mutations.toml, agreed
+rule tests: 33 rules, each with a test named after it
 ```
 
 The rest of the gates, and how a change is made, are in

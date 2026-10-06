@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from voice_bridge import gateway, live, quick
+from voice_bridge import gateway, live, quick, sessions
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
 from voice_bridge.speech import say
@@ -225,15 +225,38 @@ def said_for_them(bridge: Bridge, transcript: str) -> str:
     return transcript
 
 
+def answer_session(bridge: Bridge, choice: str, approval_id: str | None = None) -> str:
+    """Answer a request a Claude Code session is waiting on, through claude-voice."""
+    if approval_id is None:
+        # RULE: a spoken answer settles a coding session only when one request waits
+        if len(bridge.asked) > 1:
+            return f"{len(bridge.asked)} requests are waiting. Answer each with its own button on the screen."
+        approval_id = next(iter(bridge.asked), None)
+    if approval_id is None or approval_id not in bridge.asked or bridge.sessions is None:
+        return "There is nothing waiting for permission."
+    heard = bridge.asked.pop(approval_id)
+    try:
+        bridge.sessions.call("approve" if choice == "once" else "deny", {"approval_id": approval_id})
+    except Refused:
+        return "That request is no longer waiting."
+    except OSError:
+        bridge.asked[approval_id] = heard
+        return "I could not reach the coding sessions."
+    return "Allowed, once." if choice == "once" else "Refused."
+
+
 def pending_answer(bridge: Bridge, transcript: str) -> str | None:
     """Resolve a waiting permission question, if this was an answer to one."""
-    if not bridge.awaiting:
+    if not bridge.awaiting and not bridge.asked:
         return None
     answered = live.answer_to_a_question(transcript)
     # RULE: only a word that is plainly yes or no answers a permission question
     if answered is None:
         return None
-    return resolve_pending(bridge, answered)
+    if bridge.awaiting:
+        return resolve_pending(bridge, answered)
+    # RULE: a plain yes or no answers the coding session that asked
+    return answer_session(bridge, answered)
 
 
 def answered_here(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
@@ -388,6 +411,20 @@ class _Handler(BaseHTTPRequestHandler):
         self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
         return {}
 
+    def _approval(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Answer a permission question from a button, with once or deny and nothing else."""
+        choice = str(body.get("choice", ""))
+        if choice not in ("once", "deny"):
+            return 400, {"error": "a permission is answered once or deny"}
+        if "approval_id" not in body:
+            return 200, {"content": resolve_pending(self.server, choice)}
+        asked = str(body["approval_id"])
+        # RULE: a button answers only a request the bridge was told about
+        if asked not in self.server.asked:
+            refusal = "that request was never asked here"
+            raise Refused(refusal)
+        return 200, {"content": answer_session(self.server, choice, asked)}
+
     def do_POST(self) -> None:
         """Open a session, or answer a delegation."""
         try:
@@ -398,12 +435,7 @@ class _Handler(BaseHTTPRequestHandler):
                 )
                 self._send(200, {"sdp": sdp, "resumed": len(self.server.recent())})
             elif self.path == "/approval":
-                choice = str(body.get("choice", ""))
-                if choice not in ("once", "deny"):
-                    self._send(400, {"error": "a permission is answered once or deny"})
-                else:
-                    self._send(200, {"content": resolve_pending(self.server, choice)})
-
+                self._send(*self._approval(body))
             elif self.path in ("/where", "/turn", "/spent", "/noticed"):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
@@ -458,6 +490,11 @@ class Bridge(ThreadingHTTPServer):
         #: Where the person is, if the browser was allowed to say. Held here and
         #: nowhere else: never written to disk, never sent to an agent.
         self.placed: str | None = None
+        #: claude-voice, when there is a token to reach it with. ADR-VI-024.
+        self.sessions: sessions.Client | None = None
+        #: Requests Claude Code sessions are waiting on, by number, with what was said.
+        self.asked: dict[str, str] = {}
+        self.told = 0
 
     def remember(self, who: str, text: str) -> None:
         """Keep a turn, for whoever needs to know what was already said."""
@@ -515,3 +552,45 @@ class Bridge(ThreadingHTTPServer):
                 notice(self, {"event": "watch.lost", "run_id": run_id, "why": str(failure)})
 
         threading.Thread(target=read, daemon=True).start()
+
+    def hear(self, news: list[dict[str, Any]]) -> None:
+        """Put news from the coding sessions where the page will find it."""
+        for item in news:
+            if item.get("kind") == "needs_approval" and item.get("approval_id") is not None:
+                self.asked[str(item["approval_id"])] = str(item.get("text", ""))
+            elif item.get("kind") == "approval_expired":
+                # Refused for nobody answering, so a yes can no longer reach it.
+                self.asked.pop(str(item.get("approval_id")), None)
+            self.told += 1
+            notice(
+                self,
+                {
+                    "event": "claude.news",
+                    "seq": self.told,
+                    "session": str(item.get("session", "")),
+                    "kind": str(item.get("kind", "")),
+                    "said": str(item.get("text", "")),
+                    "aloud": item.get("kind") in sessions.SPOKEN,
+                    "approval_id": item.get("approval_id"),
+                },
+            )
+
+    def listen(self, client: sessions.Client, every: float = sessions.POLL_SECONDS) -> None:
+        """Ask claude-voice what is new, on its own thread, for as long as this runs."""
+        self.sessions = client
+
+        def poll() -> None:
+            cursor: str | None = None
+            lost = False
+            while True:
+                try:
+                    cursor, news = sessions.news(client, cursor)
+                    lost = False
+                    self.hear(news)
+                except (OSError, Refused, ValueError) as failure:
+                    if not lost:
+                        notice(self, {"event": "claude.lost", "why": str(failure)})
+                    lost = True
+                time.sleep(every)
+
+        threading.Thread(target=poll, daemon=True).start()
