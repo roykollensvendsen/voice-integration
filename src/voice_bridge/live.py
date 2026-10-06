@@ -169,6 +169,7 @@ def session_config(
     language: str | None = None,
     history: list[dict[str, object]] | None = None,
     voice: str = "marin",
+    steer: str = "",
 ) -> dict[str, object]:
     """What the session is created with, and deliberately nothing more."""
     return {
@@ -179,7 +180,7 @@ def session_config(
         # Client delegation: the backend is ours, so the Live session is told
         # about no tools at all. ADR-VI-019 is why.
         "delegation": {"type": "client"},
-        "instructions": instructions(language),
+        "instructions": f"{instructions(language)}\n\n{steer}" if steer else instructions(language),
     }
 
 
@@ -191,6 +192,7 @@ def open_session(  # noqa: PLR0913 — the voice joined five that each change wh
     history: list[dict[str, object]] | None = None,
     *,
     voice: str = "marin",
+    steer: str = "",
 ) -> str:
     """Exchange the page's offer for an answer, or refuse and say why."""
     # RULE: the month is checked before a session is opened
@@ -202,7 +204,7 @@ def open_session(  # noqa: PLR0913 — the voice joined five that each change wh
     body = json.dumps(
         {
             "transport": {"type": "webrtc", "sdp": offer_sdp},
-            "session": session_config(language, history, voice),
+            "session": session_config(language, history, voice, steer),
         }
     )
     request = urllib.request.Request(

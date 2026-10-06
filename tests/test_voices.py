@@ -43,6 +43,7 @@ def test_a_session_is_configured_with_the_voice_it_is_given():
 def test_a_session_opens_in_the_voice_of_the_chosen_target(bridge, monkeypatch):
     opened = []
     monkeypatch.setattr(live, "open_session", lambda *_a, voice, **_k: opened.append(voice) or "v=0")
+
     thread = threading.Thread(target=bridge.serve_forever, daemon=True)
     thread.start()
     try:
@@ -57,6 +58,36 @@ def test_a_session_opens_in_the_voice_of_the_chosen_target(bridge, monkeypatch):
         thread.join(timeout=5)
     assert opened == ["cedar", "quartz", "marin"]
     assert body["voice"] == "quartz"
+
+
+def test_a_chosen_session_hears_everything_that_is_said(bridge, monkeypatch):
+    """The voice answered most things itself, and the chosen session saw almost nothing."""
+    steered = []
+    monkeypatch.setattr(live, "open_session", lambda *_a, steer, **_k: steered.append(steer) or "v=0")
+    say(bridge, "snakk med build-7c")
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        post(f"http://127.0.0.1:{bridge.server_port}/session", {"sdp": "v=0"})
+        with urllib.request.urlopen(f"http://127.0.0.1:{bridge.server_port}/target", timeout=10) as reply:
+            listed = json.loads(reply.read())
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert "build-7c" in steered[0]
+    assert "aldri selv" in steered[0]
+    assert listed["steer"] == steered[0]
+
+
+def test_the_voice_alone_answers_by_itself_but_still_passes_on_yes_and_no():
+    said = target.steer(target.Target("voice"))
+    assert "svar selv" in said
+    assert "ja eller nei" in said
+
+
+def test_a_session_is_configured_with_what_it_is_told_about_the_target():
+    told = live.session_config(steer="Du er bare en stemme.")["instructions"]
+    assert told.endswith("Du er bare en stemme.")
 
 
 def test_which_voices_are_there_is_answered_with_the_names(bridge, hermes):
