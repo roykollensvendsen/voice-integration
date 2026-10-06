@@ -73,6 +73,9 @@
   #tree button[data-chosen="true"] { border-color: var(--live); color: var(--live); }
   #tree .cost, #tree .status { color: var(--dim); font-size: .75rem; }
   #tree .cost { margin-left: auto; white-space: nowrap; }
+  .voices { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin-top: .6rem; font-size: .8rem; color: var(--dim); }
+  .voices select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
+                   border-radius: .3rem; padding: .1rem .3rem; }
 </style>
 
 <h1>voice-bridge</h1>
@@ -83,6 +86,7 @@
 <section id="who" aria-label="Who you are talking to">
   <div class="now">Du snakker med <strong id="chosen">…</strong></div>
   <ul id="tree"></ul>
+  <div id="voices" class="voices"></div>
 </section>
 
 <nav id="tabs" aria-label="Which side to show">
@@ -546,11 +550,44 @@ function drawWho(sessions, nodes) {
   tree.replaceChildren(...items);
 }
 
+// Each kind of target speaks with its own voice, so you hear who is answering.
+// A voice is fixed for the life of a session, so when the chosen target needs a
+// different one, the session is closed and opened again with the conversation
+// so far. ADR-VI-027.
+const voicesBox = document.getElementById("voices");
+const VOICE_FOR = [["voice", "Stemmen"], ["hermes", "Hermes"], ["session", "Claude-økt"]];
+let speaking = null;
+
+function drawVoices(voices, available) {
+  voicesBox.replaceChildren(...VOICE_FOR.map(([kind, label]) => {
+    const pick = document.createElement("label");
+    const menu = document.createElement("select");
+    for (const name of available) menu.append(new Option(name, name, false, voices[kind] === name));
+    menu.onchange = async () => {
+      await fetch("/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, voice: menu.value }),
+      }).catch(() => null);
+      refreshWho();
+    };
+    pick.append(`${label} `, menu);
+    return pick;
+  }));
+}
+
 async function refreshWho() {
   const body = await fetch("/target").then((r) => r.json()).catch(() => null);
   if (!body) return;
   chosen = body.chosen;
   drawWho(body.sessions ?? [], body.tree ?? []);
+  drawVoices(body.voices ?? {}, body.available ?? []);
+  if (pc && speaking && speaking !== body.voice) {
+    note("A new voice", `${named(chosen)} speaks as ${body.voice}`);
+    speaking = null;
+    stop();
+    start().catch((failure) => { state.textContent = failure.message; });
+  }
 }
 
 async function choose(wanted) {
@@ -660,6 +697,7 @@ async function start() {
   const body = await reply.json();
   if (!reply.ok) throw new Error(body.error ?? "the bridge refused");
   await pc.setRemoteDescription({ type: "answer", sdp: body.sdp });
+  speaking = body.voice ?? null;
   if (body.resumed) note("Picked up where you left off", `${body.resumed} turns`);
 
   state.textContent = "listening";

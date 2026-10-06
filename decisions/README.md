@@ -55,6 +55,7 @@ decision nobody writes down.
 | [024](ADR-VI-024-coding-sessions-are-heard-from-claude-voice.md) | Coding sessions are heard from claude-voice, and answered there | Accepted |
 | [025](ADR-VI-025-a-running-session-is-reached-through-claude-voice.md) | A running session is reached through claude-voice, not a fresh Claude | Accepted |
 | [026](ADR-VI-026-you-choose-who-you-talk-to.md) | You choose who you talk to, and the choice stays until you change it | Accepted |
+| [027](ADR-VI-027-each-target-speaks-with-its-own-voice.md) | Each target speaks with its own voice | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

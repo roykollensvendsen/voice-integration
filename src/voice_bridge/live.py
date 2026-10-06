@@ -144,12 +144,36 @@ def instructions(language: str | None = None) -> str:
 TURNS_REMEMBERED = 12
 
 
+#: The voices the service accepts, checked by calling it:
+#: evidence/api/gpt-live-1-transport-and-delegation.md. An unknown name is read
+#: as a custom voice and refused with a 403.
+VOICES = (
+    "marin",
+    "cedar",
+    "quartz",
+    "ripple",
+    "vesper",
+    "willow",
+    "stone",
+    "gleam",
+    "meridian",
+    "bossa",
+    "tempo",
+    "beacon",
+    "delta",
+    "cinder",
+)
+
+
 def session_config(
     language: str | None = None,
     history: list[dict[str, object]] | None = None,
+    voice: str = "marin",
 ) -> dict[str, object]:
     """What the session is created with, and deliberately nothing more."""
     return {
+        # Fixed for the life of the session; a new voice means a new session.
+        "audio": {"output": {"voice": voice}},
         "input": list(history or [])[-TURNS_REMEMBERED:],
         "model": MODEL,
         # Client delegation: the backend is ours, so the Live session is told
@@ -159,12 +183,14 @@ def session_config(
     }
 
 
-def open_session(
+def open_session(  # noqa: PLR0913 — the voice joined five that each change what is opened
     offer_sdp: str,
     ledger: Ledger | None = None,
     key: str | None = None,
     language: str | None = None,
     history: list[dict[str, object]] | None = None,
+    *,
+    voice: str = "marin",
 ) -> str:
     """Exchange the page's offer for an answer, or refuse and say why."""
     # RULE: the month is checked before a session is opened
@@ -174,7 +200,10 @@ def open_session(
         message = "no OPENAI_API_KEY, so no voice session can be opened"
         raise Refused(message)
     body = json.dumps(
-        {"transport": {"type": "webrtc", "sdp": offer_sdp}, "session": session_config(language, history)}
+        {
+            "transport": {"type": "webrtc", "sdp": offer_sdp},
+            "session": session_config(language, history, voice),
+        }
     )
     request = urllib.request.Request(
         SESSIONS_URL,

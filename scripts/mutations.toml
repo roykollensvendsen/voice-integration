@@ -254,3 +254,15 @@ name = "a long sentence that mentions talking to someone is not a switch"
 file = "src/voice_bridge/target.py"
 find = 'if len\(words\) > SHORTEST_IS_SAFEST:'
 replace = 'if False:'
+
+[[rule]]
+name = "a session opens in the voice of the chosen target"
+file = "src/voice_bridge/server.py"
+find = 'voice=self\.server\.voice_now\(\),'
+replace = 'voice="marin",'
+
+[[rule]]
+name = "a voice the service does not offer is never sent"
+file = "src/voice_bridge/server.py"
+find = 'if voice not in live\.VOICES or kind not in target\.VOICE_DEFAULTS:'
+replace = 'if kind not in target.VOICE_DEFAULTS:'
