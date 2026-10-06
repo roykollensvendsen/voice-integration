@@ -49,13 +49,14 @@ decision nobody writes down.
 | [018](ADR-VI-018-the-client-is-a-browser-page.md) | The client is a browser page, served by the bridge | Accepted |
 | [019](ADR-VI-019-a-delegation-not-a-tool-list.md) | The voice model gets a delegation, not a tool list | Accepted |
 | [020](ADR-VI-020-print-mode-not-a-screen.md) | Reach a coding agent in print mode, not through its screen | Superseded by 021 |
-| [021](ADR-VI-021-a-resumable-print-session.md) | Talk to a coding agent over a resumable print session | Narrowed by 025 |
+| [021](ADR-VI-021-a-resumable-print-session.md) | Talk to a coding agent over a resumable print session | Superseded by 028 |
 | [022](ADR-VI-022-a-short-path-past-the-control-plane.md) | A short path past the control plane, for questions it owns | Accepted |
 | [023](ADR-VI-023-an-append-is-not-a-delivery.md) | An append is not a delivery | Accepted |
 | [024](ADR-VI-024-coding-sessions-are-heard-from-claude-voice.md) | Coding sessions are heard from claude-voice, and answered there | Accepted |
 | [025](ADR-VI-025-a-running-session-is-reached-through-claude-voice.md) | A running session is reached through claude-voice, not a fresh Claude | Accepted |
 | [026](ADR-VI-026-you-choose-who-you-talk-to.md) | You choose who you talk to, and the choice stays until you change it | Accepted |
 | [027](ADR-VI-027-each-target-speaks-with-its-own-voice.md) | Each target speaks with its own voice | Accepted |
+| [028](ADR-VI-028-new-work-goes-to-a-session-you-can-see.md) | New work goes to a session you can see, never to a hidden Claude | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

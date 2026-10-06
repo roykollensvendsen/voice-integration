@@ -89,7 +89,7 @@ TURN_INSTRUCTIONS = (
     "next steps, and do not describe how the system works unless that is what "
     "was asked. "
     "Never ask them to reply with exact words, a quoted phrase, or a number from a list. "
-    "Do the work in this turn and answer with the result. "
+    "Do the work in this turn and answer with the result, except work you gave a session. "
     "Do not dispatch background subagents; run the tools yourself and wait for them. "
     "If it truly cannot be finished now, say in one sentence what you started and what is left. "
     # Everything below is here because the gateway asked, out loud, for one of
@@ -109,13 +109,14 @@ TURN_INSTRUCTIONS = (
     "asking first. "
     # Asked only for their names, it offered to shut some of them down.
     "Never offer to stop, close or end a session; do it only when told to. "
-    "For a new question in a repository where no session is running, "
-    "reach a coding agent in print mode and read its output directly: "
-    "`claude -p '<question>' --output-format json`, which answers with the text, "
-    "the session identifier, the duration and the cost. Keep that session "
-    "identifier and add `--resume <session-id>` to every later question in this "
-    "conversation, so the agent remembers what was already said and does not read "
-    "the project again from nothing. "
+    # A `claude -p` run is invisible: it is not in the person's tree, it sends
+    # no news when it finishes, and it cannot ask for permission. ADR-VI-028.
+    "For new work in a repository, reuse a session you started there before "
+    "(list_sessions), or start one with create_session in that project (list_projects "
+    "names them), and give it the work with send_task. Do not wait for it to finish: "
+    "say in one sentence what you started and where. The person hears from the "
+    "session itself when it is done or needs permission. "
+    "Never run `claude -p` or any other coding agent from the terminal. "
     "Never type into an interactive session on a screen and read the screen back, "
     "unless the person asked for a session they will use themselves. "
     # The person's own words, at the point they gave up: "why are you asking me
