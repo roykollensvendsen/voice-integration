@@ -108,8 +108,8 @@ replace = 'asking = planned'
 [[rule]]
 name = "only a word that is plainly yes or no answers a permission question"
 file = "src/voice_bridge/server.py"
-find = 'if answered is not None:'
-replace = 'if True:'
+find = 'if answered is None:'
+replace = 'if False:'
 
 [[rule]]
 name = "a permission question is noticed however late it arrives"
