@@ -99,7 +99,16 @@ TURN_INSTRUCTIONS = (
     # Five attempts at driving an interactive coding agent through its own
     # screen produced five "no visible answer"; the same question in print mode
     # answered correctly every time. ADR-VI-020.
-    "Reach a coding agent in print mode and read its output directly: "
+    # Asked to list the Claude Code sessions, it started a brand-new `claude -p`
+    # to go and look, asked for "Ja, kjør claude" first, and then said it had
+    # used the session server it had never touched. ADR-VI-025.
+    "To list the Claude Code sessions, or to ask, tell or read one that is already "
+    "running, use the claude_voice tools: list_active_sessions, message_active_session, "
+    "read_session_output, session_recap. Never start a new `claude -p` to find out "
+    "about other sessions. Listing and reading change nothing, so do them without "
+    "asking first. "
+    "For a new question in a repository where no session is running, "
+    "reach a coding agent in print mode and read its output directly: "
     "`claude -p '<question>' --output-format json`, which answers with the text, "
     "the session identifier, the duration and the cost. Keep that session "
     "identifier and add `--resume <session-id>` to every later question in this "

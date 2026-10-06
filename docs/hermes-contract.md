@@ -57,6 +57,11 @@ this page used to state were wrong and no test could see it.
   flowing *down*, which
   [ADR-VI-004](../decisions/ADR-VI-004-identifiers-up-context-down.md) asks for;
   what it forbids is the gateway's own output flowing back up.
+* The same instructions say how to reach Claude Code. A session that is already
+  running is listed, asked, told or read through the gateway's claude-voice
+  tools, without asking first when it only reads; a new question in a repository
+  with nothing running goes to `claude -p` and is resumed after that.
+  [ADR-VI-025](../decisions/ADR-VI-025-a-running-session-is-reached-through-claude-voice.md).
 * `previous_response_id` is not sent. The room is the continuity.
 * `POST /v1/runs/{run_id}/approval` takes `choice`, one of `once`, `session`,
   `always` or `deny`. The bridge will only ever send two of them, for the reason
