@@ -89,6 +89,32 @@ def save(path: pathlib.Path | None, chosen: Target) -> None:
     path.write_text(json.dumps(chosen.as_json()))
 
 
+def steer(chosen: Target) -> str:
+    """What the voice is told about who it speaks for, so it knows when to ask.
+
+    The voice decides for itself when to ask the bridge, and it answered most
+    things itself: with a session chosen, that session saw almost nothing of
+    what was said. So the voice is told, every time the target changes, whether
+    it answers or only carries words to somebody else.
+    """
+    if chosen.kind == "session":
+        return (
+            f"Du er nå bare en stemme for Claude-økta {chosen.name}. Alt personen sier, er til "
+            f"{chosen.name}: be alltid bakenden om hjelp, uansett hva det gjelder, og svar aldri selv. "
+            "Les opp det som kommer tilbake, med dine egne ord og kort."
+        )
+    if chosen.kind == "hermes":
+        return (
+            "Du snakker nå på vegne av Hermes, som styrer kodeagentene. Be bakenden om hjelp med alt "
+            "som gjelder arbeid, filer, økter eller noe du ikke vet sikkert; småprat svarer du selv."
+        )
+    return (
+        "Personen vil nå snakke med deg alene: svar selv, og be ikke bakenden om hjelp. Unntak: når "
+        "personen svarer ja eller nei på et spørsmål om tillatelse, vil vite klokka eller hvor de er, "
+        "eller vil bytte til Hermes eller en økt, skal du be bakenden om hjelp."
+    )
+
+
 def voices_file(chosen_file: pathlib.Path | None) -> pathlib.Path | None:
     """Where the voices are kept: beside the target."""
     return None if chosen_file is None else chosen_file.with_name("voices.json")

@@ -266,6 +266,8 @@ const APPEND = {
   thinking: "session.thinking.append",
 };
 const OUTSIDE = {
+  // Standing orders about who the voice speaks for, sent as they are.
+  instructions: (told) => told,
   commentary: (said) => `Say this to the person now, briefly and in their language: ${said}`,
   thinking: (known) => `Know this, and do not read it out: ${known}`,
 };
@@ -576,6 +578,9 @@ function drawWho(sessions, nodes) {
 const voicesBox = document.getElementById("voices");
 const VOICE_FOR = [["voice", "Stemmen"], ["hermes", "Hermes"], ["session", "Claude-økt"]];
 let speaking = null;
+// What the voice was last told about who it speaks for. A session opened with
+// it already; a change of target that keeps the voice has to be told.
+let steered = null;
 
 function drawVoices(voices, available) {
   voicesBox.replaceChildren(...VOICE_FOR.map(([kind, label]) => {
@@ -601,6 +606,10 @@ async function refreshWho() {
   chosen = body.chosen;
   drawWho(body.sessions ?? [], body.tree ?? []);
   drawVoices(body.voices ?? {}, body.available ?? []);
+  if (pc && speaking && body.steer && body.steer !== steered) {
+    steered = body.steer;
+    if (speaking === body.voice) append("instructions", null, body.steer, false);
+  }
   if (pc && speaking && speaking !== body.voice) {
     note("A new voice", `${named(chosen)} speaks as ${body.voice}`);
     speaking = null;
@@ -717,6 +726,7 @@ async function start() {
   if (!reply.ok) throw new Error(body.error ?? "the bridge refused");
   await pc.setRemoteDescription({ type: "answer", sdp: body.sdp });
   speaking = body.voice ?? null;
+  steered = body.steer ?? null;
   if (body.resumed) note("Picked up where you left off", `${body.resumed} turns`);
 
   state.textContent = "listening";
