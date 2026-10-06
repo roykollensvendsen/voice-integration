@@ -13,7 +13,7 @@ import pathlib
 import sys
 from typing import TYPE_CHECKING, ClassVar
 
-from voice_bridge import budget, gateway, server, sessions
+from voice_bridge import budget, gateway, server, sessions, target
 from voice_bridge import check as drift
 from voice_bridge.contract import DEFAULT_GATEWAY
 from voice_bridge.policy import Capabilities, Refused
@@ -69,7 +69,7 @@ def _budget(args: argparse.Namespace) -> int:
 
 def _serve(args: argparse.Namespace) -> int:
     """Serve the page and answer what it asks, until interrupted."""
-    bridge = server.Bridge((args.host, args.port), args.gateway)
+    bridge = server.Bridge((args.host, args.port), args.gateway, chosen_file=target.state_file())
     print(f"voice-bridge on http://{args.host}:{bridge.server_port}, gateway {args.gateway}")
     secret = sessions.token()
     if secret:

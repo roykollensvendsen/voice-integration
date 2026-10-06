@@ -218,3 +218,39 @@ name = "a button answers only a request the bridge was told about"
 file = "src/voice_bridge/server.py"
 find = 'if asked not in self\.server\.asked:'
 replace = 'if False:'
+
+[[rule]]
+name = "a name is switched to only when it matches exactly one session"
+file = "src/voice_bridge/server.py"
+find = 'if len\(found\) != 1:'
+replace = 'if not found:'
+
+[[rule]]
+name = "a session that ended hands the conversation back to the voice"
+file = "src/voice_bridge/server.py"
+find = 'bridge\.choose\(target\.Target\("voice"\)\)'
+replace = 'pass'
+
+[[rule]]
+name = "while the voice alone is chosen nothing is forwarded"
+file = "src/voice_bridge/server.py"
+find = 'if bridge\.chosen\.kind == "voice":'
+replace = 'if False:'
+
+[[rule]]
+name = "a session is chosen from the page only if it is running"
+file = "src/voice_bridge/server.py"
+find = 'if kind == "session" and chosen\.name not in'
+replace = 'if False:'
+
+[[rule]]
+name = "the choice survives a restart"
+file = "src/voice_bridge/server.py"
+find = 'target\.save\(self\.chosen_file, chosen\)'
+replace = 'pass'
+
+[[rule]]
+name = "a long sentence that mentions talking to someone is not a switch"
+file = "src/voice_bridge/target.py"
+find = 'if len\(words\) > SHORTEST_IS_SAFEST:'
+replace = 'if False:'

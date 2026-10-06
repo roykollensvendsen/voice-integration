@@ -9,105 +9,12 @@ import json
 import threading
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
+from conftest import NEWS, TOKEN
 
 from voice_bridge import budget, server, sessions
 from voice_bridge.policy import Refused
-
-TOKEN = "local-secret"  # noqa: S105 — a test value, not a credential
-
-NEWS = [
-    {"session": "build", "kind": "finished", "text": "build finished. Done: fixed.", "ts": 1.0},
-    {
-        "session": "build",
-        "kind": "needs_approval",
-        "text": "build wants to run Bash: make. Approval 3: yes or no?",
-        "approval_id": "3",
-        "tool": "Bash",
-        "input": {"command": "make"},
-        "ts": 2.0,
-    },
-    {"session": "notes", "kind": "working", "text": "notes is working.", "ts": 3.0},
-]
-
-
-class _ClaudeVoice(BaseHTTPRequestHandler):
-    def log_message(self, *_args):
-        """Say nothing: the default writes every request to stderr."""
-        return
-
-    def _reply(self, status, payload=None, headers=()):
-        body = b"" if payload is None else f"event: message\ndata: {json.dumps(payload)}\n\n".encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Content-Length", str(len(body)))
-        for name, value in headers:
-            self.send_header(name, value)
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        message = json.loads(self.rfile.read(length) or b"{}")
-        if self.headers.get("Authorization") != f"Bearer {TOKEN}":
-            self._reply(401)
-            return
-        method = message.get("method")
-        if method == "initialize":
-            self.server.opened += 1
-            self._reply(
-                200,
-                {"jsonrpc": "2.0", "id": message["id"], "result": {"protocolVersion": "2025-06-18"}},
-                [("Mcp-Session-Id", f"s{self.server.opened}")],
-            )
-            return
-        if self.headers.get("Mcp-Session-Id") != f"s{self.server.opened}" or self.server.expire:
-            self.server.expire = False
-            self._reply(404)
-            return
-        if method == "notifications/initialized":
-            self._reply(202)
-            return
-        name = message["params"]["name"]
-        arguments = message["params"].get("arguments") or {}
-        self.server.called.append((name, arguments))
-        if name == "whats_new":
-            result = {"cursor": "b9.f0", "events": NEWS}
-        elif arguments.get("approval_id") in self.server.waiting:
-            self.server.waiting.discard(arguments["approval_id"])
-            result = {"id": arguments["approval_id"]}
-        else:
-            text = "No such pending approval; it may have expired"
-            self._reply(
-                200,
-                {
-                    "jsonrpc": "2.0",
-                    "id": message["id"],
-                    "result": {"isError": True, "content": [{"type": "text", "text": text}]},
-                },
-            )
-            return
-        self._reply(200, {"jsonrpc": "2.0", "id": message["id"], "result": {"structuredContent": result}})
-
-
-@pytest.fixture
-def claude_voice():
-    """claude-voice on a real port, recording every tool it is asked to run."""
-    running = HTTPServer(("127.0.0.1", 0), _ClaudeVoice)
-    running.opened = 0
-    running.expire = False
-    running.called = []
-    running.waiting = {"3"}
-    thread = threading.Thread(target=running.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield running
-    finally:
-        running.shutdown()
-        running.server_close()
-        thread.join(timeout=5)
 
 
 @pytest.fixture

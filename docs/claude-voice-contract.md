@@ -21,8 +21,12 @@ all, and nothing else changes.
 | `whats_new` | every six seconds, for what happened since the last cursor | `cursor`, and `events` each with `session`, `kind`, `text`, `ts` |
 | `approve` | a plain yes, or the button, for one request that is waiting | the request that was settled |
 | `deny` | a plain no, or the button, for the same | the request that was settled |
+| `list_active_sessions` | the tree on the page, and matching a spoken name | `sessions`, each with `name`, `project`, `status`, `kind` |
+| `ask_active_session` | a turn while one session is the target | `status`, `reply`, `next_after`, `session_ended` |
+| `read_session_output` | the rest of an answer that outlasted the wait | `turns` after a given index, and `next_after` |
+| `session_tree` | the tree on the page: subagents, and who has messaged whom | `version`, and `nodes` with `id`, `name`, `kind`, `parent_id`, `talks_to` |
 
-`voice_bridge.sessions.TOOLS` holds the same three, and the client refuses any
+`voice_bridge.sessions.TOOLS` holds the same seven, and the client refuses any
 other name before anything is sent. `voicebridge check` fails when this table
 and that tuple disagree.
 
@@ -51,10 +55,32 @@ An approval number is not read aloud. claude-voice ends a request with
 "Approval 3: yes or no?", and the bridge removes the number before anything
 hears it; a person answers the question they just heard, not a number.
 
+## Talking to one session
+
+While one session is the target
+([ADR-VI-026](../decisions/ADR-VI-026-you-choose-who-you-talk-to.md)), each
+turn is `ask_active_session` with the words as they were said, waiting up to
+`ASK_SECONDS`. claude-voice answers with one of four states:
+
+* `answered`: the reply is spoken.
+* `needs_input`: the session waits for somebody at its own screen. That is said,
+  and the target stays.
+* `session_ended`: the target goes back to the voice, and that is said.
+* `still_working`: whatever was written so far is spoken, and the page keeps
+  waiting. The bridge then asks `read_session_output` for turns after
+  `next_after` every few seconds, and speaks the new text once the session is
+  idle in `list_active_sessions`.
+
+The tree on the page is `session_tree`, fetched again whenever `whats_new`
+reports `tree_changed`, which is never spoken. A node can be chosen when
+`list_active_sessions` names it; a subagent or a session the bridge runs
+itself is shown but cannot be chosen yet. `talks_to` is drawn as the names a
+session has sent messages to in the last day.
+
 ## What we do not call, on purpose
 
-The other seventeen tools stay with the gateway, if anything. Starting a
-session, sending one a message, reading what it wrote: each of those is a
-request that needs planning, and planning is the gateway's
+The other thirteen tools stay with the gateway, if anything. Starting a
+session, sending one a task, summarising a fleet: each of those is a request
+that needs planning, and planning is the gateway's
 ([ADR-VI-001](../decisions/ADR-VI-001-hermes-is-the-control-plane.md)).
 `list_pending_approvals` is not needed, because every request arrives as news.

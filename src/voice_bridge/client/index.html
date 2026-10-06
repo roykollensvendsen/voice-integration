@@ -59,12 +59,31 @@
   .turn .what { overflow-wrap: anywhere; }
   @media (max-width: 34rem) { .turn { grid-template-columns: 1fr; gap: .15rem; } }
   .who { color: var(--dim); font-size: .8rem; letter-spacing: .02em; padding-top: .15rem; }
+
+  /* Who a turn goes to. Always on screen, because a forgotten choice sends
+     the next question somewhere nobody meant. ADR-VI-026. */
+  #who { margin: 1.25rem 0 0; }
+  #who .now { font-size: .95rem; }
+  #who .now strong { color: var(--live); }
+  #tree, #tree ul { list-style: none; margin: .4rem 0 0; padding: 0; }
+  #tree ul { padding-left: 1.1rem; border-left: 1px solid var(--line); margin-left: .4rem; }
+  #tree .project { color: var(--dim); font-size: .8rem; margin-top: .5rem; }
+  #tree button { display: flex; gap: .6rem; align-items: baseline; width: 100%; text-align: left;
+                 padding: .35rem .7rem; border-radius: .4rem; border-color: transparent; }
+  #tree button[data-chosen="true"] { border-color: var(--live); color: var(--live); }
+  #tree .cost, #tree .status { color: var(--dim); font-size: .75rem; }
+  #tree .cost { margin-left: auto; white-space: nowrap; }
 </style>
 
 <h1>voice-bridge</h1>
 <p class="sub">Talk to your coding agents. Nothing is listening until you press the button.</p>
 
 <button id="talk">Take the microphone</button><span id="state">idle</span>
+
+<section id="who" aria-label="Who you are talking to">
+  <div class="now">Du snakker med <strong id="chosen">…</strong></div>
+  <ul id="tree"></ul>
+</section>
 
 <nav id="tabs" aria-label="Which side to show">
   <button type="button" data-pane="0" aria-current="true">The conversation</button>
@@ -320,6 +339,8 @@ async function answer(delegationId) {
   settled = true;
   offer(note("Answer from the agents", content), content);
   tell(delegationId, content);
+  // A spoken "snakk med …" changes who is chosen; the tree should say so.
+  refreshWho();
   if (!finished && runId) waitOn(runId, delegationId);
 }
 
@@ -453,6 +474,100 @@ async function waitOn(runId, delegationId) {
   note("Gave up waiting", "still running after fifteen minutes");
 }
 
+// Who a turn goes to, and who else it could go to: the voice alone, Hermes, or
+// one running Claude Code session, grouped by project. A tap chooses, and so
+// does saying "snakk med …"; either way the bridge keeps the choice. The cost
+// beside each is the reason somebody would pick one over another.
+const tree = document.getElementById("tree");
+const chosenLabel = document.getElementById("chosen");
+const COST = { voice: "gratis · straks", hermes: "modellkall · ~10 s", session: "abonnement · ~5 s" };
+let chosen = null;
+
+const same = (a, b) => Boolean(a && b) && a.kind === b.kind && (a.name ?? "") === (b.name ?? "");
+const named = (t) => (t.kind === "voice" ? "bare stemmen" : t.kind === "hermes" ? "Hermes" : t.name);
+
+function node(label, wanted, status) {
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.chosen = String(same(wanted, chosen));
+  for (const [kind, text] of [["label", label], ["status", status ?? ""], ["cost", COST[wanted.kind]]]) {
+    const part = document.createElement("span");
+    part.className = kind;
+    part.textContent = text;
+    button.append(part);
+  }
+  button.onclick = () => choose(wanted);
+  item.append(button);
+  return item;
+}
+
+// The tree claude-voice keeps: sessions by project, a session's subagents under
+// it, and an arrow to whoever a session has sent messages to (`talks_to`). Only
+// a session claude-voice lists as running can be chosen; the rest is shown.
+function drawWho(sessions, nodes) {
+  chosenLabel.textContent = chosen ? named(chosen) : "…";
+  const status = new Map(sessions.map((s) => [s.name, s.status]));
+  const all = nodes.length ? nodes : sessions.map((s) => ({ ...s, id: s.name, parent_id: null, talks_to: [] }));
+  const byId = new Map(all.map((n) => [n.id, n]));
+  const children = new Map();
+  for (const n of all) if (n.parent_id && byId.has(n.parent_id)) children.set(n.parent_id, [...(children.get(n.parent_id) ?? []), n]);
+  const draw = (n) => {
+    const said = status.has(n.name) ? status.get(n.name) : n.kind;
+    const talks = (n.talks_to ?? []).map((id) => byId.get(id)?.name).filter(Boolean);
+    const item = status.has(n.name)
+      ? node(n.name, { kind: "session", name: n.name }, talks.length ? `${said} · → ${talks.join(", ")}` : said)
+      : Object.assign(document.createElement("li"), { textContent: `${n.name} · ${said}`, className: "project" });
+    const below = children.get(n.id);
+    if (below) {
+      const list = document.createElement("ul");
+      list.append(...below.map(draw));
+      item.append(list);
+    }
+    return item;
+  };
+  const projects = new Map();
+  for (const n of all) {
+    if (n.kind === "bridge" || (n.parent_id && byId.has(n.parent_id))) continue;
+    const project = n.project ?? "";
+    projects.set(project, [...(projects.get(project) ?? []), n]);
+  }
+  const items = [node("Bare stemmen", { kind: "voice" }), node("Hermes", { kind: "hermes" })];
+  for (const [project, inside] of projects) {
+    const group = document.createElement("li");
+    const title = document.createElement("div");
+    title.className = "project";
+    title.textContent = project;
+    const list = document.createElement("ul");
+    list.append(...inside.map(draw));
+    group.append(title, list);
+    items.push(group);
+  }
+  tree.replaceChildren(...items);
+}
+
+async function refreshWho() {
+  const body = await fetch("/target").then((r) => r.json()).catch(() => null);
+  if (!body) return;
+  chosen = body.chosen;
+  drawWho(body.sessions ?? [], body.tree ?? []);
+}
+
+async function choose(wanted) {
+  const reply = await fetch("/target", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(wanted),
+  }).then((r) => r.json()).catch((f) => ({ error: String(f) }));
+  note("Who you are talking to", reply.said ?? reply.error ?? "");
+  // The voice should know who it is speaking for, without reading it out.
+  if (reply.said) think(reply.said);
+  refreshWho();
+}
+
+refreshWho();
+setInterval(refreshWho, 10_000);
+
 // One row in the panel underneath, in words rather than event names.
 function note(kind, detail) {
   const row = document.createElement("div");
@@ -474,6 +589,9 @@ function note(kind, detail) {
 let newsSeen = 0;
 
 function heardNews(e) {
+  // The tree changed shape: a session started, ended or sent a message. Redraw
+  // it; it is not news anybody needs to hear or read.
+  if (e.kind === "tree_changed") return refreshWho();
   const fresh = e.seq > newsSeen;
   newsSeen = Math.max(newsSeen, e.seq);
   const row = note(`From ${e.session}`, e.said);
