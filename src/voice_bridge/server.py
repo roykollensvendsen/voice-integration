@@ -458,8 +458,10 @@ def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) ->
         return f"{chosen.name} did not get that. It may be waiting for somebody at its own screen."
     reply = answer_in(got)
     if status == "still_working":
+        # A session busy with other work keeps writing, and what it wrote last
+        # is not an answer to this. Read out as one, it was, three times over.
         bridge.following = f"claude:{got.get('next_after', 0)}:{chosen.name}"
-        return f"{reply} {chosen.name} is still working, and I will say when it answers.".strip()
+        return f"{chosen.name} is working on it, and I will say when it answers."
     return reply or f"{chosen.name} said nothing."
 
 
