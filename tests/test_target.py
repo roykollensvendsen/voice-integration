@@ -113,6 +113,15 @@ def test_only_the_answer_to_the_turn_is_spoken_not_what_the_session_was_busy_wit
     assert say(bridge, "hva gjør du") == "Akkurat nå tester jeg appen din."
 
 
+def test_a_session_still_working_is_not_quoted_until_it_has_answered(bridge, claude_voice):
+    """A busy session's latest words were read out as the answer, three times over."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "Jeg står i mappen din.", "next_after": 4}
+    spoken = say(bridge, "hva holder du på med")
+    assert "mappen" not in spoken
+    assert "build-7c" in spoken
+
+
 def test_news_and_permission_answers_come_first_whatever_is_chosen(bridge, claude_voice):
     say(bridge, "snakk med build-7c")
     bridge.hear(NEWS)
