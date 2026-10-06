@@ -10,7 +10,7 @@ Where a rule already exists, this is the substitute. Each rule is disabled in
 turn, by replacing its one line with something that can never hold, and the
 suite is run. A rule whose removal breaks no test is a rule nothing protects.
 
-**Result: 30 of 33 rules turned off the test that names them.** None survived. Killed only by other tests: a delegation waits for the work rather than reading back a receipt, a remembered turn is a message item, not a bare string, a question the bridge can answer never travels further.
+**Result: 36 of 39 rules turned off the test that names them.** None survived. Killed only by other tests: a delegation waits for the work rather than reading back a receipt, a remembered turn is a message item, not a bare string, a question the bridge can answer never travels further.
 
 | Rule turned off | Tests that went red | The test that names it | Did that one go red? |
 |---|---|---|---|
@@ -45,8 +45,14 @@ suite is run. A rule whose removal breaks no test is a rule nothing protects.
 | an approval number is never read aloud | 2 | `test_an_approval_number_is_never_read_aloud` | yes |
 | old news is never read out | 2 | `test_old_news_is_never_read_out` | yes |
 | a spoken answer settles a coding session only when one request waits | 2 | `test_a_spoken_answer_settles_a_coding_session_only_when_one_request_waits` | yes |
-| a plain yes or no answers the coding session that asked | 5 | `test_a_plain_yes_or_no_answers_the_coding_session_that_asked` | yes |
+| a plain yes or no answers the coding session that asked | 6 | `test_a_plain_yes_or_no_answers_the_coding_session_that_asked` | yes |
 | a button answers only a request the bridge was told about | 2 | `test_a_button_answers_only_a_request_the_bridge_was_told_about` | yes |
+| a name is switched to only when it matches exactly one session | 2 | `test_a_name_is_switched_to_only_when_it_matches_exactly_one_session` | yes |
+| a session that ended hands the conversation back to the voice | 2 | `test_a_session_that_ended_hands_the_conversation_back_to_the_voice` | yes |
+| while the voice alone is chosen nothing is forwarded | 2 | `test_while_the_voice_alone_is_chosen_nothing_is_forwarded` | yes |
+| a session is chosen from the page only if it is running | 2 | `test_a_session_is_chosen_from_the_page_only_if_it_is_running` | yes |
+| the choice survives a restart | 2 | `test_the_choice_survives_a_restart` | yes |
+| a long sentence that mentions talking to someone is not a switch | 2 | `test_a_long_sentence_that_mentions_talking_to_someone_is_not_a_switch` | yes |
 
 ## What this does not prove
 
