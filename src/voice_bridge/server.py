@@ -287,6 +287,9 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     here, transcript = answered_here(bridge, transcript)
     if here is not None:
         return here, transcript
+    revoiced = revoice(bridge, transcript)
+    if revoiced is not None:
+        return revoiced, transcript
     switched = switch(bridge, transcript)
     if switched is not None:
         return switched, transcript
@@ -296,6 +299,24 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     if bridge.chosen.kind == "session":
         return ask_chosen(bridge, transcript), transcript
     return None, transcript
+
+
+def revoice(bridge: Bridge, transcript: str) -> str | None:
+    """List the voices, or change the one the chosen target speaks with."""
+    asked = target.voice_request(transcript)
+    if asked is None:
+        return None
+    if asked == "list":
+        named = ", ".join(live.VOICES)
+        return f"The voices are {named}. {_opening(bridge.chosen.said())} speaks as {bridge.voice_now()}."
+    if not bridge.revoice(bridge.chosen.kind, asked):
+        return f"There is no voice called {asked}."
+    return f"{_opening(bridge.chosen.said())} will speak as {asked} from now on."
+
+
+def _opening(words: str) -> str:
+    """Words that start a sentence, with the capital a sentence starts with."""
+    return words[:1].upper() + words[1:]
 
 
 def switch(bridge: Bridge, transcript: str) -> str | None:
@@ -530,7 +551,20 @@ class _Handler(BaseHTTPRequestHandler):
                 for s in self.server.running()
             ],
             "tree": self.server.tree(),
+            "voice": self.server.voice_now(),
+            "voices": self.server.voices,
+            "available": list(live.VOICES),
         }
+
+    def _revoice(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Pick the voice one kind of target speaks with, from the page."""
+        kind = str(body.get("kind", ""))
+        if kind not in target.KINDS:
+            return 400, {"error": "a voice belongs to the voice, hermes or a session"}
+        if not self.server.revoice(kind, str(body.get("voice", ""))):
+            refusal = f"{body.get('voice') or 'that'} is not a voice the service offers"
+            raise Refused(refusal)
+        return 200, {"voices": self.server.voices, "voice": self.server.voice_now()}
 
     def _choose(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         """Set who turns go to, from a tap on the page."""
@@ -565,13 +599,21 @@ class _Handler(BaseHTTPRequestHandler):
             body = self._read()
             if self.path == "/session":
                 sdp = live.open_session(
-                    str(body.get("sdp", "")), self.server.ledger, history=self.server.recent()
+                    str(body.get("sdp", "")),
+                    self.server.ledger,
+                    history=self.server.recent(),
+                    # RULE: a session opens in the voice of the chosen target
+                    voice=self.server.voice_now(),
                 )
-                self._send(200, {"sdp": sdp, "resumed": len(self.server.recent())})
+                self._send(
+                    200, {"sdp": sdp, "resumed": len(self.server.recent()), "voice": self.server.voice_now()}
+                )
             elif self.path == "/approval":
                 self._send(*self._approval(body))
             elif self.path == "/target":
                 self._send(*self._choose(body))
+            elif self.path == "/voice":
+                self._send(*self._revoice(body))
             elif self.path in ("/where", "/turn", "/spent", "/noticed"):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
@@ -641,6 +683,8 @@ class Bridge(ThreadingHTTPServer):
         #: Who a turn goes to, kept where a restart finds it. ADR-VI-026.
         self.chosen_file = chosen_file
         self.chosen = target.load(chosen_file)
+        #: Who speaks for each kind of target. ADR-VI-027.
+        self.voices = target.load_voices(target.voices_file(chosen_file))
         #: The session tree as last fetched, until `tree_changed` says otherwise.
         self.shape: list[dict[str, Any]] | None = None
 
@@ -706,6 +750,19 @@ class Bridge(ThreadingHTTPServer):
         self.chosen = chosen
         # RULE: the choice survives a restart
         target.save(self.chosen_file, chosen)
+
+    def voice_now(self) -> str:
+        """The voice the chosen target speaks with."""
+        return self.voices.get(self.chosen.kind, target.VOICE_DEFAULTS["voice"])
+
+    def revoice(self, kind: str, voice: str) -> bool:
+        """Give one kind of target another voice, if the service offers it."""
+        # RULE: a voice the service does not offer is never sent
+        if voice not in live.VOICES or kind not in target.VOICE_DEFAULTS:
+            return False
+        self.voices[kind] = voice
+        target.save_voices(target.voices_file(self.chosen_file), self.voices)
+        return True
 
     def running(self) -> list[dict[str, Any]]:
         """The Claude Code sessions running now, or none when claude-voice cannot be asked."""

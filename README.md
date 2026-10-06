@@ -135,8 +135,8 @@ $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed
 claude-voice tools: 7 in docs/claude-voice-contract.md, 7 in the code, agreed
-rules: 39 in the source, 39 in scripts/mutations.toml, agreed
-rule tests: 39 rules, each with a test named after it
+rules: 41 in the source, 41 in scripts/mutations.toml, agreed
+rule tests: 41 rules, each with a test named after it
 ```
 
 The rest of the gates, and how a change is made, are in

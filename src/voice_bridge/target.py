@@ -16,6 +16,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from voice_bridge.live import VOICES
+
 #: The three kinds of target there are.
 KINDS = ("voice", "hermes", "session")
 
@@ -26,6 +28,17 @@ _TALK_TO = r"^(?:snakk|prat|talk|speak)\s+(?:med|to|with)\s+(?:the\s+)?"
 _TO_VOICE = re.compile(_TALK_TO + r"(?:stemmen|stemmelaget|voice|deg|you)$")
 _TO_HERMES = re.compile(_TALK_TO + r"hermes$")
 _TO_SESSION = re.compile(_TALK_TO + r"(?:økta\s+|økten\s+|session\s+)?(.+?)(?:\s+(?:økta|økten|session))?$")
+
+
+#: Who speaks for each kind of target until the person picks otherwise, so that
+#: a voice tells you who is answering. ADR-VI-027.
+VOICE_DEFAULTS = {"voice": "marin", "hermes": "cedar", "session": "quartz"}
+
+_WHICH_VOICES = re.compile(r"^(?:hvilke stemmer|which voices|what voices|list (?:the )?voices)")
+_CHANGE_VOICE = re.compile(
+    r"^(?:bytt|endre|skift|change|switch)\s+(?:stemme|stemmen|the voice|voice)\s+(?:til|to)\s+(\w+)$"
+    r"|^(?:bruk|use)\s+(?:stemmen|the voice)\s+(\w+)$"
+)
 
 
 @dataclass(frozen=True)
@@ -74,6 +87,43 @@ def save(path: pathlib.Path | None, chosen: Target) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(chosen.as_json()))
+
+
+def voices_file(chosen_file: pathlib.Path | None) -> pathlib.Path | None:
+    """Where the voices are kept: beside the target."""
+    return None if chosen_file is None else chosen_file.with_name("voices.json")
+
+
+def load_voices(path: pathlib.Path | None) -> dict[str, str]:
+    """The voices picked last time, or the defaults."""
+    voices = dict(VOICE_DEFAULTS)
+    if path is None:
+        return voices
+    try:
+        kept = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return voices
+    if isinstance(kept, dict):
+        voices.update({k: v for k, v in kept.items() if k in VOICE_DEFAULTS and v in VOICES})
+    return voices
+
+
+def save_voices(path: pathlib.Path | None, voices: dict[str, str]) -> None:
+    """Keep the voices where a restart will find them."""
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(voices))
+
+
+def voice_request(said: str) -> str | None:
+    """Whether this asks for the list of voices ("list") or for a new one (its name), or neither."""
+    words = said.strip().strip(".!?,").casefold()
+    if len(words) > SHORTEST_IS_SAFEST:
+        return None
+    if _WHICH_VOICES.match(words):
+        return "list"
+    found = _CHANGE_VOICE.match(words)
+    return (found.group(1) or found.group(2)) if found else None
 
 
 def switch_request(said: str) -> Target | str | None:

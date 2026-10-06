@@ -139,6 +139,22 @@ does not forget it. `GET /target` returns it with the running sessions, and
 `POST /target` sets it from the tree on the page. When the chosen session ends,
 the target goes back to the voice, and the voice says so.
 
+## Who is speaking
+
+Each kind of target has its own voice
+([ADR-VI-027](../decisions/ADR-VI-027-each-target-speaks-with-its-own-voice.md)):
+`marin` for the voice alone, `cedar` for the gateway, `quartz` for a Claude Code
+session, until the person picks others. A session opens with `audio.output.voice`
+set to the voice of the chosen target. The voice cannot change inside a session,
+so when the target changes to one with a different voice, the page closes the
+session and opens a new one with the history.
+
+"Hvilke stemmer har du" or "which voices are there" is answered by the bridge
+with the names in `live.VOICES`. "Bytt stemme til …" or "change the voice to …"
+sets the voice for the target chosen now, and so does the control on the page
+(`POST /voice`). The choices are kept beside the target, in the bridge's state
+directory. A name not in `live.VOICES` is refused before anything is sent.
+
 ## The shape a session is configured with
 
 ```console
