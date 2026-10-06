@@ -266,3 +266,9 @@ name = "a voice the service does not offer is never sent"
 file = "src/voice_bridge/server.py"
 find = 'if voice not in live\.VOICES or kind not in target\.VOICE_DEFAULTS:'
 replace = 'if kind not in target.VOICE_DEFAULTS:'
+
+[[rule]]
+name = "a turn to a session says who is speaking and that the answer is read aloud"
+file = "src/voice_bridge/server.py"
+find = '\{"session": chosen\.name, "message": relayed\(bridge, transcript\), "wait_seconds": ASK_SECONDS\},'
+replace = '{"session": chosen.name, "message": as_said(transcript), "wait_seconds": ASK_SECONDS},'

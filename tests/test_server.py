@@ -310,7 +310,7 @@ def test_a_long_conversation_is_trimmed_rather_than_refused(tmp_path):
 
 def test_work_that_outlasts_the_wait_says_which_run_to_keep_waiting_on(bridge):
     _, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
-    assert set(body) == {"content", "run_id", "finished"}
+    assert set(body) == {"content", "run_id", "finished", "quiet"}
 
 
 def test_the_bridge_can_be_asked_to_keep_waiting(bridge, run_id):
@@ -372,6 +372,13 @@ def test_a_voice_turn_asks_for_questions_a_person_can_say(bridge, hermes):
     assert "Ask only about things that are theirs" in asked
     assert "reach a coding agent in print mode" in asked
     assert "--resume <session-id>" in asked
+
+
+def test_a_voice_turn_never_offers_to_end_a_session(bridge, hermes):
+    """Asked for the session names, it offered to shut some of them down."""
+    post(f"{bridge}/delegation", {"transcript": "list the sessions"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "Never offer to stop, close or end a session" in asked
 
 
 def test_a_running_session_is_reached_through_claude_voice_not_a_fresh_claude(bridge, hermes):

@@ -70,7 +70,7 @@ def test_a_turn_goes_to_the_chosen_session_and_its_reply_is_spoken(bridge, herme
     assert spoken == "The tests pass."
     asked = [arguments for name, arguments in claude_voice.called if name == "ask_active_session"]
     assert asked[0]["session"] == "build-7c"
-    assert asked[0]["message"] == "kjør testene"
+    assert "«kjør testene»" in asked[0]["message"]
     assert hermes.seen == []
 
 
@@ -81,6 +81,36 @@ def test_a_session_is_given_as_long_as_it_was_promised_to_answer(bridge, claude_
     claude_voice.slow = 1.0
     say(bridge, "snakk med build-7c")
     assert say(bridge, "kjør testene") == "The tests pass."
+
+
+def test_a_turn_to_a_session_says_who_is_speaking_and_that_the_answer_is_read_aloud(bridge, claude_voice):
+    """Spoken to by voice, a session saw a bare sentence from a courier with a made-up name."""
+    bridge.remember("You", "hvilke økter kjører nå")
+    bridge.remember("It said", "Tre økter kjører, blant dem build-7c.")
+    say(bridge, "snakk med build-7c")
+    say(bridge, "spør den hva som skjer")
+    message = next(a for n, a in claude_voice.called if n == "ask_active_session")["message"]
+    assert message.startswith("Her kommer en melding fra Roy gjennom stemme-appen.")
+    assert "lest høyt" in message
+    assert "Ikke bruk SendMessage tilbake" in message
+    assert "samtalepartner" in message
+    assert "hvilke økter kjører nå" in message
+    assert message.endswith("«spør den hva som skjer»")
+
+
+def test_only_the_answer_to_the_turn_is_spoken_not_what_the_session_was_busy_with(bridge, claude_voice):
+    """A busy session's reply held two thousand characters of other work, with a table."""
+    claude_voice.answer = {
+        "status": "answered",
+        "reply": "Først testene.\n| Del | Hva |\n|---|---|\n| a | b |\nAkkurat nå tester jeg appen din.",
+        "turns": [
+            {"index": 7, "role": "assistant", "text": "Først testene.\n| Del | Hva |\n|---|---|\n| a | b |"},
+            {"index": 8, "role": "user", "text": "Her kommer en melding fra Roy"},
+            {"index": 9, "role": "assistant", "text": "Akkurat nå tester jeg **appen** din."},
+        ],
+    }
+    say(bridge, "snakk med build-7c")
+    assert say(bridge, "hva gjør du") == "Akkurat nå tester jeg appen din."
 
 
 def test_news_and_permission_answers_come_first_whatever_is_chosen(bridge, claude_voice):
@@ -134,6 +164,50 @@ def test_talk_to_hermes_sends_turns_to_the_gateway_again(bridge, hermes):
     assert hermes.seen[0][0] == "/v1/runs"
 
 
+def test_a_session_claude_voice_runs_itself_cannot_be_chosen_yet(bridge):
+    """Spoken to twice, it never received a word: those are reached another way."""
+    spoken = say(bridge, "snakk med runner-1a")
+    assert bridge.chosen == target.Target("hermes")
+    assert "runner-1a" in spoken
+
+
+def test_a_turn_the_voice_keeps_is_handed_back_to_it_quietly(bridge):
+    """The refusal "Nothing is passed on" was read aloud eight times in one conversation."""
+    say(bridge, "snakk med stemmen")
+    say(bridge, "hva synes du om været")
+    assert bridge.quiet
+    say(bridge, "snakk med hermes")
+    assert not bridge.quiet
+
+
+def test_a_long_answer_is_finished_when_the_session_itself_says_it_is_idle(bridge, claude_voice):
+    say(bridge, "snakk med build-7c")
+    claude_voice.active = [s for s in claude_voice.active if s["name"] != "build-7c"] + [
+        {"name": "build-7c", "project": "akso/hydropower", "status": "busy", "kind": "interactive"}
+    ]
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    say(bridge, "kjør alt")
+    spoken, done = server.keep_waiting(bridge.following, bridge.gateway_url, bridge=bridge, patience=1)
+    assert (spoken, done) == ("Done now.", True)
+
+
+def test_a_session_that_moved_hands_the_conversation_to_where_it_went(bridge, claude_voice):
+    """The old window of a continued conversation takes messages and never answers."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "moved", "moved_to": {"id": "c3", "name": "notes-9f"}}
+    spoken = say(bridge, "hei")
+    assert bridge.chosen == target.Target("session", "notes-9f")
+    assert "notes-9f" in spoken
+
+
+def test_a_message_the_session_never_took_is_said_to_be_lost(bridge, claude_voice):
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "not_received"}
+    spoken = say(bridge, "hei")
+    assert "did not get" in spoken
+    assert bridge.following is None
+
+
 def test_the_choice_survives_a_restart(bridge, url, tmp_path):
     say(bridge, "snakk med build-7c")
     again = server.Bridge(
@@ -157,6 +231,7 @@ def test_a_session_is_chosen_from_the_page_only_if_it_is_running(bridge):
         assert body["chosen"] == {"kind": "session", "name": "notes-9f"}
         with urllib.request.urlopen(where, timeout=10) as reply:
             listed = json.loads(reply.read())
+        # runner-1a is run by claude-voice itself, and cannot be chosen yet.
         assert [s["name"] for s in listed["sessions"]] == ["build-7c", "notes-2b", "notes-9f"]
         assert listed["chosen"]["name"] == "notes-9f"
         assert {node["id"]: node.get("parent_id") for node in listed["tree"]}["a1/explore"] == "a1"
@@ -186,3 +261,16 @@ def test_the_page_shows_who_you_are_talking_to_and_lets_you_tap_another():
     assert "Bare stemmen" in page
     assert "talks_to" in page
     assert 'e.kind === "tree_changed"' in page
+
+
+def test_the_page_matches_an_acknowledgement_by_the_id_it_sent():
+    """Every answer was marked lost and said twice: the id comes back as client_event_id."""
+    page = server.PAGE.read_text()
+    assert "acknowledged(event.client_event_id" in page
+
+
+def test_something_said_outside_a_delegation_goes_as_an_instruction():
+    """A commentary or thinking append needs a delegation; news and approvals have none."""
+    page = server.PAGE.read_text()
+    assert '"session.instructions.append"' in page
+    assert "delegationId == null" in page
