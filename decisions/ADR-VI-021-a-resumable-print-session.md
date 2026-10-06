@@ -5,6 +5,8 @@
 Accepted, by Roy Kollen Svendsen, 2026-09-17. Supersedes
 [ADR-VI-020](ADR-VI-020-print-mode-not-a-screen.md), whose reasoning holds and
 whose main cost turns out not to exist.
+Superseded by [ADR-VI-028](ADR-VI-028-new-work-goes-to-a-session-you-can-see.md) on 2026-10-06:
+a print-mode run is the one kind of work the person can neither see nor hear from.
 
 ## Context
 
