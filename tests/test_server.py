@@ -370,8 +370,17 @@ def test_a_voice_turn_asks_for_questions_a_person_can_say(bridge, hermes):
     assert "say a file path" in asked
     assert "Do not ask the person to choose how you do something" in asked
     assert "Ask only about things that are theirs" in asked
-    assert "reach a coding agent in print mode" in asked
-    assert "--resume <session-id>" in asked
+    assert "send_task" in asked
+
+
+def test_new_work_goes_to_a_session_you_can_see_never_to_a_hidden_claude(bridge, hermes):
+    """A `claude -p` run is invisible: not in the tree, no news, no permission questions."""
+    post(f"{bridge}/delegation", {"transcript": "fix the failing test in hydropower"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "create_session" in asked
+    assert "reuse" in asked
+    assert "Never run `claude -p`" in asked
+    assert "print mode" not in asked
 
 
 def test_a_voice_turn_never_offers_to_end_a_session(bridge, hermes):

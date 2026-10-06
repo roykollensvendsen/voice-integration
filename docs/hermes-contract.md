@@ -59,8 +59,10 @@ this page used to state were wrong and no test could see it.
   what it forbids is the gateway's own output flowing back up.
 * The same instructions say how to reach Claude Code. A session that is already
   running is listed, asked, told or read through the gateway's claude-voice
-  tools, without asking first when it only reads; a new question in a repository
-  with nothing running goes to `claude -p` and is resumed after that.
+  tools, without asking first when it only reads. New work goes to a session the
+  gateway started in that project before, or to one it starts with
+  `create_session`, through `send_task`; it never runs `claude -p`
+  ([ADR-VI-028](../decisions/ADR-VI-028-new-work-goes-to-a-session-you-can-see.md)).
   [ADR-VI-025](../decisions/ADR-VI-025-a-running-session-is-reached-through-claude-voice.md).
 * `previous_response_id` is not sent. The room is the continuity.
 * `POST /v1/runs/{run_id}/approval` takes `choice`, one of `once`, `session`,
