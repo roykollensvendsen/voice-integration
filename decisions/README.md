@@ -52,6 +52,7 @@ decision nobody writes down.
 | [021](ADR-VI-021-a-resumable-print-session.md) | Talk to a coding agent over a resumable print session | Accepted |
 | [022](ADR-VI-022-a-short-path-past-the-control-plane.md) | A short path past the control plane, for questions it owns | Accepted |
 | [023](ADR-VI-023-an-append-is-not-a-delivery.md) | An append is not a delivery | Accepted |
+| [024](ADR-VI-024-coding-sessions-are-heard-from-claude-voice.md) | Coding sessions are heard from claude-voice, and answered there | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

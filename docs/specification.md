@@ -242,13 +242,14 @@ short words is not a channel that should be able to say "always".
 
 ## Conformance
 
-Three facts are written down in both prose and code, and `voicebridge check`
+Four facts are written down in both prose and code, and `voicebridge check`
 compares each pair on every pull request:
 
 | The fact | In prose | In code |
 |---|---|---|
 | the voice tools | [`voice-contract.md`](voice-contract.md) | `voice_bridge.contract.VOICE_TOOLS` |
 | the gateway endpoints | [`hermes-contract.md`](hermes-contract.md) | the `path` of each tool |
+| the claude-voice tools | [`claude-voice-contract.md`](claude-voice-contract.md) | `voice_bridge.sessions.TOOLS` |
 | the rules | `# RULE:` markers | rows in `scripts/mutations.toml` |
 
 The third pair is the one that keeps the evidence honest: a rule added without a

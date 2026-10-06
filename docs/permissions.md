@@ -73,6 +73,15 @@ all, rather than only polling — and remembers which run is waiting however lon
 after it stopped waiting. The person then answers by saying a plain yes or no,
 or by pressing one of two buttons in the page.
 
+Or a Claude Code session run by claude-voice wants to use a tool. The bridge
+hears that as news ([`claude-voice-contract.md`](claude-voice-contract.md)) and
+remembers which request is waiting. A plain yes or no, or one of the two buttons
+on that row, answers it with `approve` or `deny`. A spoken answer counts only while exactly
+one request is waiting. With two or more, "yes" could mean either of them, so
+nothing is answered and the voice says how many are waiting and where the buttons
+are. The buttons name their own request, and they can only answer one the bridge
+was told about.
+
 Or the agent can simply ask in words, mid-answer, and the reply is an ordinary
 turn in the same room. Nothing special happens; the gateway already has the
 context.
