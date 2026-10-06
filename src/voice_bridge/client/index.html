@@ -265,6 +265,10 @@ const APPEND = {
   // Not spoken: something the model should simply know.
   thinking: "session.thinking.append",
 };
+const OUTSIDE = {
+  commentary: (said) => `Say this to the person now, briefly and in their language: ${said}`,
+  thinking: (known) => `Know this, and do not read it out: ${known}`,
+};
 const ACKNOWLEDGED_WITHIN_MS = 2500;
 const unacknowledged = new Map();
 const said = new Map();
@@ -284,7 +288,13 @@ function append(kind, delegationId, content, again = true) {
     return;
   }
   const id = `c${(appends += 1)}_${Date.now()}`;
-  if (!send({ type: APPEND[kind], event_id: id, delegation_id: delegationId, content })) return;
+  // A commentary or thinking append answers a delegation and needs its id.
+  // News, permission questions and facts arrive with none, and those go as an
+  // instruction instead, which may stand alone.
+  const sent = delegationId == null
+    ? { type: "session.instructions.append", event_id: id, delegation_id: null, content: OUTSIDE[kind](content) }
+    : { type: APPEND[kind], event_id: id, delegation_id: delegationId, content };
+  if (!send(sent)) return;
   said.set(id, content);
   unacknowledged.set(id, setTimeout(() => {
     unacknowledged.delete(id);
@@ -327,7 +337,7 @@ async function answer(delegationId) {
   // is any waiting to cover.
   let settled = false;
   if (holding) setTimeout(() => settled || tell(delegationId, holding), HOLD_AFTER_MS);
-  let content, runId = null, finished = true;
+  let content, runId = null, finished = true, quiet = false;
   try {
     const reply = await fetch("/delegation", {
       method: "POST",
@@ -336,11 +346,17 @@ async function answer(delegationId) {
     });
     const body = await reply.json();
     content = reply.ok ? body.content : `I could not do that: ${body.error}`;
-    ({ run_id: runId, finished } = body);
+    ({ run_id: runId, finished, quiet = false } = body);
   } catch (failure) {
     content = `The bridge did not answer: ${failure.message}`;
   }
   settled = true;
+  if (quiet) {
+    // Nothing was passed on; the voice is told so, and answers by itself.
+    append("thinking", delegationId, content);
+    refreshWho();
+    return;
+  }
   offer(note("Answer from the agents", content), content);
   tell(delegationId, content);
   // A spoken "snakk med …" changes who is chosen; the tree should say so.
@@ -368,7 +384,10 @@ function onEvent(event) {
     case "session.delegation.created": answer(event.delegation.id); break;
     case "session.commentary.appended":
     case "session.thinking.appended":
-    case "session.instructions.appended": acknowledged(event.event_id); break;
+    // The acknowledgement carries its own event_id; ours comes back as
+    // client_event_id. Reading the wrong one marked every answer lost and said
+    // it twice.
+    case "session.instructions.appended": acknowledged(event.client_event_id ?? event.event_id); break;
     case "error": note("Something went wrong", event.error?.message ?? "unknown"); break;
   }
 }

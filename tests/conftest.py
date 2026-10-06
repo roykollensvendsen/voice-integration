@@ -155,6 +155,7 @@ ACTIVE = [
     {"name": "build-7c", "project": "akso/hydropower", "status": "idle", "kind": "interactive"},
     {"name": "notes-2b", "project": "notes", "status": "busy", "kind": "bg"},
     {"name": "notes-9f", "project": "notes", "status": "idle", "kind": "interactive"},
+    {"name": "runner-1a", "project": "cv", "status": "idle", "kind": "bg", "managed_by_bridge": True},
 ]
 
 
@@ -246,7 +247,11 @@ def claude_voice():
     running.active = [dict(session) for session in ACTIVE]
     running.answer = {"status": "answered", "reply": "The tests pass.", "next_after": 4}
     running.slow = 0.0
-    running.output = {"turns": [{"index": 5, "role": "assistant", "text": "Done now."}], "next_after": 5}
+    running.output = {
+        "turns": [{"index": 5, "role": "assistant", "text": "Done now."}],
+        "next_after": 5,
+        "status": "idle",
+    }
     thread = threading.Thread(target=running.serve_forever, daemon=True)
     thread.start()
     try:

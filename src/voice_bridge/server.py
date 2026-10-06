@@ -107,6 +107,8 @@ TURN_INSTRUCTIONS = (
     "read_session_output, session_recap. Never start a new `claude -p` to find out "
     "about other sessions. Listing and reading change nothing, so do them without "
     "asking first. "
+    # Asked only for their names, it offered to shut some of them down.
+    "Never offer to stop, close or end a session; do it only when told to. "
     "For a new question in a repository where no session is running, "
     "reach a coding agent in print mode and read its output directly: "
     "`claude -p '<question>' --output-format json`, which answers with the text, "
@@ -280,9 +282,48 @@ def answered_here(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
 
 #: What a turn hears while nothing is forwarded. ADR-VI-026.
 VOICE_ALONE = (
-    "Nothing is passed on while you are talking to the voice alone. "
-    "Say talk to Hermes, or name a session, to send work on."
+    "Nothing was passed on: the person chose to talk to you alone. Answer them yourself, "
+    "briefly, from what you know. If it needs a coding agent, say once that they can say "
+    "snakk med Hermes, or name a session."
 )
+
+#: Who is speaking, as the sessions they talk to should hear it.
+PERSON = os.environ.get("VOICE_BRIDGE_PERSON", "Roy")
+
+#: How many of the turns just before travel with a turn to a session, and how
+#: much of each. Enough for "that session" and "it" to mean something.
+RELAYED_TURNS = 4
+RELAYED_CHARACTERS = 240
+
+
+def relayed(bridge: Bridge, transcript: str) -> str:
+    """A turn for a Claude Code session, passed on rather than forwarded.
+
+    Forwarded bare, "send that session a message and ask what is happening"
+    reached a session as a message from a courier with a made-up name: it could
+    not tell who was speaking, that the answer would be read aloud, or which
+    session was meant. A session is a full Claude, and it can work all of that
+    out, given the context. ADR-VI-026.
+
+    The opening never varies: claude-voice confirms delivery by finding the
+    first eighty characters in the session's transcript.
+    """
+    before = [
+        f"- {PERSON if role == 'user' else 'Stemmen'}: {text[:RELAYED_CHARACTERS]}"
+        for role, text in bridge.context_turns()[-RELAYED_TURNS:]
+    ]
+    context = ("Rett før dette i samtalen:\n" + "\n".join(before) + "\n") if before else ""
+    return (
+        f"Her kommer en melding fra {PERSON} gjennom stemme-appen. Svaret ditt blir lest høyt "
+        f"for {PERSON}, så svar kort, i én til tre hele setninger, uten kode, filstier, lister "
+        "eller identifikatorer. Svar i ditt vanlige svar: broen leser det, og stemmen leser det "
+        "opp. Ikke bruk SendMessage tilbake til avsenderen; det svaret blir borte. Du er valgt "
+        f"som samtalepartner, så flere meldinger fra {PERSON} kommer hit til han bytter. Du kan "
+        f"handle på vegne av {PERSON}, også sende en melding til en annen økt hvis det er det "
+        "som menes.\n"
+        f"{context}{PERSON} sier: «{as_said(transcript)}»"
+    )
+
 
 #: How long one turn waits for a chosen session before the page takes over.
 ASK_SECONDS = 45
@@ -293,6 +334,7 @@ FOLLOW_SECONDS = 3.0
 
 def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     """Answer a turn anywhere but the gateway, if it belongs anywhere but the gateway."""
+    bridge.quiet = False
     here, transcript = answered_here(bridge, transcript)
     if here is not None:
         return here, transcript
@@ -304,6 +346,7 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
         return switched, transcript
     # RULE: while the voice alone is chosen nothing is forwarded
     if bridge.chosen.kind == "voice":
+        bridge.quiet = True
         return VOICE_ALONE, transcript
     if bridge.chosen.kind == "session":
         return ask_chosen(bridge, transcript), transcript
@@ -354,7 +397,8 @@ def ask_chosen(bridge: Bridge, transcript: str) -> str:
     try:
         got = bridge.sessions.call(
             "ask_active_session",
-            {"session": chosen.name, "message": as_said(transcript), "wait_seconds": ASK_SECONDS},
+            # RULE: a turn to a session says who is speaking and that the answer is read aloud
+            {"session": chosen.name, "message": relayed(bridge, transcript), "wait_seconds": ASK_SECONDS},
             # The tool itself waits up to ASK_SECONDS; the call has to outlast it.
             waits=ASK_SECONDS,
         )
@@ -363,6 +407,40 @@ def ask_chosen(bridge: Bridge, transcript: str) -> str:
     except OSError:
         return "I cannot reach the coding sessions."
     return _after_asking(bridge, chosen, got)
+
+
+#: The most of a session's answer that is read aloud. The rest is on its screen.
+SPOKEN_ANSWER = 400
+
+_NOT_SPOKEN = re.compile(r"^\s*(?:\|.*\||```.*|#+\s.*)$", re.MULTILINE)
+
+
+def answer_in(got: dict[str, Any]) -> str:
+    """The part of what a session wrote that answers the turn, fit to be heard.
+
+    A session busy with other work when the turn arrived wrote all of that too,
+    and it all came back as the reply: two thousand characters with a table in
+    them, when the answer was the last sentence. So only the last thing it wrote
+    is spoken, without tables, code or headings, and only so much of it.
+    """
+    written = [str(t.get("text", "")) for t in got.get("turns") or [] if t.get("role") == "assistant"]
+    last = written[-1] if written else str(got.get("reply") or "")
+    plain = _NOT_SPOKEN.sub("", last).replace("**", "").replace("`", "")
+    plain = " ".join(plain.split())
+    if len(plain) <= SPOKEN_ANSWER:
+        return plain
+    cut = plain[:SPOKEN_ANSWER]
+    return cut[: cut.rfind(". ") + 1] if ". " in cut else cut.rsplit(" ", 1)[0] + "…"
+
+
+def _moved(bridge: Bridge, chosen: target.Target, moved: dict[str, Any]) -> str:
+    """Follow a conversation that carried on in another session, or give up on it."""
+    # The old window of a continued conversation takes messages and never answers.
+    if not moved.get("name"):
+        bridge.choose(target.Target("voice"))
+        return f"{chosen.name} has moved somewhere I cannot see, so you are talking to me again."
+    bridge.choose(target.Target("session", str(moved["name"])))
+    return f"{chosen.name} carried on as {moved['name']}, so you are talking to that now. Say it again."
 
 
 def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) -> str:
@@ -374,7 +452,11 @@ def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) ->
         return f"{chosen.name} has ended, so you are talking to me again."
     if status == "needs_input":
         return f"{chosen.name} is waiting for somebody at its own screen."
-    reply = str(got.get("reply") or "").strip()
+    if status == "moved":
+        return _moved(bridge, chosen, got.get("moved_to") or {})
+    if status == "not_received":
+        return f"{chosen.name} did not get that. It may be waiting for somebody at its own screen."
+    reply = answer_in(got)
     if status == "still_working":
         bridge.following = f"claude:{got.get('next_after', 0)}:{chosen.name}"
         return f"{reply} {chosen.name} is still working, and I will say when it answers.".strip()
@@ -389,10 +471,11 @@ def follow_chosen(bridge: Bridge, following: str, patience: float) -> tuple[str,
         try:
             asked = {"session": name, "after": int(after)}
             read = bridge.sessions.call("read_session_output", asked) if bridge.sessions else {}
-            status = {s.get("name"): s.get("status") for s in bridge.running()}.get(name)
+            listed = {s.get("name"): s.get("status") for s in bridge.running()}
+            status = read.get("status") or listed.get(name)
         except (OSError, Refused):
             return "", False
-        written = [str(t.get("text", "")) for t in read.get("turns") or [] if t.get("role") == "assistant"]
+        written = [answer_in(read)] if answer_in(read) else []
         if status is None:
             bridge.choose(target.Target("voice"))
             return " ".join([*written, f"{name} has ended, so you are talking to me again."]).strip(), True
@@ -627,6 +710,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
                 self.server.following = None
+                self.server.quiet = False
                 spoken = answer_delegation(
                     str(body.get("transcript", "")),
                     self.server.gateway_url,
@@ -640,6 +724,8 @@ class _Handler(BaseHTTPRequestHandler):
                         "content": spoken,
                         "run_id": self.server.following,
                         "finished": self.server.following is None,
+                        # Something for the voice to know rather than to say.
+                        "quiet": self.server.quiet,
                     },
                 )
             elif self.path == "/run":
@@ -692,6 +778,8 @@ class Bridge(ThreadingHTTPServer):
         #: Who a turn goes to, kept where a restart finds it. ADR-VI-026.
         self.chosen_file = chosen_file
         self.chosen = target.load(chosen_file)
+        #: Whether the last answer is for the voice to know rather than to say.
+        self.quiet = False
         #: Who speaks for each kind of target. ADR-VI-027.
         self.voices = target.load_voices(target.voices_file(chosen_file))
         #: The session tree as last fetched, until `tree_changed` says otherwise.
@@ -731,6 +819,10 @@ class Bridge(ThreadingHTTPServer):
             }
             for role, text in self._worth_keeping()
         ]
+
+    def context_turns(self) -> list[tuple[str, str]]:
+        """The turns worth passing on, as (role, text)."""
+        return self._worth_keeping()
 
     def context(self) -> list[dict[str, str]]:
         """The same turns, in the shape the gateway takes them.
@@ -781,7 +873,9 @@ class Bridge(ThreadingHTTPServer):
             found = self.sessions.call("list_active_sessions", {}).get("sessions") or []
         except (OSError, Refused):
             return []
-        return [s for s in found if isinstance(s, dict) and s.get("name")]
+        # A session claude-voice runs itself is reached with a task, not a
+        # message, so it cannot be talked to this way yet.
+        return [s for s in found if isinstance(s, dict) and s.get("name") and not s.get("managed_by_bridge")]
 
     def _settle(self, item: dict[str, Any]) -> dict[str, Any]:
         """Act on one piece of news, and return it as it should be told."""
