@@ -416,7 +416,7 @@ SPOKEN_ANSWER = 400
 _NOT_SPOKEN = re.compile(r"^\s*(?:\|.*\||```.*|#+\s.*)$", re.MULTILINE)
 
 
-def answer_in(got: dict[str, Any]) -> str:
+def answer_in(got: dict[str, Any], *, first: bool = False) -> str:
     """The part of what a session wrote that answers the turn, fit to be heard.
 
     A session busy with other work when the turn arrived wrote all of that too,
@@ -425,7 +425,7 @@ def answer_in(got: dict[str, Any]) -> str:
     is spoken, without tables, code or headings, and only so much of it.
     """
     written = [str(t.get("text", "")) for t in got.get("turns") or [] if t.get("role") == "assistant"]
-    last = written[-1] if written else str(got.get("reply") or "")
+    last = written[0 if first else -1] if written else str(got.get("reply") or "")
     plain = _NOT_SPOKEN.sub("", last).replace("**", "").replace("`", "")
     plain = " ".join(plain.split())
     if len(plain) <= SPOKEN_ANSWER:
@@ -478,7 +478,12 @@ def follow_chosen(bridge: Bridge, following: str, patience: float) -> tuple[str,
             status = read.get("status") or listed.get(name)
         except (OSError, Refused):
             return "", False
-        written = [answer_in(read)] if answer_in(read) else []
+        # The first thing written after the question is the answer. A session
+        # that never goes idle, because somebody is working with it at the same
+        # time, otherwise had its answer held back for good.
+        written = [answer_in(read, first=True)] if answer_in(read, first=True) else []
+        if written and status is not None:
+            return written[0], True
         if status is None:
             bridge.choose(target.Target("voice"))
             return " ".join([*written, f"{name} has ended, so you are talking to me again."]).strip(), True
