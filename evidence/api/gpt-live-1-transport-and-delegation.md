@@ -81,6 +81,20 @@ states: "Voice sessions cost $0.05 per minute, billed per second", and that
 backend model and tool usage are charged separately. Its knowledge cutoff is
 2025-07-31, and it takes audio and text in and out.
 
+## Voices, checked by calling the API
+
+The [Live guide](https://developers.openai.com/api/docs/guides/live-conversations)
+sets the voice with `audio.output.voice`. The default is `marin`. It lists twelve
+named voices: `quartz`, `ripple`, `vesper`, `willow`, `stone`, `gleam`,
+`meridian`, `bossa`, `tempo`, `beacon`, `delta` and `cinder`. It says to "start a
+new session to change it": the voice cannot change inside a session.
+
+On 2026-10-06 a create request with a well-formed offer was sent once per name.
+`quartz`, `marin` and `cedar` were accepted with `201`. An invented name was
+refused with `403 Voice session access denied.`, because an unknown name is read
+as a custom voice this account has no access to. So `marin` and `cedar` are
+valid although the table leaves them out.
+
 ## What this page does not establish
 
 Whether the full-duplex behaviour is better than `gpt-realtime-2.1`. Third-party
