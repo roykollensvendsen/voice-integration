@@ -25,9 +25,18 @@ from typing import Any
 
 from voice_bridge.policy import Refused
 
-#: The three tools the bridge may call. Everything else claude-voice offers is a
-#: request that needs planning, and planning is the gateway's.
-TOOLS = ("whats_new", "approve", "deny")
+#: The tools the bridge may call: hearing news, answering one request, and
+#: talking to the one session somebody chose (ADR-VI-026). Everything else
+#: claude-voice offers is a request that needs planning, and that is the gateway's.
+TOOLS = (
+    "whats_new",
+    "approve",
+    "deny",
+    "list_active_sessions",
+    "ask_active_session",
+    "read_session_output",
+    "session_tree",
+)
 
 #: What is worth saying aloud. The rest is shown and not said: a session that
 #: started working is not news to somebody walking down the street.
@@ -84,8 +93,10 @@ class Client:
         self.session: str | None = None
         self.ids = itertools.count(1)
 
-    def call(self, tool: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Run one tool and return its structured result."""
+    def call(
+        self, tool: str, arguments: dict[str, Any] | None = None, *, waits: float = 0.0
+    ) -> dict[str, Any]:
+        """Run one tool and return its structured result, allowing `waits` seconds of waiting inside it."""
         # RULE: the bridge calls claude-voice only to hear news and answer one request
         if tool not in TOOLS:
             refusal = f"{tool} is not the bridge's to call"
@@ -95,7 +106,7 @@ class Client:
             if self.session is None:
                 self._open()
             try:
-                reply = self._post(message)
+                reply = self._post(message, waits=waits)
                 break
             except urllib.error.HTTPError as failure:
                 # An expired session is a 404, and the cure is a new one.
@@ -121,7 +132,9 @@ class Client:
         )
         self._post({"method": "notifications/initialized"}, notification=True)
 
-    def _post(self, message: dict[str, Any], *, notification: bool = False) -> dict[str, Any] | None:
+    def _post(
+        self, message: dict[str, Any], *, notification: bool = False, waits: float = 0.0
+    ) -> dict[str, Any] | None:
         sent = {"jsonrpc": "2.0", **message}
         if not notification:
             sent["id"] = next(self.ids)
@@ -136,7 +149,7 @@ class Client:
         request = urllib.request.Request(  # noqa: S310 — a local address from configuration
             self.url, data=json.dumps(sent).encode(), headers=headers, method="POST"
         )
-        with urllib.request.urlopen(request, timeout=CALL_SECONDS) as answer:  # noqa: S310 — as above
+        with urllib.request.urlopen(request, timeout=CALL_SECONDS + waits) as answer:  # noqa: S310 — as above
             self.session = answer.headers.get("Mcp-Session-Id") or self.session
             body = answer.read().decode()
             streamed = "text/event-stream" in answer.headers.get("Content-Type", "")

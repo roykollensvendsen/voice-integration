@@ -113,6 +113,32 @@ What it is allowed to report is a closed list, because the bridge acts on some
 event names — a page that could report an approval request could make the
 bridge believe a permission question is open when none is.
 
+## Who a turn goes to
+
+A turn the bridge cannot answer itself goes to one target, chosen by the person
+and kept until they change it
+([ADR-VI-026](../decisions/ADR-VI-026-you-choose-who-you-talk-to.md)):
+
+| Target | What a turn becomes | What it costs |
+|---|---|---|
+| the voice alone | nothing; the bridge says that nothing is forwarded | free, instant |
+| the gateway | a run, as above | a model call, about ten seconds |
+| one Claude Code session | `ask_active_session` through claude-voice | the subscription, about five seconds |
+
+The bridge checks every turn in this order, and stops at the first that applies:
+
+1. A question it can answer itself: the clock, the budget, where you are, the web.
+2. A plain yes or no while a permission question is waiting.
+3. A request to change the target: "talk to the voice", "talk to Hermes", or
+   "talk to" a session's name or project, in Norwegian or English. A name
+   switches only when it matches exactly one running session.
+4. The target.
+
+The target is kept in a file under the bridge's state directory, so a restart
+does not forget it. `GET /target` returns it with the running sessions, and
+`POST /target` sets it from the tree on the page. When the chosen session ends,
+the target goes back to the voice, and the voice says so.
+
 ## The shape a session is configured with
 
 ```console
