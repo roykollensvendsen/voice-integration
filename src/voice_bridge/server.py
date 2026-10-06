@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from voice_bridge import gateway, live, quick, sessions
+from voice_bridge import gateway, live, quick, sessions, target
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
 from voice_bridge.speech import say
@@ -278,6 +278,110 @@ def answered_here(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     return pending_answer(bridge, transcript), transcript
 
 
+#: What a turn hears while nothing is forwarded. ADR-VI-026.
+VOICE_ALONE = (
+    "Nothing is passed on while you are talking to the voice alone. "
+    "Say talk to Hermes, or name a session, to send work on."
+)
+
+#: How long one turn waits for a chosen session before the page takes over.
+ASK_SECONDS = 45
+
+#: How often a long answer from a chosen session is looked at again.
+FOLLOW_SECONDS = 3.0
+
+
+def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
+    """Answer a turn anywhere but the gateway, if it belongs anywhere but the gateway."""
+    here, transcript = answered_here(bridge, transcript)
+    if here is not None:
+        return here, transcript
+    switched = switch(bridge, transcript)
+    if switched is not None:
+        return switched, transcript
+    # RULE: while the voice alone is chosen nothing is forwarded
+    if bridge.chosen.kind == "voice":
+        return VOICE_ALONE, transcript
+    if bridge.chosen.kind == "session":
+        return ask_chosen(bridge, transcript), transcript
+    return None, transcript
+
+
+def switch(bridge: Bridge, transcript: str) -> str | None:
+    """Change who turns go to, if that is what was asked."""
+    asked = target.switch_request(transcript)
+    if asked is None:
+        return None
+    if isinstance(asked, target.Target):
+        bridge.choose(asked)
+        return f"You are talking to {asked.said()} now."
+    found = target.matching(asked, bridge.running())
+    # RULE: a name is switched to only when it matches exactly one session
+    if len(found) != 1:
+        if not found:
+            return f"No running session is called {asked}."
+        return f"{asked} could be {', '.join(found)}. Which one?"
+    bridge.choose(target.Target("session", found[0]))
+    return f"You are talking to {found[0]} now."
+
+
+def ask_chosen(bridge: Bridge, transcript: str) -> str:
+    """Put a turn to the chosen session, as if it were the only one there is."""
+    chosen = bridge.chosen
+    if bridge.sessions is None:
+        return "I cannot reach the coding sessions."
+    try:
+        got = bridge.sessions.call(
+            "ask_active_session",
+            {"session": chosen.name, "message": as_said(transcript), "wait_seconds": ASK_SECONDS},
+            # The tool itself waits up to ASK_SECONDS; the call has to outlast it.
+            waits=ASK_SECONDS,
+        )
+    except Refused as refusal:
+        return f"{chosen.name} could not be reached: {refusal}"
+    except OSError:
+        return "I cannot reach the coding sessions."
+    return _after_asking(bridge, chosen, got)
+
+
+def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) -> str:
+    """What to say about one answer from a chosen session."""
+    status = got.get("status")
+    if status == "session_ended" or got.get("session_ended"):
+        # RULE: a session that ended hands the conversation back to the voice
+        bridge.choose(target.Target("voice"))
+        return f"{chosen.name} has ended, so you are talking to me again."
+    if status == "needs_input":
+        return f"{chosen.name} is waiting for somebody at its own screen."
+    reply = str(got.get("reply") or "").strip()
+    if status == "still_working":
+        bridge.following = f"claude:{got.get('next_after', 0)}:{chosen.name}"
+        return f"{reply} {chosen.name} is still working, and I will say when it answers.".strip()
+    return reply or f"{chosen.name} said nothing."
+
+
+def follow_chosen(bridge: Bridge, following: str, patience: float) -> tuple[str, bool]:
+    """Wait for a chosen session to finish an answer, and say what it wrote."""
+    _, after, name = following.split(":", 2)
+    deadline = time.monotonic() + patience
+    while True:
+        try:
+            asked = {"session": name, "after": int(after)}
+            read = bridge.sessions.call("read_session_output", asked) if bridge.sessions else {}
+            status = {s.get("name"): s.get("status") for s in bridge.running()}.get(name)
+        except (OSError, Refused):
+            return "", False
+        written = [str(t.get("text", "")) for t in read.get("turns") or [] if t.get("role") == "assistant"]
+        if status is None:
+            bridge.choose(target.Target("voice"))
+            return " ".join([*written, f"{name} has ended, so you are talking to me again."]).strip(), True
+        if status in ("idle", "waiting"):
+            return " ".join(written).strip() or f"{name} is done.", True
+        if time.monotonic() >= deadline:
+            return "", False
+        time.sleep(FOLLOW_SECONDS)
+
+
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
@@ -293,7 +397,7 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     # A question that is waiting takes precedence over a new request: "yes" is
     # an answer to it, not a thing to go and do.
     if bridge is not None:
-        here, transcript = answered_here(bridge, transcript)
+        here, transcript = routed(bridge, transcript)
         if here is not None:
             return here
     arguments: dict[str, Any] = {
@@ -328,8 +432,12 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     return spoken
 
 
-def keep_waiting(run_id: str, url: str, patience: float = gateway.PATIENCE_SECONDS) -> tuple[str, bool]:
+def keep_waiting(
+    run_id: str, url: str, patience: float = gateway.PATIENCE_SECONDS, bridge: Bridge | None = None
+) -> tuple[str, bool]:
     """Wait another stretch for a run, and say what to speak and whether to stop."""
+    if run_id.startswith("claude:") and bridge is not None:
+        return follow_chosen(bridge, run_id, patience)
     seen = gateway.wait_for(run_id, url, patience)
     return say("run_status", seen), not still_running(seen)
 
@@ -362,6 +470,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, page=PAGE.read_bytes())
         elif self.path == "/watch":
             self._stream()
+        elif self.path == "/target":
+            self._send(200, self._who())
         elif self.path == "/config":
             # The page needs one phrase in the session's language and nothing
             # else. It is never given a key, a model name or a gateway address.
@@ -420,6 +530,30 @@ class _Handler(BaseHTTPRequestHandler):
         self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
         return {}
 
+    def _who(self) -> dict[str, Any]:
+        """Who turns go to now, and who else they could go to."""
+        return {
+            "chosen": self.server.chosen.as_json(),
+            "sessions": [
+                {key: s.get(key) for key in ("name", "project", "status", "kind")}
+                for s in self.server.running()
+            ],
+            "tree": self.server.tree(),
+        }
+
+    def _choose(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Set who turns go to, from a tap on the page."""
+        kind = str(body.get("kind", ""))
+        if kind not in target.KINDS:
+            return 400, {"error": "choose the voice, hermes or a session"}
+        chosen = target.Target(kind, str(body.get("name", "")) if kind == "session" else "")
+        # RULE: a session is chosen from the page only if it is running
+        if kind == "session" and chosen.name not in [s.get("name") for s in self.server.running()]:
+            refusal = f"{chosen.name or 'that session'} is not running"
+            raise Refused(refusal)
+        self.server.choose(chosen)
+        return 200, {"chosen": chosen.as_json(), "said": f"You are talking to {chosen.said()} now."}
+
     def _approval(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         """Answer a permission question from a button, with once or deny and nothing else."""
         choice = str(body.get("choice", ""))
@@ -445,6 +579,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(200, {"sdp": sdp, "resumed": len(self.server.recent())})
             elif self.path == "/approval":
                 self._send(*self._approval(body))
+            elif self.path == "/target":
+                self._send(*self._choose(body))
             elif self.path in ("/where", "/turn", "/spent", "/noticed"):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
@@ -465,7 +601,8 @@ class _Handler(BaseHTTPRequestHandler):
                     },
                 )
             elif self.path == "/run":
-                spoken, done = keep_waiting(str(body.get("run_id", "")), self.server.gateway_url)
+                run_id = str(body.get("run_id", ""))
+                spoken, done = keep_waiting(run_id, self.server.gateway_url, bridge=self.server)
                 self._send(200, {"content": spoken, "finished": done})
             else:
                 self._send(404, {"error": "no such path"})
@@ -478,7 +615,13 @@ class _Handler(BaseHTTPRequestHandler):
 class Bridge(ThreadingHTTPServer):
     """The server, carrying the few things a request needs."""
 
-    def __init__(self, address: tuple[str, int], gateway_url: str, ledger: Ledger | None = None) -> None:
+    def __init__(
+        self,
+        address: tuple[str, int],
+        gateway_url: str,
+        ledger: Ledger | None = None,
+        chosen_file: pathlib.Path | None = None,
+    ) -> None:
         """Listen on `address`, talking to the gateway at `gateway_url`."""
         super().__init__(address, _Handler)
         self.gateway_url = gateway_url
@@ -504,6 +647,11 @@ class Bridge(ThreadingHTTPServer):
         #: Requests Claude Code sessions are waiting on, by number, with what was said.
         self.asked: dict[str, str] = {}
         self.told = 0
+        #: Who a turn goes to, kept where a restart finds it. ADR-VI-026.
+        self.chosen_file = chosen_file
+        self.chosen = target.load(chosen_file)
+        #: The session tree as last fetched, until `tree_changed` says otherwise.
+        self.shape: list[dict[str, Any]] | None = None
 
     def remember(self, who: str, text: str) -> None:
         """Keep a turn, for whoever needs to know what was already said."""
@@ -562,14 +710,58 @@ class Bridge(ThreadingHTTPServer):
 
         threading.Thread(target=read, daemon=True).start()
 
+    def choose(self, chosen: target.Target) -> None:
+        """Send turns somewhere else from now on."""
+        self.chosen = chosen
+        # RULE: the choice survives a restart
+        target.save(self.chosen_file, chosen)
+
+    def running(self) -> list[dict[str, Any]]:
+        """The Claude Code sessions running now, or none when claude-voice cannot be asked."""
+        if self.sessions is None:
+            return []
+        try:
+            found = self.sessions.call("list_active_sessions", {}).get("sessions") or []
+        except (OSError, Refused):
+            return []
+        return [s for s in found if isinstance(s, dict) and s.get("name")]
+
+    def _settle(self, item: dict[str, Any]) -> dict[str, Any]:
+        """Act on one piece of news, and return it as it should be told."""
+        if item.get("kind") == "needs_approval" and item.get("approval_id") is not None:
+            self.asked[str(item["approval_id"])] = str(item.get("text", ""))
+        elif item.get("kind") == "tree_changed":
+            self.shape = None
+        elif item.get("kind") == "approval_expired":
+            # Refused for nobody answering, so a yes can no longer reach it.
+            self.asked.pop(str(item.get("approval_id")), None)
+        elif item.get("kind") == "ended" and self.chosen.name == str(item.get("session")):
+            # Otherwise the person keeps talking into a session that is gone.
+            self.choose(target.Target("voice"))
+            told = f"{item.get('session')} has ended, so you are talking to the voice again."
+            return {**item, "kind": "error", "text": told}
+        return item
+
+    def tree(self) -> list[dict[str, Any]]:
+        """Every session claude-voice knows of, with who started and who messaged whom.
+
+        Kept until claude-voice says it changed. A page open on two devices
+        would otherwise rebuild it every few seconds for nothing.
+        """
+        if self.sessions is None:
+            return []
+        if self.shape is None:
+            try:
+                nodes = self.sessions.call("session_tree", {}).get("nodes") or []
+            except (OSError, Refused):
+                return []
+            self.shape = [n for n in nodes if isinstance(n, dict) and n.get("id")]
+        return self.shape
+
     def hear(self, news: list[dict[str, Any]]) -> None:
         """Put news from the coding sessions where the page will find it."""
-        for item in news:
-            if item.get("kind") == "needs_approval" and item.get("approval_id") is not None:
-                self.asked[str(item["approval_id"])] = str(item.get("text", ""))
-            elif item.get("kind") == "approval_expired":
-                # Refused for nobody answering, so a yes can no longer reach it.
-                self.asked.pop(str(item.get("approval_id")), None)
+        for heard in news:
+            item = self._settle(heard)
             self.told += 1
             notice(
                 self,
