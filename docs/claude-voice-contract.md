@@ -55,6 +55,20 @@ An approval number is not read aloud. claude-voice ends a request with
 "Approval 3: yes or no?", and the bridge removes the number before anything
 hears it; a person answers the question they just heard, not a number.
 
+## Nothing heard is lost
+
+The bridge keeps its place in the news, the news worth saying aloud, and how
+far the person has heard it, in `news.json` beside the target in its state
+directory, so a restart picks up where it left off
+([ADR-VI-029](../decisions/ADR-VI-029-the-bridge-owns-every-open-request.md)).
+The page reports each piece of news it says with `POST /heard`. When a session
+opens, `POST /session` answers with `missed`: what was worth saying and not yet
+heard, the latest `MISSED_SPOKEN` of it word for word and the rest counted. The
+page says that first, as "while you were away".
+
+An answer from the gateway that no page is waiting for, because nobody has asked
+after the run for `UNWATCHED_SECONDS`, is told as news in the same way.
+
 ## Talking to one session
 
 While one session is the target
