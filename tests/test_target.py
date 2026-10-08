@@ -370,3 +370,27 @@ def test_a_busy_session_is_said_to_be_busy_once_and_its_answer_comes_as_news(
     told = [e for e in bridge.watching if e["event"] == "claude.news"]
     assert told[-1]["said"] == "Svaret er klart."
     assert told[-1]["aloud"]
+
+
+@pytest.mark.parametrize(
+    ("said", "wanted"),
+    [
+        # Each of these was said on 2026-10-08, went to the planner instead, and
+        # was answered "I cannot move your conversation".
+        ("Kan du stemmen sette meg over til ehm Voice Integration Work-økta", "voice integration work"),
+        ("Jeg ønsker å gå tilbake til å bare prate med voice- igen", target.Target("voice")),
+        (
+            "Ok, men jeg vil ikke prate med Hermes, jeg vil gå tilbake til å bare prate med GPT Live One",
+            target.Target("voice"),
+        ),
+        ("Koble meg til hydropower-04", "hydropower-04"),
+        ("Bytt til Hermes", target.Target("hermes")),
+        ("Snakk med stemmen", target.Target("voice")),
+    ],
+)
+def test_a_switch_said_in_plain_words_is_understood(said, wanted):
+    assert target.switch_request(said) == wanted
+
+
+def test_saying_whom_you_do_not_want_is_not_a_switch_to_them():
+    assert target.switch_request("jeg vil ikke prate med Hermes") is None

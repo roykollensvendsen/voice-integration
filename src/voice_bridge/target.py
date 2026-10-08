@@ -24,10 +24,23 @@ KINDS = ("voice", "hermes", "session")
 #: Longer than this and "talk to" is part of a sentence about something else.
 SHORTEST_IS_SAFEST = 60
 
-_TALK_TO = r"^(?:snakk|prat|talk|speak)\s+(?:med|to|with)\s+(?:the\s+)?"
-_TO_VOICE = re.compile(_TALK_TO + r"(?:stemmen|stemmelaget|voice|deg|you)$")
-_TO_HERMES = re.compile(_TALK_TO + r"hermes$")
-_TO_SESSION = re.compile(_TALK_TO + r"(?:økta\s+|økten\s+|session\s+)?(.+?)(?:\s+(?:økta|økten|session))?$")
+# Said on 2026-10-08 and sent to the planner, which could not help: "kan du
+# sette meg over til …-økta", "jeg vil gå tilbake til å bare prate med GPT Live
+# One". A switch is a way of moving, then whoever it is to.
+_MOVE = re.compile(
+    r"^(?:gå tilbake til(?: å)?(?: bare)?(?: (?:snakke|prate) med)?|go back to"
+    r"|sett(?:e)? meg over til|koble?(?:e)? meg (?:til|på)|connect me to|bytt(?:e)? til|switch to"
+    r"|(?:snakk(?:e)?|prat(?:e)?|talk|speak) (?:med|to|with))\s+(?:the\s+)?(.+)$"
+)
+_TO_VOICE = re.compile(r"(?:bare )?(?:stemmen|stemmelaget|voice|deg|you|gpt[ -]?live(?:[ -]?(?:one|1|en))?)")
+_FILLER = re.compile(r"\b(?:ehm|eh|øh|hmm)\b")
+_ASKING = re.compile(
+    r"^(?:ok(?:ei)?|ja|men|så|og|altså|kan du(?: stemmen)?|kan vi|la oss|jeg (?:vil|ønsker å|skal)"
+    r"|i want to|can we|can you|please)\s+"
+)
+_TRAILING = re.compile(r"[\s-]*(?:igjen|igen|again|nå|now|takk|thanks)?[\s-]*$")
+_SESSION_WORD = re.compile(r"^(?:økta|økten|session)\s+|[\s-]+(?:økta|økten|session)$")
+_NOT = re.compile(r"\b(?:ikke|not|don't|do not)\b")
 
 
 #: Who speaks for each kind of target until the person picks otherwise, so that
@@ -190,17 +203,24 @@ def cancel_request(said: str) -> bool:
 
 def switch_request(said: str) -> Target | str | None:
     """A target, a session name still to be matched, or None when this was not a switch."""
-    words = said.strip().strip(".!?,").casefold()
-    words = re.sub(r"^(?:jeg vil |i want to |can we |kan vi |la oss )", "", words)
+    # The last thing said is the wish: "not Hermes, back to the voice" is a switch to the voice.
+    clauses = [c for c in re.split(r"[,.;!?]", _FILLER.sub(" ", said.casefold())) if c.strip()]
+    words = " ".join(clauses[-1].split()) if clauses else ""
+    while (shorter := _ASKING.sub("", words)) != words:
+        words = shorter
+    words = _TRAILING.sub("", words)
     # RULE: a long sentence that mentions talking to someone is not a switch
     if len(words) > SHORTEST_IS_SAFEST:
         return None
-    if _TO_VOICE.match(words):
+    found = _MOVE.match(words)
+    if not found or _NOT.search(words):
+        return None
+    whom = found.group(1).strip()
+    if _TO_VOICE.fullmatch(whom):
         return Target("voice")
-    if _TO_HERMES.match(words):
+    if whom == "hermes":
         return Target("hermes")
-    found = _TO_SESSION.match(words)
-    return found.group(1).strip() if found else None
+    return _SESSION_WORD.sub("", whom).strip() or None
 
 
 def matching(asked: str, running: list[dict[str, Any]]) -> list[str]:
