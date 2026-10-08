@@ -353,6 +353,14 @@ function timed(stage) {
   }).catch(() => {});
 }
 
+// A failure is said in one plain sentence with what happens next, never as an
+// exception's text: the bridge's "Failed to fetch", read aloud, helped nobody.
+// The detail still goes on the screen.
+const FAILED_PLAINLY = {
+  unreachable: "The bridge on the laptop is not answering right now. It restarts by itself, so try again in a moment.",
+  refused: (why) => `That was refused: ${String(why ?? "").split(":")[0].slice(0, 80)}. Say it another way, or try again.`,
+};
+
 async function answer(delegationId) {
   for (const key of Object.keys(timing)) delete timing[key];
   timing.started = Date.now();
@@ -376,10 +384,10 @@ async function answer(delegationId) {
       body: JSON.stringify({ transcript }),
     });
     const body = await reply.json();
-    content = reply.ok ? body.content : `I could not do that: ${body.error}`;
+    content = reply.ok ? body.content : FAILED_PLAINLY.refused(body.error);
     ({ run_id: runId, finished, quiet = false } = body);
   } catch (failure) {
-    content = `The bridge did not answer: ${failure.message}`;
+    content = FAILED_PLAINLY.unreachable;
   }
   settled = true;
   timed("bridge_ms");
