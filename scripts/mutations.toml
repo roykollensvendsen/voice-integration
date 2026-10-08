@@ -96,7 +96,7 @@ replace = 'if False:'
 [[rule]]
 name = "a delegation waits for the work rather than reading back a receipt"
 file = "src/voice_bridge/server.py"
-find = 'finished = gateway\.wait_for'
+find = 'finished = gateway\.wait_for\(str\(run_id\), url, patience\)'
 replace = 'finished = started'
 
 [[rule]]
@@ -120,8 +120,8 @@ replace = 'if False:'
 [[rule]]
 name = "a remembered turn is a message item, not a bare string"
 file = "src/voice_bridge/server.py"
-find = '"type": "message",'
-replace = '"type": "message", "content": text.strip(),'
+find = '"content": \[\{"type": "input_text" if role == "user" else "output_text", "text": text\}\],'
+replace = '"content": text,'
 
 [[rule]]
 name = "a turn is finished only when the run behind it is"
@@ -230,6 +230,7 @@ name = "a session that ended hands the conversation back to the voice"
 file = "src/voice_bridge/server.py"
 find = 'bridge\.choose\(target\.Target\("voice"\)\)'
 replace = 'pass'
+occurrence = 2
 
 [[rule]]
 name = "while the voice alone is chosen nothing is forwarded"
@@ -246,7 +247,7 @@ replace = 'if False:'
 [[rule]]
 name = "the choice survives a restart"
 file = "src/voice_bridge/server.py"
-find = 'target\.save\(self\.chosen_file, chosen\)'
+find = 'target\.save\(self\.chosen_file, chosen, '
 replace = 'pass'
 
 [[rule]]
@@ -254,6 +255,7 @@ name = "a long sentence that mentions talking to someone is not a switch"
 file = "src/voice_bridge/target.py"
 find = 'if len\(words\) > SHORTEST_IS_SAFEST:'
 replace = 'if False:'
+occurrence = 2
 
 [[rule]]
 name = "a session opens in the voice of the chosen target"
@@ -270,8 +272,8 @@ replace = 'if kind not in target.VOICE_DEFAULTS:'
 [[rule]]
 name = "a turn to a session says who is speaking and that the answer is read aloud"
 file = "src/voice_bridge/server.py"
-find = '\{"session": chosen\.name, "message": relayed\(bridge, transcript\), "wait_seconds": ASK_SECONDS\},'
-replace = '{"session": chosen.name, "message": as_said(transcript), "wait_seconds": ASK_SECONDS},'
+find = '\{"session": chosen\.name, "message": relayed\(bridge, transcript\), "wait_seconds": wait\},'
+replace = '{"session": chosen.name, "message": as_said(transcript), "wait_seconds": wait},'
 
 [[rule]]
 name = "a chosen session hears everything that is said"
