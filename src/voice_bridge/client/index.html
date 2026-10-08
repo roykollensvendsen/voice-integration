@@ -496,7 +496,11 @@ async function waitOn(runId, delegationId) {
       return;
     }
   }
-  note("Gave up waiting", "still running after fifteen minutes");
+  // Never silence: the person hears that it is still going, and where the
+  // answer will turn up. ADR-VI-029.
+  const late = "This is taking more than a quarter of an hour. The answer will come as news when it is ready.";
+  note("Still going", late);
+  tell(delegationId, late);
 }
 
 // Who a turn goes to, and who else it could go to: the voice alone, Hermes, or
@@ -662,7 +666,15 @@ function heardNews(e) {
   const row = note(`From ${e.session}`, e.said);
   row.dataset.kind = e.event;
   if (e.kind === "needs_approval" && e.approval_id != null) asking(row, e, e.approval_id);
-  if (fresh && pc && e.aloud) tell(null, e.said);
+  if (fresh && pc && e.aloud) {
+    tell(null, e.said);
+    // Said aloud, so it is not said again as "while you were away".
+    fetch("/heard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seq: e.seq }),
+    }).catch(() => {});
+  }
 }
 
 function watch() {
@@ -726,6 +738,11 @@ async function start() {
   if (!reply.ok) throw new Error(body.error ?? "the bridge refused");
   await pc.setRemoteDescription({ type: "answer", sdp: body.sdp });
   speaking = body.voice ?? null;
+  // What was worth saying while nobody was listening is said first.
+  if (body.missed) {
+    note("While you were away", body.missed);
+    tell(null, body.missed);
+  }
   steered = body.steer ?? null;
   if (body.resumed) note("Picked up where you left off", `${body.resumed} turns`);
 
