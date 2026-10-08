@@ -223,6 +223,7 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
             "read_session_output": self.server.output,
             "session_tree": {"version": "v1", "nodes": TREE},
             "fleet_recap": {"sessions": FLEET},
+            "cancel": {"session_id": arguments.get("session_id"), **self.server.cancelled},
             "digest_session": {
                 "session": arguments.get("session"),
                 "digest": self.server.digest,
@@ -274,6 +275,7 @@ def claude_voice():
     running.answer = {"status": "answered", "reply": "The tests pass.", "next_after": 4}
     running.slow = 0.0
     running.slow_tools = {}
+    running.cancelled = {"cancelled": False, "status": "not_supported"}
     running.digest = "Økta har rettet to tester og venter nå på en gjennomgang."
     running.output = {
         "turns": [{"index": 5, "role": "assistant", "text": "Done now."}],

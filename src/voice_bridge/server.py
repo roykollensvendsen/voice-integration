@@ -391,16 +391,28 @@ def stop_work(bridge: Bridge) -> str:
         said.append("Stopped what Hermes was doing.")
     owed = sorted(bridge.answers_awaited)
     for name in owed:
-        # Its answer, when it comes, is no longer wanted; the session itself
-        # cannot be stopped from here.
+        # Its answer, when it comes, is no longer wanted.
         bridge.dropped.add(name)
         bridge.answers_awaited.pop(name)
-    if owed:
-        said.append(
-            f"The answer from {', '.join(owed)} will not be read out. It cannot be stopped from here, "
-            "so stop it at its screen if it must stop."
-        )
-    return " ".join(dict.fromkeys(said)) or "There was nothing under way to stop."
+    chosen = [bridge.chosen.name] if bridge.chosen.kind == "session" else []
+    said.extend(_stop_session(bridge, name) for name in dict.fromkeys([*owed, *chosen]))
+    return " ".join(dict.fromkeys(s for s in said if s)) or "There was nothing under way to stop."
+
+
+def _stop_session(bridge: Bridge, name: str) -> str:
+    """Stop one session's current turn through claude-voice, or say honestly that it cannot be."""
+    if bridge.sessions is None:
+        return ""
+    try:
+        got = bridge.sessions.call("cancel", {"session_id": name})
+    except (OSError, Refused):
+        return f"I could not reach {name} to stop it."
+    if got.get("status") == "interrupted":
+        return f"Stopped {name}."
+    if got.get("status") == "not_supported":
+        # A terminal session: Ctrl-C would end it outright, and nothing can type into it.
+        return f"{name} cannot be stopped from here; it has to be stopped at its own screen."
+    return ""
 
 
 def revoice(bridge: Bridge, transcript: str) -> str | None:

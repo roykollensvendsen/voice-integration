@@ -40,6 +40,7 @@ TOOLS = (
     "health",
     "fleet_recap",
     "digest_session",
+    "cancel",
 )
 
 #: What is worth saying aloud. The rest is shown and not said: a session that
