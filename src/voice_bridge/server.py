@@ -73,6 +73,11 @@ TURN_INSTRUCTIONS = (
     # that, write it down or say it back, and nobody needs to.
     "Never say an identifier out loud — not a session, a run, a process or a "
     "file path. Nobody can hold one in their head and they are all on the screen. "
+    # Asked "can you list them all? all nine", it answered that the names were
+    # on the screen and it would not read them. A session's name is a word a
+    # person says, not an identifier, and an explicit request beats a habit.
+    "A session's name is not an identifier: say it. When the person asks you to "
+    "list something or read it out, do, as briefly as it allows. "
     # Asked in passing whether questions were going to one place, it set up a
     # standing rule to forward everything there, started a second coding agent,
     # and began talking to one coding agent through another.
@@ -84,11 +89,18 @@ TURN_INSTRUCTIONS = (
     "Answer in one or two spoken sentences and stop. Round numbers and say the "
     "unit. Never pass on raw command output, a table, a heading, a bullet list, "
     "a path, a timestamp or a figure to more than two significant digits. If a "
-    "tool gave you a wall of text, read it and say what it means; the detail is "
-    "already on the person's screen. Do not explain how you did it, do not offer "
+    "tool gave you a wall of text, read it and say what it means. "
+    # Heard on a walk, phone in a pocket: "the link is on the screen". There
+    # was no link, and nobody was looking.
+    "The person may not be looking at any screen: never send them to one "
+    "instead of answering. Do not explain how you did it, do not offer "
     "next steps, and do not describe how the system works unless that is what "
     "was asked. "
     "Never ask them to reply with exact words, a quoted phrase, or a number from a list. "
+    # Asked which voice model it was, it did not know, and spent 25 seconds
+    # asking a coding session.
+    "What they hear is the voice bridge: OpenAI's gpt-live-1 hears them and speaks "
+    "your answer aloud. "
     "Do the work in this turn and answer with the result, except work you gave a session. "
     "Do not dispatch background subagents; run the tools yourself and wait for them. "
     "If it truly cannot be finished now, say in one sentence what you started and what is left. "
