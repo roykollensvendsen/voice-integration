@@ -240,6 +240,26 @@ short words is not a channel that should be able to say "always".
   [ADR-VI-018](../decisions/ADR-VI-018-the-client-is-a-browser-page.md) records
   what that gave up.
 
+## Getting it running
+
+`voicebridge ready` says what is still missing before the page can talk, one
+check to a line, each with what it found and the one thing to do about it.
+`--json` gives the same to an assistant, with `ready` true once every required
+check passes, and the command exits zero only then.
+
+| Check | Required | Passes when |
+|---|---|---|
+| `openai_key` | yes | an OpenAI key is set, and OpenAI accepts it |
+| `budget` | yes | this month's ceiling is not spent |
+| `hermes` | no | the planner answers; without it, the planner cannot be chosen |
+| `claude_voice` | no | claude-voice answers; without it, no Claude session can be chosen |
+
+The voice alone needs only the first two. The bridge reads its settings from
+the environment first and then from `~/.config/voice-bridge/env`, one
+`NAME=value` a line. A name set in the environment, even to nothing, wins over
+the file. No check ever prints a secret, only whether it is there and whether
+it was accepted. `--offline` skips every check that would leave the machine.
+
 ## Knowing how it is doing
 
 Every spoken turn gets a `trace_id` of twelve hex characters. It goes into each
