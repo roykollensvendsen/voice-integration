@@ -139,6 +139,23 @@ def test_a_busy_session_has_answered_as_soon_as_it_writes_something_after_the_qu
     assert (spoken, done) == ("Du kan snakke med tre økter.", True)
 
 
+def test_an_answer_claude_voice_cut_short_ends_on_a_whole_sentence(bridge, claude_voice):
+    """A clipped turn ends in an ellipsis, which is nothing anybody should hear."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {
+        "status": "answered",
+        "turns": [
+            {
+                "index": 9,
+                "role": "assistant",
+                "text": "Testene er grønne. Jeg har også sett på…",
+                "cut": True,
+            },
+        ],
+    }
+    assert say(bridge, "hvordan gikk det") == "Testene er grønne."
+
+
 def test_news_and_permission_answers_come_first_whatever_is_chosen(bridge, claude_voice):
     say(bridge, "snakk med build-7c")
     bridge.hear(NEWS)
