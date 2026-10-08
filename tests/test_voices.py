@@ -119,6 +119,13 @@ def test_the_voice_is_told_to_ask_the_bridge_to_change_voice_rather_than_promise
         assert "bytte stemme" in target.steer(target.Target(kind, "x"))
 
 
+def test_a_voice_for_a_session_adds_nothing_of_its_own_and_never_says_how_it_knows():
+    """It said "Ja." before every answer, and that it had asked the session the time."""
+    said = target.steer(target.Target("session", "x"))
+    assert "ingenting eget" in said
+    assert "hvordan du fant" in said
+
+
 def test_a_voice_the_service_does_not_offer_is_never_sent(bridge):
     spoken = say(bridge, "bytt stemme til robot")
     assert bridge.voices["hermes"] == "cedar"

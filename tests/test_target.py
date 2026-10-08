@@ -135,7 +135,7 @@ def test_a_busy_session_has_answered_as_soon_as_it_writes_something_after_the_qu
         "status": "busy",
     }
     say(bridge, "list øktene")
-    spoken, done = server.keep_waiting(bridge.following, bridge.gateway_url, bridge=bridge, patience=5)
+    spoken, done = server.keep_waiting("claude:4:build-7c", bridge.gateway_url, bridge=bridge, patience=5)
     assert (spoken, done) == ("Du kan snakke med tre økter.", True)
 
 
@@ -206,8 +206,8 @@ def test_a_long_answer_is_followed_until_the_session_is_idle(bridge, claude_voic
     say(bridge, "snakk med build-7c")
     claude_voice.answer = {"status": "still_working", "reply": "Starting.", "next_after": 4}
     say(bridge, "kjør alt")
-    assert bridge.following is not None
-    spoken, done = server.keep_waiting(bridge.following, bridge.gateway_url, bridge=bridge, patience=1)
+    assert "build-7c" in bridge.answers_awaited
+    spoken, done = server.keep_waiting("claude:4:build-7c", bridge.gateway_url, bridge=bridge, patience=1)
     assert done
     assert spoken == "Done now."
     assert ("read_session_output", {"session": "build-7c", "after": 4}) in claude_voice.called
@@ -243,7 +243,7 @@ def test_a_long_answer_is_finished_when_the_session_itself_says_it_is_idle(bridg
     ]
     claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
     say(bridge, "kjør alt")
-    spoken, done = server.keep_waiting(bridge.following, bridge.gateway_url, bridge=bridge, patience=1)
+    spoken, done = server.keep_waiting("claude:4:build-7c", bridge.gateway_url, bridge=bridge, patience=1)
     assert (spoken, done) == ("Done now.", True)
 
 
@@ -341,3 +341,32 @@ def test_something_said_outside_a_delegation_goes_as_an_instruction():
     page = server.PAGE.read_text()
     assert '"session.instructions.append"' in page
     assert "delegationId == null" in page
+
+
+def test_a_busy_session_is_said_to_be_busy_once_and_its_answer_comes_as_news(
+    bridge, claude_voice, monkeypatch
+):
+    """Every turn to a busy session took 52 s, filled with "working on it" over and over."""
+    monkeypatch.setattr(server, "FOLLOW_SECONDS", 0.05)
+    claude_voice.active = [
+        dict(s, status="busy") if s["name"] == "build-7c" else s for s in claude_voice.active
+    ]
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.output = {"turns": [], "status": "busy"}
+    first = say(bridge, "hva skjer")
+    asked = [a for n, a in claude_voice.called if n == "ask_active_session"][-1]
+    assert asked["wait_seconds"] == server.ASK_BUSY_SECONDS
+    assert "busy" in first
+    assert bridge.following is None, "the page is not left polling"
+    second = say(bridge, "og hva mer")
+    assert bridge.quiet, "a second question while waiting is passed on without another busy line"
+    assert "busy" not in second
+    claude_voice.output = {
+        "turns": [{"index": 5, "role": "assistant", "text": "Svaret er klart."}],
+        "status": "busy",
+    }
+    bridge.answers_awaited.pop("build-7c").join(timeout=10)
+    told = [e for e in bridge.watching if e["event"] == "claude.news"]
+    assert told[-1]["said"] == "Svaret er klart."
+    assert told[-1]["aloud"]

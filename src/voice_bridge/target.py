@@ -115,7 +115,9 @@ def steer(chosen: Target) -> str:
         return (
             f"Du er nå bare en stemme for Claude-økta {chosen.name}. Alt personen sier, er til "
             f"{chosen.name}: be alltid bakenden om hjelp, uansett hva det gjelder, og svar aldri selv. "
-            "Les opp det som kommer tilbake, med dine egne ord og kort." + _ASK_TO_CHANGE
+            "Les opp det som kommer tilbake, med dine egne ord og kort. Si ingenting eget før "
+            "svaret kommer, og aldri hvordan du fant det: ikke «ja», ikke «jeg sjekker», og ikke "
+            "at du spurte noen." + _ASK_TO_CHANGE
         )
     if chosen.kind == "hermes":
         return (
