@@ -1038,6 +1038,9 @@ class Bridge(ThreadingHTTPServer):
     def missed(self) -> str:
         """What was worth saying and was not heard, to say first next time."""
         unheard = [k for k in self.kept if int(k.get("seq", 0)) > self.heard]
+        # The same sentence six times over is one piece of news, said once.
+        latest_of = {str(k.get("said")): k for k in unheard}
+        unheard = sorted(latest_of.values(), key=lambda k: int(k.get("seq", 0)))
         if not unheard:
             return ""
         latest = unheard[-MISSED_SPOKEN:]
@@ -1131,11 +1134,23 @@ class Bridge(ThreadingHTTPServer):
             self.shape = [n for n in nodes if isinstance(n, dict) and n.get("id")]
         return self.shape
 
+    def _spoken_to(self, item: dict[str, Any]) -> bool:
+        """News about the session somebody is talking to, which they hear anyway."""
+        # Every turn of a chosen session ends in "has finished and is waiting";
+        # its answer is the news, and that comes as the answer. A permission
+        # question from it is still news.
+        return (
+            self.chosen.kind == "session"
+            and str(item.get("session")) == self.chosen.name
+            and item.get("kind") in ("finished", "needs_input")
+        )
+
     def hear(self, news: list[dict[str, Any]]) -> None:
         """Put news from the coding sessions where the page will find it."""
         for heard in news:
             item = self._settle(heard)
             self.told += 1
+            aloud = item.get("kind") in sessions.SPOKEN and not self._spoken_to(item)
             notice(
                 self,
                 {
@@ -1144,11 +1159,11 @@ class Bridge(ThreadingHTTPServer):
                     "session": str(item.get("session", "")),
                     "kind": str(item.get("kind", "")),
                     "said": str(item.get("text", "")),
-                    "aloud": item.get("kind") in sessions.SPOKEN,
+                    "aloud": aloud,
                     "approval_id": item.get("approval_id"),
                 },
             )
-            if item.get("kind") in sessions.SPOKEN:
+            if aloud:
                 said = sessions.spoken(str(item.get("text", "")))
                 self.kept = [*self.kept, {"seq": self.told, "said": said}][-KEPT_NEWS:]
         self._keep()

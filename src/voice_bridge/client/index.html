@@ -344,7 +344,9 @@ async function answer(delegationId) {
   // things to say at once. So the holding line waits to find out whether there
   // is any waiting to cover.
   let settled = false;
-  if (holding) setTimeout(() => settled || tell(delegationId, holding), HOLD_AFTER_MS);
+  // A hint, not a script: sent as something to say, it was read out word for
+  // word on every turn. As something to know, the voice says it its own way.
+  if (holding) setTimeout(() => settled || append("thinking", delegationId, holding), HOLD_AFTER_MS);
   let content, runId = null, finished = true, quiet = false;
   try {
     const reply = await fetch("/delegation", {
