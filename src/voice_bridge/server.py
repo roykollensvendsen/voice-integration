@@ -364,7 +364,7 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     here, transcript = answered_here(bridge, transcript)
     if here is not None:
         return here, transcript
-    revoiced = revoice(bridge, transcript)
+    revoiced = stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript)
     if revoiced is not None:
         return revoiced, transcript
     switched = switch(bridge, transcript)
@@ -377,6 +377,30 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     if bridge.chosen.kind == "session":
         return ask_chosen(bridge, transcript), transcript
     return None, transcript
+
+
+def stop_work(bridge: Bridge) -> str:
+    """Stop what is under way: the gateway's runs, and answers still owed by busy sessions."""
+    said = []
+    for run_id in sorted(bridge.open_runs):
+        try:
+            gateway.call("run_stop", {"run_id": run_id}, bridge.gateway_url, bridge.capabilities)
+        except (OSError, Refused):
+            continue
+        bridge.open_runs.discard(run_id)
+        said.append("Stopped what Hermes was doing.")
+    owed = sorted(bridge.answers_awaited)
+    for name in owed:
+        # Its answer, when it comes, is no longer wanted; the session itself
+        # cannot be stopped from here.
+        bridge.dropped.add(name)
+        bridge.answers_awaited.pop(name)
+    if owed:
+        said.append(
+            f"The answer from {', '.join(owed)} will not be read out. It cannot be stopped from here, "
+            "so stop it at its screen if it must stop."
+        )
+    return " ".join(dict.fromkeys(said)) or "There was nothing under way to stop."
 
 
 def revoice(bridge: Bridge, transcript: str) -> str | None:
@@ -889,6 +913,10 @@ class Bridge(ThreadingHTTPServer):
         #: Who a turn goes to, kept where a restart finds it. ADR-VI-026.
         self.chosen_file = chosen_file
         self.chosen = target.load(chosen_file)
+        #: The gateway's runs that have not finished, so "avbryt" can stop them.
+        self.open_runs: set[str] = set()
+        #: Sessions whose owed answer was cancelled, and should not be read out.
+        self.dropped: set[str] = set()
         #: The busy sessions whose answer the bridge is waiting for, by name.
         self.answers_awaited: dict[str, threading.Thread] = {}
         #: Whether the last answer is for the voice to know rather than to say.
@@ -962,12 +990,15 @@ class Bridge(ThreadingHTTPServer):
         """Relay a run's events to whoever is watching, on its own thread."""
         # The turn that started it is waiting for it now.
         self.polled[run_id] = time.monotonic()
+        self.open_runs.add(run_id)
         notice(self, {"event": "run.asked", "run_id": run_id, "asked": asked})
 
         def read() -> None:
             try:
                 for event in gateway.events(run_id, self.gateway_url):
                     notice(self, event)
+                    if event.get("event") in ("run.completed", "run.failed"):
+                        self.open_runs.discard(run_id)
                     if event.get("event") == "run.completed":
                         self.run_finished(run_id, str(event.get("output") or ""))
             except (OSError, Refused) as failure:
@@ -1193,6 +1224,10 @@ class Bridge(ThreadingHTTPServer):
             # A session's answer, arriving after the turn that asked for it, is
             # said like any other news.
             aloud = item.get("kind") in (*sessions.SPOKEN, "answer") and not self._spoken_to(item)
+            if item.get("kind") == "answer" and str(item.get("session")) in self.dropped:
+                # Cancelled while it was still owed: shown, never said.
+                self.dropped.discard(str(item.get("session")))
+                aloud = False
             notice(
                 self,
                 {
