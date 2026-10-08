@@ -54,6 +54,21 @@ def test_cancelling_drops_an_answer_still_owed_by_a_busy_session(bridge):
     assert not told[-1]["aloud"]
 
 
+def test_cancelling_stops_the_turn_of_a_session_claude_voice_runs(bridge, claude_voice):
+    claude_voice.cancelled = {"cancelled": True, "status": "interrupted", "how": "sdk"}
+    bridge.answers_awaited["runner"] = None
+    spoken = say(bridge, "avbryt")
+    assert ("cancel", {"session_id": "runner"}) in claude_voice.called
+    assert "Stopped runner" in spoken
+
+
+def test_a_terminal_session_is_said_to_be_stoppable_only_at_its_screen(bridge, claude_voice):
+    say(bridge, "snakk med build-7c")
+    spoken = say(bridge, "avbryt")
+    assert ("cancel", {"session_id": "build-7c"}) in claude_voice.called
+    assert "screen" in spoken
+
+
 def test_cancelling_with_nothing_under_way_says_so(bridge, hermes):
     assert "nothing" in say(bridge, "avbryt").lower()
     assert hermes.seen == []

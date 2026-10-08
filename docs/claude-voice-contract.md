@@ -27,9 +27,10 @@ all, and nothing else changes.
 | `session_tree` | the tree on the page: subagents, and who has messaged whom | `version`, and `nodes` with `id`, `name`, `kind`, `parent_id`, `talks_to` |
 | `fleet_recap` | "what are the sessions doing", and a line under each session in the tree | `sessions`, each with `name`, `status` and `doing`, one line saying what it is doing |
 | `digest_session` | "oppsummer" a session: its long conversation summed up outside anybody's context, in the voice's language | `digest`, at most about 600 characters, and how much was considered |
+| `cancel` | "avbryt": stop the current turn of a session claude-voice runs; a terminal session answers that only its screen can stop it | `status`: `interrupted`, `not_running` or `not_supported` |
 | `health` | claude-voice's half of the health summary the page and the voice read | `now`, `tools` with latency and errors, the latest `errors`, `courier`, `watcher` |
 
-`voice_bridge.sessions.TOOLS` holds the same ten, and the client refuses any
+`voice_bridge.sessions.TOOLS` holds the same eleven, and the client refuses any
 other name before anything is sent. `voicebridge check` fails when this table
 and that tuple disagree.
 
@@ -105,7 +106,7 @@ The bridge therefore keeps the session's `claude_session_id` in `target.json`.
 
 ## What we do not call, on purpose
 
-The other ten tools stay with the gateway, if anything. Starting a
+The other nine tools stay with the gateway, if anything. Starting a
 session, sending one a task, summarising a fleet: each of those is a request
 that needs planning, and planning is the gateway's
 ([ADR-VI-001](../decisions/ADR-VI-001-hermes-is-the-control-plane.md)).
