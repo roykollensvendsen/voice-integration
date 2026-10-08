@@ -73,3 +73,27 @@ def test_the_page_reports_how_long_each_stage_of_a_turn_took():
     page = server.PAGE.read_text()
     assert 'fetch("/timing"' in page
     assert "first_words_ms" in page
+
+
+def test_how_long_a_session_takes_to_open_is_kept(bridge):
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{bridge.server_port}/timing",
+            data=json.dumps({"opened_ms": 1800}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(request, timeout=10).read()
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert {r["name"]: r["ms"] for r in bridge.store.rows("stage")} == {"opened": 1800}
+
+
+def test_the_page_never_jumps_to_the_newest_line_while_somebody_reads_further_up():
+    """Scrolled up to read, every new word threw the page back to the bottom."""
+    page = server.PAGE.read_text()
+    assert page.count("scrollIntoView") == 1  # the tabs, which only move when tapped
+    assert "follow(log, following)" in page
+    assert "follow(under, following)" in page

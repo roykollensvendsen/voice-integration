@@ -728,8 +728,9 @@ class _Handler(BaseHTTPRequestHandler):
         """The two routes that only report what the page did with what it was given."""
         if path == "/timing":
             # How long each stage of one turn took, as the page saw it: the
-            # bridge's answer, the voice taking it, and its first words after.
-            for stage in ("bridge", "acknowledged", "first_words"):
+            # bridge's answer, the voice taking it, and its first words after;
+            # and for a session, how long from the button to a voice that listens.
+            for stage in ("bridge", "acknowledged", "first_words", "opened"):
                 if isinstance(body.get(f"{stage}_ms"), (int, float)):
                     self.server.store.record("stage", stage, ms=float(body[f"{stage}_ms"]))
             return {}

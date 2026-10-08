@@ -196,6 +196,14 @@ const plainly = (e) => {
   return said ?? e.event ?? "";
 };
 
+// A box follows its newest line only while its reader is already at the bottom.
+// Scrolled up to read something, it stays put; and the page itself never moves.
+const FOLLOW_PX = 40;
+const atBottom = (box) => box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW_PX;
+function follow(box, following) {
+  if (following) box.scrollTop = box.scrollHeight;
+}
+
 // A conversation reads downwards. So does a list of what an agent did, which
 // is why both append and neither reverses.
 const show = (who, text) => {
@@ -205,8 +213,9 @@ const show = (who, text) => {
   row.innerHTML = `<div class="who"></div><div class="what"></div>`;
   row.querySelector(".who").textContent = who;
   row.querySelector(".what").textContent = text;
+  const following = atBottom(log);
   log.append(row);
-  row.scrollIntoView({ block: "nearest" });
+  follow(log, following);
   return row;
 };
 
@@ -226,8 +235,9 @@ function heard(who, delta, startMs, endMs) {
   if (continues) {
     last.text += delta;
     last.end = endMs ?? last.end;
+    const following = atBottom(log);
     last.row.querySelector(".what").textContent = last.text;
-    last.row.scrollIntoView({ block: "nearest" });
+    follow(log, following);
     clearTimeout(last.settle);
     last.settle = setTimeout(() => keep(last), TURN_GAP_MS + 400);
     return last;
@@ -724,9 +734,10 @@ function note(kind, detail) {
   row.innerHTML = `<div class="kind"></div><div class="what"></div>`;
   row.querySelector(".kind").textContent = kind;
   row.querySelector(".what").textContent = detail ?? "";
+  const following = atBottom(under);
   under.append(row);
   while (under.children.length > 300) under.firstElementChild.remove();
-  row.scrollIntoView({ block: "nearest" });
+  follow(under, following);
   return row;
 }
 
@@ -780,6 +791,7 @@ function watch() {
 watch();
 
 async function start() {
+  const pressed = Date.now();
   state.textContent = "opening";
   session += 1;
   if (session > 1) {
@@ -801,7 +813,15 @@ async function start() {
 
   channel = pc.createDataChannel("oai-events");
   channel.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch { /* not ours */ } };
-  channel.onopen = () => queued.splice(0).forEach((waiting) => waiting());
+  channel.onopen = () => {
+    queued.splice(0).forEach((waiting) => waiting());
+    // From the button to a voice that can be told things: what a session start costs.
+    fetch("/timing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ opened_ms: Date.now() - pressed }),
+    }).catch(() => {});
+  };
 
   await pc.setLocalDescription(await pc.createOffer());
   await new Promise((done) => {
