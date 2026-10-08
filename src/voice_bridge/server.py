@@ -288,6 +288,16 @@ VOICE_ALONE = (
     "snakk med Hermes, or name a session."
 )
 
+#: How much of what was missed is said word for word when the microphone is
+#: taken again. The rest is counted, and left on the screen. ADR-VI-029.
+MISSED_SPOKEN = 3
+
+#: How many pieces of news worth saying are kept for somebody who was away.
+KEPT_NEWS = 50
+
+#: How long a run can go unasked-after before its answer is told as news.
+UNWATCHED_SECONDS = 60
+
 #: Who is speaking, as the sessions they talk to should hear it.
 PERSON = os.environ.get("VOICE_BRIDGE_PERSON", "Roy")
 
@@ -625,6 +635,9 @@ class _Handler(BaseHTTPRequestHandler):
                 {"event": reported, "detail": str(body.get("detail", ""))[:NOTICED_CHARACTERS]},
             )
             return {}
+        if path == "/heard":
+            self.server.heard_up_to(int(body.get("seq", 0)))
+            return {}
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
             self.server.ledger.record(float(body.get("seconds", 0)))
@@ -715,6 +728,8 @@ class _Handler(BaseHTTPRequestHandler):
                         "resumed": len(self.server.recent()),
                         "voice": self.server.voice_now(),
                         "steer": target.steer(self.server.chosen),
+                        # RULE: news that was not heard is said when the microphone is taken again
+                        "missed": self.server.missed(),
                     },
                 )
             elif self.path == "/approval":
@@ -723,7 +738,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(*self._choose(body))
             elif self.path == "/voice":
                 self._send(*self._revoice(body))
-            elif self.path in ("/where", "/turn", "/spent", "/noticed"):
+            elif self.path in ("/where", "/turn", "/spent", "/noticed", "/heard"):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
                 self.server.following = None
@@ -747,7 +762,9 @@ class _Handler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/run":
                 run_id = str(body.get("run_id", ""))
+                self.server.polled[run_id] = time.monotonic()
                 spoken, done = keep_waiting(run_id, self.server.gateway_url, bridge=self.server)
+                self.server.polled[run_id] = time.monotonic()
                 self._send(200, {"content": spoken, "finished": done})
             else:
                 self._send(404, {"error": "no such path"})
@@ -799,6 +816,16 @@ class Bridge(ThreadingHTTPServer):
         self.quiet = False
         #: Who speaks for each kind of target. ADR-VI-027.
         self.voices = target.load_voices(target.voices_file(chosen_file))
+        #: What was worth saying, and how far it was heard, kept where a
+        #: restart finds it. ADR-VI-029.
+        self.news_file = chosen_file.with_name("news.json") if chosen_file else None
+        self.cursor: str | None = None
+        self.heard = 0
+        self.kept: list[dict[str, Any]] = []
+        self._recall()
+        #: When each run was last asked after, so an answer nobody waits for
+        #: can be told as news instead of going nowhere.
+        self.polled: dict[str, float] = {}
         #: The session tree as last fetched, until `tree_changed` says otherwise.
         self.shape: list[dict[str, Any]] | None = None
 
@@ -852,12 +879,16 @@ class Bridge(ThreadingHTTPServer):
 
     def follow(self, run_id: str, asked: str) -> None:
         """Relay a run's events to whoever is watching, on its own thread."""
+        # The turn that started it is waiting for it now.
+        self.polled[run_id] = time.monotonic()
         notice(self, {"event": "run.asked", "run_id": run_id, "asked": asked})
 
         def read() -> None:
             try:
                 for event in gateway.events(run_id, self.gateway_url):
                     notice(self, event)
+                    if event.get("event") == "run.completed":
+                        self.run_finished(run_id, str(event.get("output") or ""))
             except (OSError, Refused) as failure:
                 notice(self, {"event": "watch.lost", "run_id": run_id, "why": str(failure)})
 
@@ -910,6 +941,60 @@ class Bridge(ThreadingHTTPServer):
             return {**item, "kind": "error", "text": told}
         return item
 
+    def _recall(self) -> None:
+        """Pick up the news where the last run of the bridge left it."""
+        if self.news_file is None:
+            return
+        try:
+            kept = json.loads(self.news_file.read_text())
+        except (OSError, ValueError):
+            return
+        self.cursor = kept.get("cursor") or None
+        self.told = int(kept.get("told", 0))
+        self.heard = int(kept.get("heard", 0))
+        self.kept = [k for k in kept.get("kept", []) if isinstance(k, dict)]
+
+    def _keep(self) -> None:
+        if self.news_file is None:
+            return
+        self.news_file.parent.mkdir(parents=True, exist_ok=True)
+        self.news_file.write_text(
+            json.dumps({"cursor": self.cursor, "told": self.told, "heard": self.heard, "kept": self.kept})
+        )
+
+    def placed_in_news(self, cursor: str) -> None:
+        """Remember how far claude-voice's news has been read."""
+        if cursor == self.cursor:
+            return
+        self.cursor = cursor
+        # RULE: the place in the news survives a restart
+        self._keep()
+
+    def heard_up_to(self, seq: int) -> None:
+        """The page said everything up to here aloud."""
+        if seq > self.heard:
+            self.heard = seq
+            self._keep()
+
+    def missed(self) -> str:
+        """What was worth saying and was not heard, to say first next time."""
+        unheard = [k for k in self.kept if int(k.get("seq", 0)) > self.heard]
+        if not unheard:
+            return ""
+        latest = unheard[-MISSED_SPOKEN:]
+        said = " ".join(str(k.get("said", "")) for k in latest)
+        more = len(unheard) - len(latest)
+        tail = f" And {more} more, on the screen." if more else ""
+        self.heard_up_to(int(unheard[-1].get("seq", 0)))
+        return f"While you were away: {said}{tail}"
+
+    def run_finished(self, run_id: str, output: str) -> None:
+        """An answer from the gateway; told as news if nobody is waiting for it."""
+        # RULE: an answer nobody waited for becomes news
+        if time.monotonic() - self.polled.get(run_id, 0.0) < UNWATCHED_SECONDS:
+            return
+        self.hear([{"session": "Hermes", "kind": "finished", "text": f"Hermes answered: {output[:300]}"}])
+
     def tree(self) -> list[dict[str, Any]]:
         """Every session claude-voice knows of, with who started and who messaged whom.
 
@@ -943,6 +1028,10 @@ class Bridge(ThreadingHTTPServer):
                     "approval_id": item.get("approval_id"),
                 },
             )
+            if item.get("kind") in sessions.SPOKEN:
+                said = sessions.spoken(str(item.get("text", "")))
+                self.kept = [*self.kept, {"seq": self.told, "said": said}][-KEPT_NEWS:]
+        self._keep()
 
     def listen(self, client: sessions.Client, every: float = sessions.POLL_SECONDS) -> None:
         """Ask claude-voice what is new, on its own thread, for as long as this runs."""
@@ -953,9 +1042,10 @@ class Bridge(ThreadingHTTPServer):
             lost = False
             while True:
                 try:
-                    cursor, news = sessions.news(client, cursor)
+                    cursor, news = sessions.news(client, self.cursor)
                     lost = False
                     self.hear(news)
+                    self.placed_in_news(cursor)
                 except (OSError, Refused, ValueError) as failure:
                     if not lost:
                         notice(self, {"event": "claude.lost", "why": str(failure)})

@@ -278,3 +278,22 @@ name = "a chosen session hears everything that is said"
 file = "src/voice_bridge/server.py"
 find = 'steer=target\.steer\(self\.server\.chosen\),'
 replace = 'steer="",'
+
+[[rule]]
+name = "news that was not heard is said when the microphone is taken again"
+file = "src/voice_bridge/server.py"
+find = '"missed": self\.server\.missed\(\),'
+replace = '"missed": "",'
+
+[[rule]]
+name = "the place in the news survives a restart"
+file = "src/voice_bridge/server.py"
+find = '^        self\._keep\(\)$'
+replace = 'pass'
+occurrence = 1
+
+[[rule]]
+name = "an answer nobody waited for becomes news"
+file = "src/voice_bridge/server.py"
+find = 'if time\.monotonic\(\) - self\.polled\.get\(run_id, 0\.0\) < UNWATCHED_SECONDS:'
+replace = 'if True:'
