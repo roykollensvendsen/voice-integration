@@ -23,6 +23,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from voice_bridge import metrics
 from voice_bridge.policy import Refused
 
 #: The tools the bridge may call: hearing news, answering one request, and
@@ -36,6 +37,7 @@ TOOLS = (
     "ask_active_session",
     "read_session_output",
     "session_tree",
+    "health",
 )
 
 #: What is worth saying aloud. The rest is shown and not said: a session that
@@ -86,10 +88,11 @@ def spoken(text: str) -> str:
 class Client:
     """One MCP session with claude-voice, opened on first use and again when it expires."""
 
-    def __init__(self, url: str, secret: str) -> None:
-        """Talk to claude-voice at `url`, with its local token."""
+    def __init__(self, url: str, secret: str, store: metrics.Store | None = None) -> None:
+        """Talk to claude-voice at `url`, with its local token, measuring into `store`."""
         self.url = url
         self.secret = secret
+        self.store = store
         self.session: str | None = None
         self.ids = itertools.count(1)
 
@@ -101,7 +104,14 @@ class Client:
         if tool not in TOOLS:
             refusal = f"{tool} is not the bridge's to call"
             raise Refused(refusal)
-        message = {"method": "tools/call", "params": {"name": tool, "arguments": arguments or {}}}
+        params: dict[str, Any] = {"name": tool, "arguments": arguments or {}}
+        if metrics.TRACE.get():
+            # MCP's own place for this: claude-voice logs it beside the call.
+            params["_meta"] = {"trace_id": metrics.TRACE.get()}
+        with metrics.measured(self.store, "tool", tool):
+            return self._call(tool, {"method": "tools/call", "params": params}, waits)
+
+    def _call(self, tool: str, message: dict[str, Any], waits: float) -> dict[str, Any]:
         for attempt in range(2):
             if self.session is None:
                 self._open()

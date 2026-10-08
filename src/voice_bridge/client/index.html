@@ -89,6 +89,11 @@
   <div id="voices" class="voices"></div>
 </section>
 
+<details id="health">
+  <summary>Helse</summary>
+  <div class="body"></div>
+</details>
+
 <nav id="tabs" aria-label="Which side to show">
   <button type="button" data-pane="0" aria-current="true">The conversation</button>
   <button type="button" data-pane="1">Underneath</button>
@@ -636,6 +641,39 @@ async function choose(wanted) {
 
 refreshWho();
 setInterval(refreshWho, 10_000);
+
+// How the bridge and claude-voice are doing: the same summary the voice reads
+// out when asked, and an assistant reads when something is wrong. ADR-VI-031.
+const health = document.querySelector("#health .body");
+
+function line(label, value) {
+  const row = document.createElement("div");
+  row.textContent = `${label}: ${value}`;
+  return row;
+}
+
+async function refreshHealth() {
+  const body = await fetch("/health").then((r) => r.json()).catch(() => null);
+  if (!body) return health.replaceChildren(line("Broen", "svarer ikke"));
+  const mine = body.bridge ?? {}, theirs = body.claude_voice ?? {};
+  const memory = mine.now?.memory ?? {};
+  const rows = [
+    line("Broen oppe siden", mine.now?.up_since ?? "ukjent"),
+    line("Minne ledig", `${memory.available_mb ?? "?"} av ${memory.total_mb ?? "?"} MB, broen bruker ${memory.rss_mb ?? "?"} MB`),
+    line("Omstarter denne uka / forrige", `${mine.restarts?.this_week ?? 0} / ${mine.restarts?.last_week ?? 0}`),
+  ];
+  for (const [name, week] of Object.entries(mine.turns ?? {})) {
+    rows.push(line(`Svar via ${name}`, `${week.this_week.calls} denne uka, vanligvis ${week.this_week.p50_ms ?? "?"} ms, ${week.this_week.errors} feil`));
+  }
+  rows.push(line("claude-voice", theirs.unreachable ? `svarer ikke: ${theirs.unreachable}` : `oppe siden ${theirs.now?.up_since ?? "?"}`));
+  for (const failure of [...(mine.errors ?? []), ...(theirs.errors ?? [])].slice(0, 5)) {
+    rows.push(line(`Feil ${failure.at ?? ""}`, `${failure.name ?? failure.tool ?? ""}: ${failure.error ?? ""}`));
+  }
+  health.replaceChildren(...rows);
+}
+
+refreshHealth();
+setInterval(refreshHealth, 60_000);
 
 // One row in the panel underneath, in words rather than event names.
 function note(kind, detail) {

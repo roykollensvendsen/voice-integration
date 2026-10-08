@@ -22,6 +22,8 @@ import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING
 
+from voice_bridge import metrics
+
 if TYPE_CHECKING:
     from voice_bridge.server import Bridge
 
@@ -33,6 +35,7 @@ SHORTEST_IS_SAFEST = 60
 CLOCK = ("hva er klokka", "hva er klokken", "klokka", "klokken", "what time", "the time")
 SPENT = ("hvor mye har jeg brukt", "hvor mye er igjen", "budsjett", "how much is left", "budget")
 RUNNING = ("hva kjører", "hva jobber du med", "hva skjer nå", "what is running", "what are you doing")
+HEALTH = ("hvordan har broen", "hvordan går det med broen", "how has the bridge", "how is the bridge")
 PLACE = ("hvor er jeg", "hvor befinner jeg", "where am i", "my location", "hvilket sted er jeg")
 
 #: What marks a question as one for the web rather than for this machine. The
@@ -136,6 +139,8 @@ def _known(bridge: Bridge, said: str) -> str | None:
         return f"Du har {left:.2f} dollar igjen denne måneden, omtrent {minutes} minutter."
     if _matches(said, RUNNING):
         return "Ingenting kjører akkurat nå." if bridge.following is None else "Noe kjører fortsatt."
+    if _matches(said, HEALTH):
+        return metrics.spoken(bridge.health()["bridge"])
     if _matches(said, PLACE):
         return f"Du er i {bridge.placed}." if bridge.placed else "Jeg vet ikke hvor du er."
     return None

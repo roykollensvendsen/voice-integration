@@ -240,6 +240,45 @@ short words is not a channel that should be able to say "always".
   [ADR-VI-018](../decisions/ADR-VI-018-the-client-is-a-browser-page.md) records
   what that gave up.
 
+## Knowing how it is doing
+
+Every spoken turn gets a `trace_id` of twelve hex characters. It goes into each
+log line the turn causes, and into every claude-voice call as
+`params._meta.trace_id`, so one search follows a turn through the bridge,
+claude-voice and its courier
+([ADR-VI-031](../decisions/ADR-VI-031-every-turn-is-traced-and-measured.md)).
+
+The bridge writes one JSON line per event to its log, and keeps these in
+`metrics.sqlite` in its state directory for `KEPT_DAYS` days:
+
+| Event | Name | Measured |
+|---|---|---|
+| `start` | why the bridge started: `start`, `auto-restart` | seconds since the last event before it |
+| `turn` | the target: `voice`, `hermes`, `session` | milliseconds from request to answer, and how it ended |
+| `tool` | the claude-voice tool | milliseconds, and whether it failed |
+| `cut` | the session | that an answer had to be cut to be spoken |
+
+`voice_bridge.metrics.summary()` turns them into the one summary the page,
+the voice and an assistant all read: how things are now, the latest failures,
+and this week against the last.
+
+### Alerts
+
+What must interrupt is pushed, because nobody asks a failing bridge how it is.
+`voice_bridge.alerts` looks every `CHECK_SECONDS` and raises an alert when:
+
+| Cause | When |
+|---|---|
+| `memory` | the machine has less than `MEMORY_MB` megabytes available |
+| `restart` | the bridge started because systemd restarted it |
+| `errors` | `ERRORS_PER_WINDOW` or more calls or turns failed within `WINDOW_SECONDS` |
+
+An alert goes two ways at once. It is pushed to the person's phone through
+[ntfy](https://ntfy.sh), to the topic in `NTFY_TOPIC` on `NTFY_SERVER`, from
+`~/.config/voice-bridge/env`; with no topic, nothing is pushed. And it is told
+as news, which the voice says when somebody is listening and the page shows
+either way. The same cause raises at most one alert per `QUIET_SECONDS`.
+
 ## Conformance
 
 Four facts are written down in both prose and code, and `voicebridge check`
