@@ -152,7 +152,7 @@ NEWS = [
 
 #: What `list_active_sessions` answers, in the shape the real one does.
 ACTIVE = [
-    {"name": "build-7c", "project": "akso/hydropower", "status": "idle", "kind": "interactive"},
+    {"name": "build-7c", "project": "akso/hydropower", "status": "idle", "claude_session_id": "a1"},
     {"name": "notes-2b", "project": "notes", "status": "busy", "kind": "bg"},
     {"name": "notes-9f", "project": "notes", "status": "idle", "kind": "interactive"},
     {"name": "runner-1a", "project": "cv", "status": "idle", "kind": "bg", "managed_by_bridge": True},

@@ -91,6 +91,15 @@ reports `tree_changed`, which is never spoken. A node can be chosen when
 itself is shown but cannot be chosen yet. `talks_to` is drawn as the names a
 session has sent messages to in the last day.
 
+* `needs_choice`: the session has a choice box open, and nothing reaches it
+  until somebody answers at its keyboard. The question and its choices are
+  said, with the advice to answer at the screen.
+
+While a session is the target, a hook in the person's Claude Code settings
+refuses choice boxes in that session, so it asks in its reply instead
+([ADR-VI-030](../decisions/ADR-VI-030-no-choice-box-in-a-session-spoken-to.md)).
+The bridge therefore keeps the session's `claude_session_id` in `target.json`.
+
 ## What we do not call, on purpose
 
 The other thirteen tools stay with the gateway, if anything. Starting a

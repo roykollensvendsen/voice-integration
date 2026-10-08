@@ -58,6 +58,7 @@ decision nobody writes down.
 | [027](ADR-VI-027-each-target-speaks-with-its-own-voice.md) | Each target speaks with its own voice | Accepted |
 | [028](ADR-VI-028-new-work-goes-to-a-session-you-can-see.md) | New work goes to a session you can see, never to a hidden Claude | Accepted |
 | [029](ADR-VI-029-the-bridge-owns-every-open-request.md) | The bridge owns every open request, and nothing is lost when the microphone is down | Accepted |
+| [030](ADR-VI-030-no-choice-box-in-a-session-spoken-to.md) | A session spoken to by voice asks out loud, not in a choice box | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing
