@@ -223,6 +223,12 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
             "read_session_output": self.server.output,
             "session_tree": {"version": "v1", "nodes": TREE},
             "fleet_recap": {"sessions": FLEET},
+            "digest_session": {
+                "session": arguments.get("session"),
+                "digest": self.server.digest,
+                "turns_considered": 40,
+                "cut": False,
+            },
             "health": {
                 "now": {"up_since": "2026-10-08T09:00:00+00:00", "version": "abc1234", "memory_rss_mb": 80},
                 "tools": [
@@ -235,6 +241,7 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
         }
         if name == "ask_active_session":
             time.sleep(self.server.slow)
+        time.sleep(self.server.slow_tools.get(name, 0.0))
         if name in canned:
             result = canned[name]
         elif arguments.get("approval_id") in self.server.waiting:
@@ -266,6 +273,8 @@ def claude_voice():
     running.active = [dict(session) for session in ACTIVE]
     running.answer = {"status": "answered", "reply": "The tests pass.", "next_after": 4}
     running.slow = 0.0
+    running.slow_tools = {}
+    running.digest = "Økta har rettet to tester og venter nå på en gjennomgang."
     running.output = {
         "turns": [{"index": 5, "role": "assistant", "text": "Done now."}],
         "next_after": 5,

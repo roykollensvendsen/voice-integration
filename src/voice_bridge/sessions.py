@@ -39,6 +39,7 @@ TOOLS = (
     "session_tree",
     "health",
     "fleet_recap",
+    "digest_session",
 )
 
 #: What is worth saying aloud. The rest is shown and not said: a session that

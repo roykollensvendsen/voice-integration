@@ -298,6 +298,9 @@ KEPT_NEWS = 50
 #: How long a run can go unasked-after before its answer is told as news.
 UNWATCHED_SECONDS = 60
 
+#: How long a summary of a long session may take to write.
+DIGEST_SECONDS = 30
+
 #: How many sessions are said by name when somebody asks what they are doing.
 FLEET_SPOKEN = 4
 
@@ -1069,6 +1072,31 @@ class Bridge(ThreadingHTTPServer):
         said = [f"{s['name']}: {_ended(str(s['doing']))}" for s in doing[:FLEET_SPOKEN]]
         more = len(doing) - len(said)
         return " ".join(said) + (f" Og {more} til, på skjermen." if more else "")
+
+    def digest_said(self, asked: str) -> str:
+        """One session's long conversation, summed up by claude-voice in the voice's language."""
+        found = target.matching(asked, self.running())
+        if len(found) != 1:
+            return (
+                f"No running session is called {asked}."
+                if not found
+                else f"{asked} could be {', '.join(found)}. Which one?"
+            )
+        if self.sessions is None:
+            return "I cannot reach the coding sessions."
+        language = live.LANGUAGE_NAMES.get(live.LANGUAGE, live.LANGUAGE)
+        try:
+            # A model writes it on claude-voice's side: seconds, not milliseconds.
+            got = self.sessions.call(
+                "digest_session", {"session": found[0], "language": language}, waits=DIGEST_SECONDS
+            )
+        except (OSError, Refused) as failure:
+            return f"I could not sum up {found[0]}: {str(failure)[:120]}"
+        # Fit to be heard, like any other answer: whole sentences, never a trailing "…".
+        return (
+            answer_in({"reply": str(got.get("digest") or "")})
+            or f"There was nothing to sum up in {found[0]}."
+        )
 
     def health(self) -> dict[str, Any]:
         """How the bridge and claude-voice are doing, in one read: now, lately, and against last week."""
