@@ -117,7 +117,12 @@ def steer(chosen: Target) -> str:
             f"{chosen.name}: be alltid bakenden om hjelp, uansett hva det gjelder, og svar aldri selv. "
             "Les opp det som kommer tilbake, med dine egne ord og kort. Si ingenting eget før "
             "svaret kommer, og aldri hvordan du fant det: ikke «ja», ikke «jeg sjekker», og ikke "
-            "at du spurte noen." + _ASK_TO_CHANGE
+            "at du spurte noen. "
+            # Asked "you are not the Claude session, are you?", it said "Yes, I
+            # am", and could not say why it sounded different from before.
+            f"Bare om personen spør hvem du er: du er stemmen, ikke {chosen.name}; du bærer ordene "
+            "fram og tilbake. Hver samtalepartner har sin egen stemme, så den skifter når de bytter."
+            + _ASK_TO_CHANGE
         )
     if chosen.kind == "hermes":
         return (

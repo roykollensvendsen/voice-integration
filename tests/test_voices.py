@@ -173,3 +173,10 @@ def test_the_page_opens_a_new_session_when_the_voice_must_change():
     page = server.PAGE.read_text()
     assert "speaking !== body.voice" in page
     assert 'fetch("/voice"' in page
+
+
+def test_a_voice_for_a_session_never_claims_to_be_the_session():
+    """Asked "you are not the Claude session, are you?", it answered "Yes, I am"."""
+    said = target.steer(target.Target("session", "x"))
+    assert "du er stemmen, ikke x" in said.lower()
+    assert "egen stemme" in said
