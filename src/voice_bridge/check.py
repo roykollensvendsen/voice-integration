@@ -103,6 +103,16 @@ def rowed_rules(root: pathlib.Path) -> set[str]:
 ROW_REACH = 5
 
 
+def _markers(lines: list[str], name: str) -> list[int]:
+    """The lines that mark the rule called `name`."""
+    found = []
+    for i, line in enumerate(lines):
+        marked = _RULE.search(line)
+        if marked and marked.group(1) == name:
+            found.append(i)
+    return found
+
+
 def rows_hit_their_rules(root: pathlib.Path) -> str:
     """Every mutation row switches off the line its rule marks, not some other line.
 
@@ -115,11 +125,7 @@ def rows_hit_their_rules(root: pathlib.Path) -> str:
     for row in table:
         lines = (root / row["file"]).read_text().splitlines()
         hits = [i for i, line in enumerate(lines) if re.search(row["find"], line)]
-        markers = [
-            i
-            for i, line in enumerate(lines)
-            if _RULE.search(line) and _RULE.search(line).group(1) == row["name"]
-        ]
+        markers = _markers(lines, row["name"])
         hit = hits[row.get("occurrence", 1) - 1] if len(hits) >= row.get("occurrence", 1) else None
         # One line above the marker is allowed too: two rules can share one
         # line, with the second marker inside the block that line opens.
