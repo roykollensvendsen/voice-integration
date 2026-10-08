@@ -104,6 +104,21 @@ def test_a_spoken_voice_change_sets_the_voice_for_the_chosen_target(bridge, herm
     assert hermes.seen == []
 
 
+def test_a_voice_change_is_heard_however_politely_it_is_asked(bridge, hermes):
+    """A polite "kan du bytte stemme til Ripple da" was taken for a request to Hermes."""
+    say(bridge, "kan du bytte stemme til ripple da")
+    assert bridge.voices["hermes"] == "ripple"
+    say(bridge, "bytt stemme til cedar nå")
+    assert bridge.voices["hermes"] == "cedar"
+    assert hermes.seen == []
+
+
+def test_the_voice_is_told_to_ask_the_bridge_to_change_voice_rather_than_promise_it():
+    """It said "Ja, da bytter jeg til Ripple nå" and nothing changed."""
+    for kind in ("voice", "hermes", "session"):
+        assert "bytte stemme" in target.steer(target.Target(kind, "x"))
+
+
 def test_a_voice_the_service_does_not_offer_is_never_sent(bridge):
     spoken = say(bridge, "bytt stemme til robot")
     assert bridge.voices["hermes"] == "cedar"

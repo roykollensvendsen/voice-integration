@@ -35,9 +35,11 @@ _TO_SESSION = re.compile(_TALK_TO + r"(?:økta\s+|økten\s+|session\s+)?(.+?)(?:
 VOICE_DEFAULTS = {"voice": "marin", "hermes": "cedar", "session": "quartz"}
 
 _WHICH_VOICES = re.compile(r"^(?:hvilke stemmer|which voices|what voices|list (?:the )?voices)")
+# Searched for anywhere in a short sentence: "kan du bytte stemme til ripple da"
+# was otherwise taken for a request to somebody else.
 _CHANGE_VOICE = re.compile(
-    r"^(?:bytt|endre|skift|change|switch)\s+(?:stemme|stemmen|the voice|voice)\s+(?:til|to)\s+(\w+)$"
-    r"|^(?:bruk|use)\s+(?:stemmen|the voice)\s+(\w+)$"
+    r"\b(?:bytt|bytte|endre|skift|change|switch)\s+(?:stemme|stemmen|the voice|voice)\s+(?:til|to)\s+(\w+)"
+    r"|\b(?:bruk|use)\s+(?:stemmen|the voice)\s+(\w+)"
 )
 
 
@@ -93,6 +95,14 @@ def save(path: pathlib.Path | None, chosen: Target, session_id: str = "") -> Non
     path.write_text(json.dumps(kept))
 
 
+#: Said to the voice whoever it speaks for: it once answered "Ja, da bytter jeg
+#: til Ripple nå" by itself, and nothing changed.
+_ASK_TO_CHANGE = (
+    " Vil personen bytte stemme eller hvem de snakker med, be alltid bakenden om hjelp, "
+    "og si ikke at det er gjort før svaret kommer."
+)
+
+
 def steer(chosen: Target) -> str:
     """What the voice is told about who it speaks for, so it knows when to ask.
 
@@ -105,17 +115,18 @@ def steer(chosen: Target) -> str:
         return (
             f"Du er nå bare en stemme for Claude-økta {chosen.name}. Alt personen sier, er til "
             f"{chosen.name}: be alltid bakenden om hjelp, uansett hva det gjelder, og svar aldri selv. "
-            "Les opp det som kommer tilbake, med dine egne ord og kort."
+            "Les opp det som kommer tilbake, med dine egne ord og kort." + _ASK_TO_CHANGE
         )
     if chosen.kind == "hermes":
         return (
             "Du snakker nå på vegne av Hermes, som styrer kodeagentene. Be bakenden om hjelp med alt "
             "som gjelder arbeid, filer, økter eller noe du ikke vet sikkert; småprat svarer du selv."
+            + _ASK_TO_CHANGE
         )
     return (
         "Personen vil nå snakke med deg alene: svar selv, og be ikke bakenden om hjelp. Unntak: når "
         "personen svarer ja eller nei på et spørsmål om tillatelse, vil vite klokka eller hvor de er, "
-        "eller vil bytte til Hermes eller en økt, skal du be bakenden om hjelp."
+        "eller vil bytte til Hermes eller en økt, skal du be bakenden om hjelp." + _ASK_TO_CHANGE
     )
 
 
@@ -152,7 +163,7 @@ def voice_request(said: str) -> str | None:
         return None
     if _WHICH_VOICES.match(words):
         return "list"
-    found = _CHANGE_VOICE.match(words)
+    found = _CHANGE_VOICE.search(words)
     return (found.group(1) or found.group(2)) if found else None
 
 

@@ -58,6 +58,21 @@ def test_a_long_absence_is_counted_rather_than_read_out_in_full(bridge):
     assert str(9 - server.MISSED_SPOKEN) in missed
 
 
+def test_the_same_news_is_said_once_while_you_were_away(bridge):
+    """The welcome back read the same sentence six times over."""
+    bridge.hear([{"session": "x", "kind": "finished", "text": "x has finished and is waiting."}] * 6)
+    assert bridge.missed().count("x has finished") == 1
+
+
+def test_news_about_the_session_you_are_talking_to_is_not_read_out(bridge):
+    """Every turn of the chosen session ends in "has finished", and that is not news."""
+    bridge.chosen = server.target.Target("session", "x")
+    bridge.hear([{"session": "x", "kind": "finished", "text": "x has finished and is waiting."}])
+    told = [e for e in bridge.watching if e["event"] == "claude.news"]
+    assert not told[-1]["aloud"]
+    assert bridge.missed() == ""
+
+
 def test_the_place_in_the_news_survives_a_restart(bridge, url, tmp_path):
     bridge.hear(NEWS)
     bridge.placed_in_news("b42.f7")

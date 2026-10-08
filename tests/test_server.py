@@ -408,6 +408,13 @@ def test_a_running_session_is_reached_through_claude_voice_not_a_fresh_claude(br
     assert "without asking first" in asked
 
 
+def test_the_holding_line_is_a_hint_to_the_voice_not_words_to_read_out():
+    """It read "Si kort at du setter i gang, og vent" aloud, word for word, every turn."""
+    page = server.PAGE.read_text()
+    assert 'append("thinking", delegationId, holding)' in page
+    assert "tell(delegationId, holding)" not in page
+
+
 def test_a_choice_the_agents_offer_can_be_tapped_instead_of_pronounced(bridge):
     """It asked out loud for one of four numbered options, and then for an exact phrase."""
     with urllib.request.urlopen(bridge, timeout=10) as reply:
