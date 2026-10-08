@@ -438,10 +438,19 @@ def answer_in(got: dict[str, Any], *, first: bool = False) -> str:
     last = written[0 if first else -1] if written else str(got.get("reply") or "")
     plain = _NOT_SPOKEN.sub("", last).replace("**", "").replace("`", "")
     plain = " ".join(plain.split())
-    if len(plain) <= SPOKEN_ANSWER:
+    # claude-voice marks a turn it clipped, and ends it in an ellipsis.
+    if len(plain) <= SPOKEN_ANSWER and not plain.endswith("…"):
         return plain
-    cut = plain[:SPOKEN_ANSWER]
-    return cut[: cut.rfind(". ") + 1] if ". " in cut else cut.rsplit(" ", 1)[0] + "…"
+    return _whole_sentences(plain.rstrip("…")[:SPOKEN_ANSWER])
+
+
+def _whole_sentences(text: str) -> str:
+    """The text up to its last finished sentence: a half sentence read aloud is noise."""
+    ends = [text.rfind(mark) for mark in (". ", "? ", "! ")]
+    end = max(ends)
+    if text.endswith((".", "?", "!")) and end < len(text) - 1:
+        return text
+    return text[: end + 1] if end > 0 else text.rsplit(" ", 1)[0]
 
 
 def _moved(bridge: Bridge, chosen: target.Target, moved: dict[str, Any]) -> str:
