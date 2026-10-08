@@ -25,9 +25,10 @@ all, and nothing else changes.
 | `ask_active_session` | a turn while one session is the target | `status`, `reply`, `next_after`, `session_ended` |
 | `read_session_output` | the rest of an answer that outlasted the wait | `turns` after a given index, and `next_after` |
 | `session_tree` | the tree on the page: subagents, and who has messaged whom | `version`, and `nodes` with `id`, `name`, `kind`, `parent_id`, `talks_to` |
+| `fleet_recap` | "what are the sessions doing", and a line under each session in the tree | `sessions`, each with `name`, `status` and `doing`, one line saying what it is doing |
 | `health` | claude-voice's half of the health summary the page and the voice read | `now`, `tools` with latency and errors, the latest `errors`, `courier`, `watcher` |
 
-`voice_bridge.sessions.TOOLS` holds the same eight, and the client refuses any
+`voice_bridge.sessions.TOOLS` holds the same nine, and the client refuses any
 other name before anything is sent. `voicebridge check` fails when this table
 and that tuple disagree.
 
@@ -103,7 +104,7 @@ The bridge therefore keeps the session's `claude_session_id` in `target.json`.
 
 ## What we do not call, on purpose
 
-The other twelve tools stay with the gateway, if anything. Starting a
+The other eleven tools stay with the gateway, if anything. Starting a
 session, sending one a task, summarising a fleet: each of those is a request
 that needs planning, and planning is the gateway's
 ([ADR-VI-001](../decisions/ADR-VI-001-hermes-is-the-control-plane.md)).

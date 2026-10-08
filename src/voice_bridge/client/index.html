@@ -73,6 +73,7 @@
   #tree button[data-chosen="true"] { border-color: var(--live); color: var(--live); }
   #tree .cost, #tree .status { color: var(--dim); font-size: .75rem; }
   #tree .cost { margin-left: auto; white-space: nowrap; }
+  #tree .doing { color: var(--dim); font-size: .75rem; padding: 0 .7rem .2rem; }
   .voices { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin-top: .6rem; font-size: .8rem; color: var(--dim); }
   .voices select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
                    border-radius: .3rem; padding: .1rem .3rem; }
@@ -542,6 +543,7 @@ function node(label, wanted, status) {
 function drawWho(sessions, nodes) {
   chosenLabel.textContent = chosen ? named(chosen) : "…";
   const status = new Map(sessions.map((s) => [s.name, s.status]));
+  const doing = new Map(sessions.map((s) => [s.name, s.doing]));
   const all = nodes.length ? nodes : sessions.map((s) => ({ ...s, id: s.name, parent_id: null, talks_to: [] }));
   const byId = new Map(all.map((n) => [n.id, n]));
   const children = new Map();
@@ -552,6 +554,13 @@ function drawWho(sessions, nodes) {
     const item = status.has(n.name)
       ? node(n.name, { kind: "session", name: n.name }, talks.length ? `${said} · → ${talks.join(", ")}` : said)
       : Object.assign(document.createElement("li"), { textContent: `${n.name} · ${said}`, className: "project" });
+    // One line of what it is doing, from claude-voice's fleet_recap.
+    if (doing.get(n.name)) {
+      const line = document.createElement("div");
+      line.className = "doing";
+      line.textContent = doing.get(n.name);
+      item.append(line);
+    }
     const below = children.get(n.id);
     if (below) {
       const list = document.createElement("ul");
