@@ -7,3 +7,4 @@ project's own claim, and nothing in it is run by the documentation tests.
 | File | Where it came from |
 |---|---|
 | `learning-from-experience.md` | the `start-repo` skill this repository was scaffolded from |
+| `voice-ux-research.md` | OpenAI GPT-Live, ElevenLabs Agents, LiveKit and Deepgram docs, read 2026-10-08 |

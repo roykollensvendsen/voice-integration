@@ -676,8 +676,22 @@ class _Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
+    def _kept(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        """The two routes that only report what the page did with what it was given."""
+        if path == "/timing":
+            # How long each stage of one turn took, as the page saw it: the
+            # bridge's answer, the voice taking it, and its first words after.
+            for stage in ("bridge", "acknowledged", "first_words"):
+                if isinstance(body.get(f"{stage}_ms"), (int, float)):
+                    self.server.store.record("stage", stage, ms=float(body[f"{stage}_ms"]))
+            return {}
+        self.server.heard_up_to(int(body.get("seq", 0)))
+        return {}
+
     def _small(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        """The four routes that only put something away and answer briefly."""
+        """The routes that only put something away and answer briefly."""
+        if path in ("/heard", "/timing"):
+            return self._kept(path, body)
         if path == "/noticed":
             reported = str(body.get("event", ""))
             # RULE: the page may only report events in its own name
@@ -688,9 +702,6 @@ class _Handler(BaseHTTPRequestHandler):
                 self.server,
                 {"event": reported, "detail": str(body.get("detail", ""))[:NOTICED_CHARACTERS]},
             )
-            return {}
-        if path == "/heard":
-            self.server.heard_up_to(int(body.get("seq", 0)))
             return {}
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
@@ -796,7 +807,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(*self._choose(body))
             elif self.path == "/voice":
                 self._send(*self._revoice(body))
-            elif self.path in ("/where", "/turn", "/spent", "/noticed", "/heard"):
+            elif self.path in ("/where", "/turn", "/spent", "/noticed", "/heard", "/timing"):
                 self._send(200, self._small(self.path, body))
             elif self.path == "/delegation":
                 self.server.following = None

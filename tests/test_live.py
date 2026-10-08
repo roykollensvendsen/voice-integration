@@ -35,7 +35,7 @@ def test_the_instructions_never_carry_a_repository_or_a_catalogue():
         assert "voice-integration" not in written
         assert "/home/" not in written
         assert written.lower().count("code") <= 3
-        assert len(written) < 1000
+        assert len(written) < 2000
 
 
 def test_a_session_is_never_opened_without_a_language_rule_in_its_own_language():
@@ -69,8 +69,11 @@ def test_the_voice_answers_small_talk_without_asking_the_backend():
     """Ten chatted turns once reached the agents because nothing said not to."""
     assert "småprat" in live.INSTRUCTIONS["nb"]
     assert "small talk" in live.INSTRUCTIONS["en"]
+    # gpt-live-1 is billed per minute, not per prompt token (ADR-VI-017), so the
+    # limit is about the voice keeping one short brief in mind, not about cost.
+    # It grew to hold the listening, interruption and delegation policies.
     for written in live.INSTRUCTIONS.values():
-        assert len(written) < 1000
+        assert len(written) < 2000
 
 
 def test_the_instructions_do_not_ask_for_an_identifier_to_be_read_out():
