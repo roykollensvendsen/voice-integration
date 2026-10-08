@@ -60,6 +60,15 @@ def test_each_stage_of_a_turn_is_timed(bridge):
     assert metrics.summary(bridge.store)["stages"]["first_words"]["this_week"]["p50_ms"] == 900
 
 
+def test_a_failure_is_said_plainly_with_what_happens_next():
+    """It said "The bridge did not answer: Failed to fetch" and stopped there."""
+    page = server.PAGE.read_text()
+    assert "did not answer:" not in page
+    assert "could not do that:" not in page
+    assert "FAILED_PLAINLY" in page
+    assert "try again" in page
+
+
 def test_the_page_reports_how_long_each_stage_of_a_turn_took():
     page = server.PAGE.read_text()
     assert 'fetch("/timing"' in page
