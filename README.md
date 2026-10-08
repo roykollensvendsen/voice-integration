@@ -137,6 +137,7 @@ gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed
 claude-voice tools: 11 in docs/claude-voice-contract.md, 11 in the code, agreed
 rules: 49 in the source, 49 in scripts/mutations.toml, agreed
 rule tests: 49 rules, each with a test named after it
+mutation rows: 49, each on the line its rule marks
 ```
 
 The rest of the gates, and how a change is made, are in
