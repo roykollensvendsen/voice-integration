@@ -35,6 +35,10 @@ SHORTEST_IS_SAFEST = 60
 CLOCK = ("hva er klokka", "hva er klokken", "klokka", "klokken", "what time", "the time")
 SPENT = ("hvor mye har jeg brukt", "hvor mye er igjen", "budsjett", "how much is left", "budget")
 RUNNING = ("hva kjører", "hva jobber du med", "hva skjer nå", "what is running", "what are you doing")
+#: "Oppsummer build" and "hva har skjedd i build": a session summed up by name.
+DIGEST = re.compile(
+    r"^(?:oppsummer|summarise|summarize|hva har skjedd i|what happened in)\s+(?:økta\s+)?(.+?)$"
+)
 FLEET = ("hva holder øktene på med", "hva skjer i øktene", "hva gjør øktene", "what are the sessions doing")
 HEALTH = ("hvordan har broen", "hvordan går det med broen", "how has the bridge", "how is the bridge")
 PLACE = ("hvor er jeg", "hvor befinner jeg", "where am i", "my location", "hvilket sted er jeg")
@@ -159,6 +163,9 @@ def answer(bridge: Bridge, transcript: str) -> str | None:
 
 def _looked_up(bridge: Bridge, said: str) -> str | None:
     """The two the bridge reads from its own records and from claude-voice's."""
+    digest = DIGEST.match(said.strip(".!? "))
+    if digest:
+        return bridge.digest_said(digest.group(1))
     if _matches(said, FLEET):
         return bridge.fleet_said()
     if _matches(said, HEALTH):

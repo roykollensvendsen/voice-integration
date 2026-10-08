@@ -29,6 +29,9 @@ TIMEOUT_SECONDS = 20.0
 #: English prompt is why the first real conversation came back in German.
 LANGUAGE = os.environ.get("VOICE_BRIDGE_LANGUAGE", "nb")
 
+#: What each language is called, for a service asked to answer in it.
+LANGUAGE_NAMES = {"nb": "norsk", "en": "English"}
+
 #: Five sentences, the same every session so there is nothing to drift. The
 #: reasoning is `docs/voice-contract.md`; the words are policy and live here
 #: rather than in the page, which is code a browser was handed.
