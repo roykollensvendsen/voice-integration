@@ -3,6 +3,8 @@
 import json
 import pathlib
 
+import pytest
+
 from voice_bridge import check as drift
 from voice_bridge import gateway
 from voice_bridge.contract import BY_NAME, VOICE_TOOLS
@@ -17,6 +19,7 @@ def test_the_documents_and_the_code_still_agree():
         "claude-voice tools: 11 in docs/claude-voice-contract.md, 11 in the code, agreed",
         "rules: 49 in the source, 49 in scripts/mutations.toml, agreed",
         "rule tests: 49 rules, each with a test named after it",
+        "mutation rows: 49, each on the line its rule marks",
     ]
 
 
@@ -48,3 +51,16 @@ def test_every_schema_is_the_shape_a_realtime_session_takes():
 def test_an_optional_argument_left_out_is_left_out_of_the_body():
     planned = gateway.plan("agent_task", {"agent": "opencode", "instruction": "look"})
     assert planned.body == {"input": "look", "model": "opencode"}
+
+
+def test_a_mutation_row_that_drifted_from_its_rule_is_refused(tmp_path):
+    """Six rows had drifted: two switched off an earlier identical line, two matched nothing."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("x = 1\ny = 0\nz = 0\n# RULE: a thing holds\nx = 1\n")
+    (tmp_path / "scripts").mkdir()
+    row = '[[rule]]\nname = "a thing holds"\nfile = "src/a.py"\nfind = "x = 1"\nreplace = "x = 2"\n'
+    (tmp_path / "scripts" / "mutations.toml").write_text(row)
+    with pytest.raises(drift.Disagreement, match="a thing holds"):
+        drift.rows_hit_their_rules(tmp_path)
+    (tmp_path / "scripts" / "mutations.toml").write_text(row + "occurrence = 2\n")
+    assert drift.rows_hit_their_rules(tmp_path) == "mutation rows: 1, each on the line its rule marks"

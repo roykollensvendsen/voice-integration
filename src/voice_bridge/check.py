@@ -98,6 +98,39 @@ def rowed_rules(root: pathlib.Path) -> set[str]:
     return {str(rule["name"]) for rule in table.get("rule", [])}
 
 
+#: How far below its marker a rule's line may sit: a marker, a comment or two,
+#: then the line.
+ROW_REACH = 5
+
+
+def rows_hit_their_rules(root: pathlib.Path) -> str:
+    """Every mutation row switches off the line its rule marks, not some other line.
+
+    Rows drift as the code grows: an earlier identical line starts matching
+    first, or the line changes and nothing matches at all. Either way the rule
+    looks guarded, or the run stops, and nobody notices.
+    """
+    table = tomllib.loads((root / "scripts/mutations.toml").read_text()).get("rule", [])
+    drifted = []
+    for row in table:
+        lines = (root / row["file"]).read_text().splitlines()
+        hits = [i for i, line in enumerate(lines) if re.search(row["find"], line)]
+        markers = [
+            i
+            for i, line in enumerate(lines)
+            if _RULE.search(line) and _RULE.search(line).group(1) == row["name"]
+        ]
+        hit = hits[row.get("occurrence", 1) - 1] if len(hits) >= row.get("occurrence", 1) else None
+        # One line above the marker is allowed too: two rules can share one
+        # line, with the second marker inside the block that line opens.
+        if hit is None or not markers or not -1 <= hit - markers[0] <= ROW_REACH:
+            drifted.append(row["name"])
+    if drifted:
+        message = "mutation rows that miss the line their rule marks — " + ", ".join(sorted(drifted))
+        raise Disagreement(message)
+    return f"mutation rows: {len(table)}, each on the line its rule marks"
+
+
 def report(root: pathlib.Path) -> list[str]:
     """Compare every pair, and return the lines to print. Raise on disagreement."""
     lines = []
@@ -139,6 +172,7 @@ def report(root: pathlib.Path) -> list[str]:
         )
     )
     lines.append(_every_rule_has_its_own_test(rules, test_names(root)))
+    lines.append(rows_hit_their_rules(root))
     return lines
 
 

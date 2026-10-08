@@ -64,7 +64,7 @@ def test_arguments_that_are_not_json_fail_loudly_rather_than_quietly():
 
 def test_the_check_reports_every_pair_it_compared(capsys):
     assert main(["check", "."]) == 0
-    assert len(capsys.readouterr().out.strip().splitlines()) == 5
+    assert len(capsys.readouterr().out.strip().splitlines()) == 6
 
 
 def test_the_check_fails_on_a_tree_that_has_no_documents(capsys, tmp_path):
