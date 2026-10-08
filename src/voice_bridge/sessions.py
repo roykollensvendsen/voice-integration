@@ -38,6 +38,7 @@ TOOLS = (
     "read_session_output",
     "session_tree",
     "health",
+    "fleet_recap",
 )
 
 #: What is worth saying aloud. The rest is shown and not said: a session that

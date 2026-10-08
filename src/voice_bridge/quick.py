@@ -35,6 +35,7 @@ SHORTEST_IS_SAFEST = 60
 CLOCK = ("hva er klokka", "hva er klokken", "klokka", "klokken", "what time", "the time")
 SPENT = ("hvor mye har jeg brukt", "hvor mye er igjen", "budsjett", "how much is left", "budget")
 RUNNING = ("hva kjører", "hva jobber du med", "hva skjer nå", "what is running", "what are you doing")
+FLEET = ("hva holder øktene på med", "hva skjer i øktene", "hva gjør øktene", "what are the sessions doing")
 HEALTH = ("hvordan har broen", "hvordan går det med broen", "how has the bridge", "how is the bridge")
 PLACE = ("hvor er jeg", "hvor befinner jeg", "where am i", "my location", "hvilket sted er jeg")
 
@@ -139,8 +140,6 @@ def _known(bridge: Bridge, said: str) -> str | None:
         return f"Du har {left:.2f} dollar igjen denne måneden, omtrent {minutes} minutter."
     if _matches(said, RUNNING):
         return "Ingenting kjører akkurat nå." if bridge.following is None else "Noe kjører fortsatt."
-    if _matches(said, HEALTH):
-        return metrics.spoken(bridge.health()["bridge"])
     if _matches(said, PLACE):
         return f"Du er i {bridge.placed}." if bridge.placed else "Jeg vet ikke hvor du er."
     return None
@@ -155,4 +154,13 @@ def answer(bridge: Bridge, transcript: str) -> str | None:
     # RULE: only a short question is ever answered without the gateway
     if len(said) > SHORTEST_IS_SAFEST:
         return None
-    return _known(bridge, said)
+    return _known(bridge, said) or _looked_up(bridge, said)
+
+
+def _looked_up(bridge: Bridge, said: str) -> str | None:
+    """The two the bridge reads from its own records and from claude-voice's."""
+    if _matches(said, FLEET):
+        return bridge.fleet_said()
+    if _matches(said, HEALTH):
+        return metrics.spoken(bridge.health()["bridge"])
+    return None

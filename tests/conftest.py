@@ -159,6 +159,13 @@ ACTIVE = [
 ]
 
 
+#: What `fleet_recap` answers: one line per session about what it is doing.
+FLEET = [
+    {"id": "a1", "name": "build-7c", "status": "waiting", "doing": "venter på valg: Skal jeg slå sammen?"},
+    {"id": "b2", "name": "notes-2b", "status": "busy", "doing": "Skriver om innledningen."},
+    {"id": "c3", "name": "notes-9f", "status": "idle", "doing": ""},
+]
+
 #: What `session_tree` answers: a subagent under one session, and one message.
 TREE = [
     {"id": "claude-voice", "name": "claude-voice", "kind": "bridge", "parent_id": None, "talks_to": []},
@@ -215,6 +222,7 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
             "ask_active_session": self.server.answer,
             "read_session_output": self.server.output,
             "session_tree": {"version": "v1", "nodes": TREE},
+            "fleet_recap": {"sessions": FLEET},
             "health": {
                 "now": {"up_since": "2026-10-08T09:00:00+00:00", "version": "abc1234", "memory_rss_mb": 80},
                 "tools": [

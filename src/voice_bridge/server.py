@@ -298,6 +298,9 @@ KEPT_NEWS = 50
 #: How long a run can go unasked-after before its answer is told as news.
 UNWATCHED_SECONDS = 60
 
+#: How many sessions are said by name when somebody asks what they are doing.
+FLEET_SPOKEN = 4
+
 #: Who is speaking, as the sessions they talk to should hear it.
 PERSON = os.environ.get("VOICE_BRIDGE_PERSON", "Roy")
 
@@ -442,6 +445,12 @@ def answer_in(got: dict[str, Any], *, first: bool = False) -> str:
     if len(plain) <= SPOKEN_ANSWER and not plain.endswith("…"):
         return plain
     return _whole_sentences(plain.rstrip("…")[:SPOKEN_ANSWER])
+
+
+def _ended(line: str) -> str:
+    """A line with exactly one mark at the end, whatever it came with."""
+    line = line.strip().rstrip("…").strip()
+    return line if line.endswith((".", "?", "!")) else f"{line}."
 
 
 def _whole_sentences(text: str) -> str:
@@ -685,11 +694,15 @@ class _Handler(BaseHTTPRequestHandler):
         return {}
 
     def _who(self) -> dict[str, Any]:
-        """Who turns go to now, and who else they could go to."""
+        """Who turns go to now, and who else they could go to, and what each is doing."""
+        doing = {s["name"]: s.get("doing", "") for s in self.server.fleet()}
         return {
             "chosen": self.server.chosen.as_json(),
             "sessions": [
-                {key: s.get(key) for key in ("name", "project", "status", "kind")}
+                {
+                    **{key: s.get(key) for key in ("name", "project", "status", "kind")},
+                    "doing": doing.get(str(s.get("name")), ""),
+                }
                 for s in self.server.running()
             ],
             "tree": self.server.tree(),
@@ -1034,6 +1047,28 @@ class Bridge(ThreadingHTTPServer):
         if time.monotonic() - self.polled.get(run_id, 0.0) < UNWATCHED_SECONDS:
             return
         self.hear([{"session": "Hermes", "kind": "finished", "text": f"Hermes answered: {output[:300]}"}])
+
+    def fleet(self) -> list[dict[str, Any]]:
+        """What every session is doing, one line each, in one call to claude-voice."""
+        if self.sessions is None:
+            return []
+        try:
+            found = self.sessions.call("fleet_recap", {}).get("sessions") or []
+        except (OSError, Refused):
+            return []
+        return [s for s in found if isinstance(s, dict) and s.get("name")]
+
+    def fleet_said(self) -> str:
+        """The fleet, in a few sentences: what waits on the person first, then what is busy."""
+        order = {"waiting": 0, "busy": 1, "shell": 1}
+        doing = sorted(
+            (s for s in self.fleet() if s.get("doing")), key=lambda s: order.get(str(s.get("status")), 2)
+        )
+        if not doing:
+            return "Ingen av øktene har noe å melde akkurat nå."
+        said = [f"{s['name']}: {_ended(str(s['doing']))}" for s in doing[:FLEET_SPOKEN]]
+        more = len(doing) - len(said)
+        return " ".join(said) + (f" Og {more} til, på skjermen." if more else "")
 
     def health(self) -> dict[str, Any]:
         """How the bridge and claude-voice are doing, in one read: now, lately, and against last week."""
