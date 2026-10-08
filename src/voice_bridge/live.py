@@ -39,6 +39,15 @@ LANGUAGE_NAMES = {"nb": "norsk", "en": "English"}
 #: This repository is written in English and these are not: they are a prompt,
 #: and the guide is explicit that the prompt has to be in the target language.
 #: The first line is the rule the guide prescribes, verbatim in shape.
+#: The parts the vendor's own prompt guide says to keep for a live voice: how it
+#: shows it is listening, what happens when it is interrupted, and when it hands
+#: work on. gpt-live-1 has no setting for any of these; the prompt is the only
+#: lever. references/voice-ux-research.md.
+POLICIES: dict[str, tuple[str, ...]] = {
+    "nb": ("Lytting:", "Avbrytelse:", "Delegering:", "Variasjon:"),
+    "en": ("Listening:", "Interruption:", "Delegation:", "Variety:"),
+}
+
 INSTRUCTIONS: dict[str, str] = {
     "nb": (
         "Snakk norsk med mindre brukeren ber om noe annet. "
@@ -51,7 +60,16 @@ INSTRUCTIONS: dict[str, str] = {
         "Spør bakenden bare når brukeren vil ha noe gjort på maskinen — kode, filer, "
         "kommandoer, agenter. Bestem aldri selv hva som skal gjøres der. "
         "Les aldri opp en identifikator, en filsti eller et tidsstempel. De står på skjermen. "
-        "Si det bakenden gir deg, og stopp."
+        "Si det bakenden gir deg, og stopp.\n"
+        "Lytting: Lytt videre når personen tar en pause for å tenke; et kort opphold er ikke "
+        "slutten på det de sier. Vis at du følger med med en kort lyd en sjelden gang, ikke hele tiden.\n"
+        "Avbrytelse: Blir du avbrutt, slutt å snakke med en gang og lytt. «Stopp» betyr at du "
+        "skal tie. «Avbryt» betyr at arbeidet som er i gang skal stoppes; be bakenden om det.\n"
+        "Delegering: Be bakenden om hjelp før du gir et svar som avhenger av den. Si én kort "
+        "setning om at du er i gang når du sender videre, og gjett aldri på resultatet mens du venter. "
+        "Lov aldri hvor lang tid noe tar.\n"
+        "Variasjon: Bruk aldri samme formulering to ganger på rad. Si det kort, og si det på en "
+        "ny måte hver gang."
     ),
     "en": (
         "Speak English unless the user asks to switch. "
@@ -65,7 +83,17 @@ INSTRUCTIONS: dict[str, str] = {
         "something done on the machine — code, files, commands, agents. Never decide "
         "what happens there yourself. "
         "Never read out an identifier, a file path or a timestamp. They are on the screen. "
-        "Say what the backend gives you, then stop."
+        "Say what the backend gives you, then stop.\n"
+        "Listening: Keep listening while the person pauses to think; a short pause is not the "
+        "end of what they are saying. Show you are following with a short sound now and then, "
+        "not constantly.\n"
+        'Interruption: When interrupted, stop speaking at once and listen. "Stop" means be '
+        'quiet. "Cancel" means the work under way should stop; ask the backend for that.\n'
+        "Delegation: Ask the backend before giving an answer that depends on it. Say one short "
+        "line that you are on it when you hand work on, and never guess the result while waiting. "
+        "Never promise how long something takes.\n"
+        "Variety: Never use the same phrasing twice in a row. Keep it short, and say it a "
+        "new way each time."
     ),
 }
 
@@ -74,9 +102,11 @@ INSTRUCTIONS: dict[str, str] = {
 #: language for the same reason the instructions are: a prompt is in the
 #: language it produces. Without it a slow answer is silence, and silence on a
 #: phone call is indistinguishable from a dropped one.
+#: A fact for the voice to know while it waits, not a line to say: sent as a
+#: line to say, "Si kort at du setter i gang, og vent" was read out word for word.
 HOLDING: dict[str, str] = {
-    "nb": "Si kort at du setter i gang, og vent.",
-    "en": "Say briefly that you are on it, then wait.",
+    "nb": "Bakenden jobber fortsatt med dette; ingenting er ferdig ennå.",
+    "en": "The backend is still working on this; nothing is finished yet.",
 }
 
 

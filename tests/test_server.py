@@ -99,7 +99,7 @@ def test_the_page_is_given_one_phrase_and_nothing_else(bridge):
     with urllib.request.urlopen(f"{bridge}/config", timeout=10) as reply:
         config = json.loads(reply.read())
     assert set(config) == {"holding"}
-    assert config["holding"] == "Si kort at du setter i gang, og vent."
+    assert config["holding"] == live.holding()
 
 
 def test_what_the_voice_does_not_say_is_kept_for_the_screen(bridge):

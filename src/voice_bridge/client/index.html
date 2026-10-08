@@ -329,12 +329,33 @@ function acknowledged(eventId) {
   clearTimeout(waiting);
   unacknowledged.delete(eventId);
   noticed("voice.told", said.get(eventId) ?? "");
+  if (timing.bridge_ms != null) timed("acknowledged_ms");
   said.delete(eventId);
 }
 
 // The model asks for help with an identifier and no task text: what was wanted
 // lives in the transcript we have been keeping. docs/voice-contract.md.
+// How long each stage of a turn took, so that changes to how natural it feels
+// can be measured rather than guessed at: the bridge answering, the voice
+// taking the answer, and its first words after that.
+const timing = {};
+
+function timed(stage) {
+  if (!timing.started) return;
+  timing[stage] ??= Date.now() - timing.started;
+  if (timing.first_words_ms == null) return;
+  const { started, ...report } = timing;
+  for (const key of Object.keys(timing)) delete timing[key];
+  fetch("/timing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(report),
+  }).catch(() => {});
+}
+
 async function answer(delegationId) {
+  for (const key of Object.keys(timing)) delete timing[key];
+  timing.started = Date.now();
   const transcript = unsent.map((t) => t.text.trim()).filter(Boolean).join("\n");
   unsent = [];
   // Work can take ten seconds or more, and silence sounds like a dropped call,
@@ -361,6 +382,7 @@ async function answer(delegationId) {
     content = `The bridge did not answer: ${failure.message}`;
   }
   settled = true;
+  timed("bridge_ms");
   if (quiet) {
     // Nothing was passed on; the voice is told so, and answers by itself.
     append("thinking", delegationId, content);
@@ -384,6 +406,7 @@ function onEvent(event) {
       break;
     }
     case "session.output_transcript.delta":
+      if (timing.acknowledged_ms != null) timed("first_words_ms");
       // The voice answering is the turn being finished. Whatever was said
       // before it has been dealt with, and must not ride along with the next
       // request — ten turns of small talk once reached the agents as one

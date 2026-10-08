@@ -187,6 +187,7 @@ def summary(store: Store, now: float | None = None) -> dict[str, Any]:
         },
         "turns": _by_name(store.rows("turn", since), at),
         "tools": _by_name(store.rows("tool", since), at),
+        "stages": _by_name(store.rows("stage", since), at),
         "cut": {
             "this_week": sum(1 for r in store.rows("cut", at - WEEK)),
             "last_week": len(store.rows("cut", since)) - len(store.rows("cut", at - WEEK)),
