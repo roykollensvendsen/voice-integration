@@ -15,7 +15,7 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, ClassVar
 
-from voice_bridge import alerts, budget, gateway, metrics, server, sessions, target
+from voice_bridge import alerts, budget, gateway, metrics, ready, server, sessions, target
 from voice_bridge import check as drift
 from voice_bridge.contract import DEFAULT_GATEWAY
 from voice_bridge.policy import Capabilities, Refused
@@ -108,6 +108,25 @@ def _restarts() -> int | None:
     return int(shown) if shown.isdigit() else None
 
 
+def _ready(args: argparse.Namespace) -> int:
+    """Say what is still missing before the page can talk, and what to do about each."""
+    found = ready.checks(
+        ready.environment(), offline=args.offline, ledger=budget.Ledger(), gateway=args.gateway
+    )
+    report = ready.summary(found)
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0 if report["ready"] else 1
+    for check in found:
+        mark = "ok" if check.ok else ("missing" if check.required else "optional")
+        print(f"{mark:<9}{check.name:<14}{check.detail}")
+        if check.fix and not check.ok:
+            print(f"{'':<23}fix: {check.fix}")
+    failing = [c.name for c in found if c.required and not c.ok]
+    print("ready to talk" if not failing else f"not ready: {', '.join(failing)}")
+    return 0 if not failing else 1
+
+
 def _check(args: argparse.Namespace) -> int:
     """Compare every fact the documents and the code both state."""
     try:
@@ -126,6 +145,7 @@ class Main:
         "budget": _budget,
         "check": _check,
         "dispatch": _dispatch,
+        "ready": _ready,
         "serve": _serve,
         "tools": _tools,
     }
@@ -152,6 +172,11 @@ class Main:
         serve.add_argument("--port", type=int, default=8760, help="what port to listen on")
         serve.add_argument("--gateway", default=DEFAULT_GATEWAY, help="the Hermes gateway")
 
+        readiness = verbs.add_parser("ready", help=_ready.__doc__)
+        readiness.add_argument("--json", action="store_true", help="the same, for an assistant")
+        readiness.add_argument("--offline", action="store_true", help="ask nothing beyond this machine")
+        readiness.add_argument("--gateway", default=DEFAULT_GATEWAY, help="the Hermes gateway")
+
         check = verbs.add_parser("check", help=_check.__doc__)
         check.add_argument("root", nargs="?", default=".", help="the repository to check")
         return parser
@@ -166,7 +191,8 @@ main = Main()
 
 
 def run() -> int:
-    """The console entry point."""
+    """The console entry point, with the bridge's own settings filled in."""
+    ready.apply_settings(os.environ)
     return main()
 
 

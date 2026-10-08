@@ -35,13 +35,70 @@ deliberate act.
 **Context flows down, identifiers flow up.** The voice plane learns that
 `run_ab12` is waiting on an approval. It never learns the diff.
 
-## Where it is
+## Start here: talking to it on one computer
 
-Step one of five is done: a voice tool call travels through the permission
-layer, becomes a real request to a real gateway, and comes back as a sentence.
-Step two is the browser client on the laptop — built before the phone, because
-it is where the person sits and where the premise this rests on gets tested for
-the first time.
+You need Linux or macOS, an [OpenAI API key](https://platform.openai.com/api-keys)
+and a browser. The voice is OpenAI's, billed by the minute while the microphone
+is open; the bridge refuses to go past a monthly ceiling, twenty dollars unless
+you set another. An assistant doing this for you should read
+[AGENTS.md](AGENTS.md) first.
+
+<!-- not run: installs software on the reader's computer; the clean-install job runs it in an empty container on every change -->
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh          # uv, which installs Python tools
+export PATH="$HOME/.local/bin:$PATH"
+uv tool install git+https://github.com/roykollensvendsen/voice-integration
+voicebridge ready
+```
+
+`ready` lists what is still missing, and what to do about each. On a computer
+with no key yet (the empty `OPENAI_API_KEY=` stands in for one), it says:
+
+```console
+$ OPENAI_API_KEY= voicebridge ready --offline
+missing  openai_key    no OpenAI API key, so no voice session can be opened
+                       fix: put OPENAI_API_KEY=<your key> in ~/.config/voice-bridge/env; keys are made at platform.openai.com/api-keys
+ok       budget        this month's ceiling is not spent
+optional hermes        the planner was not asked (--offline)
+optional claude_voice  claude-voice was not asked (--offline)
+not ready: openai_key
+```
+
+Put the key in that file, readable only by you, and check again:
+
+<!-- not run: writes the reader's own key, which only they have -->
+```bash
+mkdir -p ~/.config/voice-bridge && chmod 700 ~/.config/voice-bridge
+printf 'OPENAI_API_KEY=%s\n' "<your key>" > ~/.config/voice-bridge/env
+chmod 600 ~/.config/voice-bridge/env
+voicebridge ready                                         # ends with "ready to talk"
+voicebridge serve
+```
+
+Open `http://127.0.0.1:8760` in a browser on the same computer, press **Take the
+microphone**, and talk. That is the voice alone. Two more programs each add
+somebody to talk to, and `ready` says whether it can reach them:
+
+* [claude-voice](https://github.com/roykollensvendsen/claude-voice) lets you
+  pick a Claude Code session on the computer and talk to it;
+* the [Hermes Agent](https://github.com/NousResearch/hermes-agent) gateway is a
+  planner that starts and follows work for you.
+
+### From the phone
+
+A browser only lends a page the microphone over HTTPS. With
+[Tailscale](https://tailscale.com) on both the computer and the phone, this
+gives the page an HTTPS address that only your own devices can reach:
+
+<!-- not run: changes the reader's network; ask before doing it for someone -->
+```bash
+tailscale serve --bg --https=10000 http://127.0.0.1:8760
+```
+
+Open `https://<the computer's name>.<your tailnet>.ts.net:10000` on the phone.
+If the phone cannot find that name, it is asking ordinary DNS instead of
+Tailscale's: turn on **Use Tailscale DNS** in the Tailscale app, and on Android
+turn **Private DNS** off.
 
 ## The surface
 
@@ -91,7 +148,7 @@ not a preference.
 
 ## Talking to it
 
-Hermes has to be running, and then:
+Once `voicebridge ready` says so:
 
 ```console
 $ voicebridge serve --help
