@@ -297,3 +297,21 @@ name = "an answer nobody waited for becomes news"
 file = "src/voice_bridge/server.py"
 find = 'if time\.monotonic\(\) - self\.polled\.get\(run_id, 0\.0\) < UNWATCHED_SECONDS:'
 replace = 'if True:'
+
+[[rule]]
+name = "measurements are kept for KEPT_DAYS and no longer"
+file = "src/voice_bridge/metrics.py"
+find = 'self\.db\.execute\("DELETE FROM events WHERE at < \?", \(time\.time\(\) - KEPT_DAYS \* 86400,\)\)'
+replace = 'pass'
+
+[[rule]]
+name = "every spoken turn is traced and measured"
+file = "src/voice_bridge/server.py"
+find = 'metrics\.tracing\(metrics\.new_trace\(\)\),'
+replace = 'metrics.tracing(""),'
+
+[[rule]]
+name = "the same cause raises at most one alert per QUIET_SECONDS"
+file = "src/voice_bridge/alerts.py"
+find = 'if time\.monotonic\(\) - self\.last\.get\(cause, -QUIET_SECONDS\) < QUIET_SECONDS:'
+replace = 'if False:'

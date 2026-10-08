@@ -208,12 +208,22 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
         name = message["params"]["name"]
         arguments = message["params"].get("arguments") or {}
         self.server.called.append((name, arguments))
+        self.server.metas.append(message["params"].get("_meta") or {})
         canned = {
             "whats_new": {"cursor": "b9.f0", "events": NEWS},
             "list_active_sessions": {"sessions": self.server.active},
             "ask_active_session": self.server.answer,
             "read_session_output": self.server.output,
             "session_tree": {"version": "v1", "nodes": TREE},
+            "health": {
+                "now": {"up_since": "2026-10-08T09:00:00+00:00", "version": "abc1234", "memory_rss_mb": 80},
+                "tools": [
+                    {"name": "ask_active_session", "calls": 4, "errors": 1, "p50_ms": 4200, "p95_ms": 9000}
+                ],
+                "errors": [
+                    {"at": "2026-10-08T10:00:00+00:00", "tool": "ask_active_session", "error": "boom"}
+                ],
+            },
         }
         if name == "ask_active_session":
             time.sleep(self.server.slow)
@@ -243,6 +253,7 @@ def claude_voice():
     running.opened = 0
     running.expire = False
     running.called = []
+    running.metas = []
     running.waiting = {"3"}
     running.active = [dict(session) for session in ACTIVE]
     running.answer = {"status": "answered", "reply": "The tests pass.", "next_after": 4}

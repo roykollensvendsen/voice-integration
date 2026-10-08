@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
+import subprocess
 import sys
 from typing import TYPE_CHECKING, ClassVar
 
-from voice_bridge import budget, gateway, server, sessions, target
+from voice_bridge import alerts, budget, gateway, metrics, server, sessions, target
 from voice_bridge import check as drift
 from voice_bridge.contract import DEFAULT_GATEWAY
 from voice_bridge.policy import Capabilities, Refused
@@ -71,6 +73,11 @@ def _serve(args: argparse.Namespace) -> int:
     """Serve the page and answer what it asks, until interrupted."""
     bridge = server.Bridge((args.host, args.port), args.gateway, chosen_file=target.state_file())
     print(f"voice-bridge on http://{args.host}:{bridge.server_port}, gateway {args.gateway}")
+    print(f"started as: {metrics.started(bridge.store, _restarts())}")
+    ntfy_server, ntfy_topic = alerts.settings()
+    # The memory line can be lowered for a test, to see an alert actually arrive.
+    memory_mb = int(os.environ.get("VOICE_BRIDGE_ALERT_MEMORY_MB", alerts.MEMORY_MB))
+    alerts.Watcher(bridge, server=ntfy_server, topic=ntfy_topic, memory_mb=memory_mb).run()
     secret = sessions.token()
     if secret:
         bridge.listen(sessions.Client(sessions.address(), secret))
@@ -82,6 +89,23 @@ def _serve(args: argparse.Namespace) -> int:
     finally:
         bridge.server_close()
     return 0
+
+
+def _restarts() -> int | None:
+    """How often systemd has restarted this service, when systemd runs it at all."""
+    if not os.environ.get("INVOCATION_ID"):
+        return None
+    try:
+        shown = subprocess.run(
+            ["systemctl", "--user", "show", "voice-bridge", "-p", "NRestarts", "--value"],  # noqa: S607 — found on PATH
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return int(shown) if shown.isdigit() else None
 
 
 def _check(args: argparse.Namespace) -> int:

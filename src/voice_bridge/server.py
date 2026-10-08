@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from voice_bridge import gateway, live, quick, sessions, target
+from voice_bridge import gateway, live, metrics, quick, sessions, target
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
 from voice_bridge.speech import say
@@ -621,6 +621,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._stream()
         elif self.path == "/target":
             self._send(200, self._who())
+        elif self.path == "/health":
+            self._send(200, self.server.health())
         elif self.path == "/config":
             # The page needs one phrase in the session's language and nothing
             # else. It is never given a key, a model name or a gateway address.
@@ -770,13 +772,21 @@ class _Handler(BaseHTTPRequestHandler):
             elif self.path == "/delegation":
                 self.server.following = None
                 self.server.quiet = False
-                spoken = answer_delegation(
-                    str(body.get("transcript", "")),
-                    self.server.gateway_url,
-                    capabilities=self.server.capabilities,
-                    watcher=self.server.follow,
-                    bridge=self.server,
-                )
+                # RULE: every spoken turn is traced and measured
+                with (
+                    metrics.tracing(metrics.new_trace()),
+                    metrics.measured(self.server.store, "turn", self.server.chosen.kind) as outcome,
+                ):
+                    spoken = answer_delegation(
+                        str(body.get("transcript", "")),
+                        self.server.gateway_url,
+                        capabilities=self.server.capabilities,
+                        watcher=self.server.follow,
+                        bridge=self.server,
+                    )
+                    outcome["detail"] = (
+                        "quiet" if self.server.quiet else "following" if self.server.following else "answered"
+                    )
                 self._send(
                     200,
                     {
@@ -853,6 +863,8 @@ class Bridge(ThreadingHTTPServer):
         #: When each run was last asked after, so an answer nobody waits for
         #: can be told as news instead of going nowhere.
         self.polled: dict[str, float] = {}
+        #: Every turn measured, kept for weeks. ADR-VI-031.
+        self.store = metrics.Store(chosen_file.with_name("metrics.sqlite") if chosen_file else None)
         #: The session tree as last fetched, until `tree_changed` says otherwise.
         self.shape: list[dict[str, Any]] | None = None
 
@@ -1023,6 +1035,20 @@ class Bridge(ThreadingHTTPServer):
             return
         self.hear([{"session": "Hermes", "kind": "finished", "text": f"Hermes answered: {output[:300]}"}])
 
+    def health(self) -> dict[str, Any]:
+        """How the bridge and claude-voice are doing, in one read: now, lately, and against last week."""
+        mine = metrics.summary(self.store)
+        mine["now"]["memory"] = metrics.memory()
+        theirs: dict[str, Any]
+        if self.sessions is None:
+            theirs = {"unreachable": "claude-voice is not configured"}
+        else:
+            try:
+                theirs = self.sessions.call("health", {})
+            except (OSError, Refused) as failure:
+                theirs = {"unreachable": str(failure)[:200]}
+        return {"bridge": mine, "claude_voice": theirs}
+
     def tree(self) -> list[dict[str, Any]]:
         """Every session claude-voice knows of, with who started and who messaged whom.
 
@@ -1064,6 +1090,7 @@ class Bridge(ThreadingHTTPServer):
     def listen(self, client: sessions.Client, every: float = sessions.POLL_SECONDS) -> None:
         """Ask claude-voice what is new, on its own thread, for as long as this runs."""
         self.sessions = client
+        client.store = client.store or self.store
         if self.chosen.kind == "session":
             # Kept by name across a restart; its id may have changed meanwhile,
             # and the chosen session's own hooks know it only by that.
