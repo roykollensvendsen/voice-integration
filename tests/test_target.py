@@ -164,6 +164,19 @@ def test_when_the_chosen_session_ends_the_voice_takes_over_and_says_so(bridge):
     assert "voice again" in told["said"]
 
 
+def test_an_open_choice_box_is_read_out_with_its_choices(bridge, claude_voice):
+    """Three spoken messages queued behind a box the voice could neither see nor answer."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {
+        "status": "needs_choice",
+        "question": {"text": "Skal jeg kjøre en egengjennomgang?", "options": ["Ja", "Nei"]},
+    }
+    spoken = say(bridge, "jeg vil si ja")
+    assert "Skal jeg kjøre en egengjennomgang?" in spoken
+    assert "Ja or Nei" in spoken
+    assert "screen" in spoken
+
+
 def test_a_session_waiting_at_its_own_screen_stays_chosen(bridge, claude_voice):
     say(bridge, "snakk med build-7c")
     claude_voice.answer = {"status": "needs_input", "session_ended": False, "reply": ""}
@@ -232,6 +245,12 @@ def test_a_message_the_session_never_took_is_said_to_be_lost(bridge, claude_voic
     spoken = say(bridge, "hei")
     assert "did not get" in spoken
     assert bridge.following is None
+
+
+def test_a_chosen_session_is_kept_by_its_id_so_its_own_hooks_can_recognise_it(bridge, tmp_path):
+    say(bridge, "snakk med build-7c")
+    kept = json.loads((tmp_path / "target.json").read_text())
+    assert kept == {"kind": "session", "name": "build-7c", "claude_session_id": "a1"}
 
 
 def test_the_choice_survives_a_restart(bridge, url, tmp_path):
