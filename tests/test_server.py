@@ -390,6 +390,15 @@ def test_a_voice_turn_never_offers_to_end_a_session(bridge, hermes):
     assert "Never offer to stop, close or end a session" in asked
 
 
+def test_a_voice_turn_asks_for_the_thick_tools_rather_than_reading_one_session_at_a_time(bridge, hermes):
+    """One call says what every session is doing, and another what happened in one."""
+    post(f"{bridge}/delegation", {"transcript": "start the work in hydropower"})
+    asked = hermes.seen[0][1]["instructions"]
+    assert "fleet_recap" in asked
+    assert "digest_session" in asked
+    assert "list_projects with a word from its name" in asked
+
+
 def test_a_running_session_is_reached_through_claude_voice_not_a_fresh_claude(bridge, hermes):
     """Asked to list the sessions, it started a new `claude -p` to go and look."""
     post(f"{bridge}/delegation", {"transcript": "list the sessions"})

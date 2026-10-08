@@ -103,8 +103,10 @@ TURN_INSTRUCTIONS = (
     # to go and look, asked for "Ja, kjør claude" first, and then said it had
     # used the session server it had never touched. ADR-VI-025.
     "To list the Claude Code sessions, or to ask, tell or read one that is already "
-    "running, use the claude_voice tools: list_active_sessions, message_active_session, "
-    "read_session_output, session_recap. Never start a new `claude -p` to find out "
+    "running, use the claude_voice tools: list_active_sessions, ask_active_session, "
+    "read_session_output, session_recap. To say what every session is doing, call "
+    "fleet_recap once rather than reading them one by one; to say what happened in a "
+    "long session, call digest_session. Never start a new `claude -p` to find out "
     "about other sessions. Listing and reading change nothing, so do them without "
     "asking first. "
     # Asked only for their names, it offered to shut some of them down.
@@ -112,8 +114,9 @@ TURN_INSTRUCTIONS = (
     # A `claude -p` run is invisible: it is not in the person's tree, it sends
     # no news when it finishes, and it cannot ask for permission. ADR-VI-028.
     "For new work in a repository, reuse a session you started there before "
-    "(list_sessions), or start one with create_session in that project (list_projects "
-    "names them), and give it the work with send_task. Do not wait for it to finish: "
+    "(list_sessions), or start one with create_session in that project (find it with "
+    "list_projects with a word from its name), and give it the work with send_task. "
+    "Do not wait for it to finish: "
     "say in one sentence what you started and where. The person hears from the "
     "session itself when it is done or needs permission. "
     "Never run `claude -p` or any other coding agent from the terminal. "
