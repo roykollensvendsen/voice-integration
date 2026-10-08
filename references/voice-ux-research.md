@@ -354,6 +354,11 @@ Python server.
    change).** Works in browsers now (WARP's channel part plus DTLS 1.3 in
    Chrome) and shortens every session start — which ADR-VI-027 makes happen on
    every change of voice. Each start also bills 15 s up front.
+   *Tried on 2026-10-08 and not kept:* three starts each way in a headless
+   Chrome against the real service took 1.2–1.4 s announced and 1.2–2.2 s
+   agreed in advance. No round trip worth keeping was saved, so the page
+   still announces its channel. The start is now measured as the `opened`
+   stage, so a later attempt can be compared.
 6. **Say failures plainly and route them (bridge change).** Turn bridge
    errors, `session.closed` reasons and moderation cut-offs into one short
    spoken sentence plus the next step, and reconnect with seeded history
