@@ -169,6 +169,20 @@ def voice_request(said: str) -> str | None:
     return (found.group(1) or found.group(2)) if found else None
 
 
+#: "Avbryt" stops the work under way. A bare "stopp" only quiets the voice, which
+#: the voice does by itself; it never reaches here as a cancel.
+_CANCEL = re.compile(
+    r"^(?:avbryt|cancel|stopp arbeidet|stopp jobben|stop the work|stop the job)"
+    r"(?:\s+(?:det|det der|alt|that|it|everything))?$"
+)
+
+
+def cancel_request(said: str) -> bool:
+    """Whether this asks for the work under way to stop."""
+    words = said.strip().strip(".!?,").casefold()
+    return len(words) <= SHORTEST_IS_SAFEST and bool(_CANCEL.match(words))
+
+
 def switch_request(said: str) -> Target | str | None:
     """A target, a session name still to be matched, or None when this was not a switch."""
     words = said.strip().strip(".!?,").casefold()
