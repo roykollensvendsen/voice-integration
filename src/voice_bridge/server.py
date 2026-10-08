@@ -454,6 +454,25 @@ def _moved(bridge: Bridge, chosen: target.Target, moved: dict[str, Any]) -> str:
     return f"{chosen.name} carried on as {moved['name']}, so you are talking to that now. Say it again."
 
 
+def _waiting(chosen: target.Target, got: dict[str, Any]) -> str:
+    """What to say about a session held up at its own screen, or nothing."""
+    status = got.get("status")
+    if status == "needs_choice":
+        # A box stops the session until somebody answers it at the keyboard;
+        # anything said meanwhile only queues behind it.
+        asked = got.get("question") or {}
+        options = [
+            str(o.get("label", o)) if isinstance(o, dict) else str(o) for o in asked.get("options") or []
+        ]
+        choices = f" The choices are {' or '.join(options)}." if options else ""
+        return f"{chosen.name} is waiting for a choice at its screen: {asked.get('text', '')}{choices}"
+    if status == "needs_input":
+        return f"{chosen.name} is waiting for somebody at its own screen."
+    if status == "not_received":
+        return f"{chosen.name} did not get that. It may be waiting for somebody at its own screen."
+    return ""
+
+
 def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) -> str:
     """What to say about one answer from a chosen session."""
     status = got.get("status")
@@ -461,12 +480,11 @@ def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) ->
         # RULE: a session that ended hands the conversation back to the voice
         bridge.choose(target.Target("voice"))
         return f"{chosen.name} has ended, so you are talking to me again."
-    if status == "needs_input":
-        return f"{chosen.name} is waiting for somebody at its own screen."
     if status == "moved":
         return _moved(bridge, chosen, got.get("moved_to") or {})
-    if status == "not_received":
-        return f"{chosen.name} did not get that. It may be waiting for somebody at its own screen."
+    waiting = _waiting(chosen, got)
+    if waiting:
+        return waiting
     reply = answer_in(got)
     if status == "still_working":
         # A session busy with other work keeps writing, and what it wrote last
@@ -897,8 +915,9 @@ class Bridge(ThreadingHTTPServer):
     def choose(self, chosen: target.Target) -> None:
         """Send turns somewhere else from now on."""
         self.chosen = chosen
+        known = {s.get("name"): s.get("claude_session_id") for s in self.running()} if chosen.name else {}
         # RULE: the choice survives a restart
-        target.save(self.chosen_file, chosen)
+        target.save(self.chosen_file, chosen, str(known.get(chosen.name) or ""))
 
     def voice_now(self) -> str:
         """The voice the chosen target speaks with."""
@@ -1036,9 +1055,12 @@ class Bridge(ThreadingHTTPServer):
     def listen(self, client: sessions.Client, every: float = sessions.POLL_SECONDS) -> None:
         """Ask claude-voice what is new, on its own thread, for as long as this runs."""
         self.sessions = client
+        if self.chosen.kind == "session":
+            # Kept by name across a restart; its id may have changed meanwhile,
+            # and the chosen session's own hooks know it only by that.
+            self.choose(self.chosen)
 
         def poll() -> None:
-            cursor: str | None = None
             lost = False
             while True:
                 try:

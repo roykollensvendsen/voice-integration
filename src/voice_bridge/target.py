@@ -81,12 +81,16 @@ def load(path: pathlib.Path | None) -> Target:
     return Target(kind, str(kept.get("name", "")) if kind == "session" else "")
 
 
-def save(path: pathlib.Path | None, chosen: Target) -> None:
-    """Keep the choice where a restart will find it."""
+def save(path: pathlib.Path | None, chosen: Target, session_id: str = "") -> None:
+    """Keep the choice where a restart, and the chosen session's own hooks, will find it."""
     if path is None:
         return
+    kept: dict[str, str] = chosen.as_json()
+    if chosen.kind == "session" and session_id:
+        # A name can change and need not be unique; a hook knows its session by id.
+        kept["claude_session_id"] = session_id
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(chosen.as_json()))
+    path.write_text(json.dumps(kept))
 
 
 def steer(chosen: Target) -> str:
