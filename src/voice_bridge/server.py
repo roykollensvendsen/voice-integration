@@ -301,6 +301,12 @@ KEPT_NEWS = 50
 #: How long a run can go unasked-after before its answer is told as news.
 UNWATCHED_SECONDS = 60
 
+#: How long a turn waits for a session that is already busy with other work.
+ASK_BUSY_SECONDS = 8
+
+#: How long the bridge keeps waiting, in the background, for an answer.
+ANSWER_PATIENCE_SECONDS = 15 * 60
+
 #: How long a summary of a long session may take to write.
 DIGEST_SECONDS = 30
 
@@ -414,13 +420,17 @@ def ask_chosen(bridge: Bridge, transcript: str) -> str:
     chosen = bridge.chosen
     if bridge.sessions is None:
         return "I cannot reach the coding sessions."
+    # A session busy with other work reads nothing until it is done; waiting
+    # the full time only fills the silence with "still working".
+    busy = {s.get("name"): s.get("status") for s in bridge.running()}.get(chosen.name) in ("busy", "shell")
+    wait = ASK_BUSY_SECONDS if busy else ASK_SECONDS
     try:
         got = bridge.sessions.call(
             "ask_active_session",
             # RULE: a turn to a session says who is speaking and that the answer is read aloud
-            {"session": chosen.name, "message": relayed(bridge, transcript), "wait_seconds": ASK_SECONDS},
-            # The tool itself waits up to ASK_SECONDS; the call has to outlast it.
-            waits=ASK_SECONDS,
+            {"session": chosen.name, "message": relayed(bridge, transcript), "wait_seconds": wait},
+            # The tool itself waits; the call has to outlast it.
+            waits=wait,
         )
     except Refused as refusal:
         return f"{chosen.name} could not be reached: {refusal}"
@@ -511,10 +521,10 @@ def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) ->
         return waiting
     reply = answer_in(got)
     if status == "still_working":
-        # A session busy with other work keeps writing, and what it wrote last
-        # is not an answer to this. Read out as one, it was, three times over.
-        bridge.following = f"claude:{got.get('next_after', 0)}:{chosen.name}"
-        return f"{chosen.name} is working on it, and I will say when it answers."
+        # Not quoted: what a busy session wrote last is not an answer to this.
+        # The bridge waits for the answer itself and tells it as news, so the
+        # page is not left polling and the voice does not fill the wait.
+        return bridge.await_answer(chosen.name, int(got.get("next_after", 0)))
     return reply or f"{chosen.name} said nothing."
 
 
@@ -868,6 +878,8 @@ class Bridge(ThreadingHTTPServer):
         #: Who a turn goes to, kept where a restart finds it. ADR-VI-026.
         self.chosen_file = chosen_file
         self.chosen = target.load(chosen_file)
+        #: The busy sessions whose answer the bridge is waiting for, by name.
+        self.answers_awaited: dict[str, threading.Thread] = {}
         #: Whether the last answer is for the voice to know rather than to say.
         self.quiet = False
         #: Who speaks for each kind of target. ADR-VI-027.
@@ -1134,6 +1146,23 @@ class Bridge(ThreadingHTTPServer):
             self.shape = [n for n in nodes if isinstance(n, dict) and n.get("id")]
         return self.shape
 
+    def await_answer(self, name: str, after: int) -> str:
+        """Wait in the background for a busy session's answer, and tell it as news when it comes."""
+        if name in self.answers_awaited and self.answers_awaited[name].is_alive():
+            # Already waiting: this one is passed on too, without another "busy".
+            self.quiet = True
+            return f"Also passed on to {name}. Its answer comes when it is free."
+
+        def wait() -> None:
+            answer, done = follow_chosen(self, f"claude:{after}:{name}", ANSWER_PATIENCE_SECONDS)
+            if done and answer:
+                self.hear([{"session": name, "kind": "answer", "text": answer}])
+
+        waiting = threading.Thread(target=wait, daemon=True)
+        self.answers_awaited[name] = waiting
+        waiting.start()
+        return f"{name} is busy with something else. I will say its answer when it comes."
+
     def _spoken_to(self, item: dict[str, Any]) -> bool:
         """News about the session somebody is talking to, which they hear anyway."""
         # Every turn of a chosen session ends in "has finished and is waiting";
@@ -1150,7 +1179,9 @@ class Bridge(ThreadingHTTPServer):
         for heard in news:
             item = self._settle(heard)
             self.told += 1
-            aloud = item.get("kind") in sessions.SPOKEN and not self._spoken_to(item)
+            # A session's answer, arriving after the turn that asked for it, is
+            # said like any other news.
+            aloud = item.get("kind") in (*sessions.SPOKEN, "answer") and not self._spoken_to(item)
             notice(
                 self,
                 {
