@@ -20,6 +20,7 @@ import argparse
 import datetime as dt
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 import tomllib
@@ -45,7 +46,7 @@ def line_of(text: str, pattern: str, occurrence: int) -> int:
 def run_suite() -> tuple[int, list[str]]:
     """Run the tests and give back how many failed, and which ones."""
     r = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--tb=no", "-p", "no:cacheprovider"],
+        [sys.executable, "-m", "pytest", "-q", "--tb=no", "--color=no", "-p", "no:cacheprovider"],
         capture_output=True,
         text=True,
         cwd=ROOT,
@@ -62,6 +63,9 @@ def main() -> int:
     parser.add_argument("--write", type=pathlib.Path, help="write the evidence table here")
     args = parser.parse_args()
 
+    # Stopped from outside, the run still puts every file back: a SIGTERM
+    # otherwise skips the `finally` below and leaves a rule switched off.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
     rules = tomllib.loads(TABLE.read_text())["rule"]
     originals = {r["file"]: (ROOT / r["file"]).read_text() for r in rules}
     results = []
