@@ -23,6 +23,9 @@ def test_a_question_the_bridge_can_answer_never_travels_further(tmp_path):
         assert re.match(r"Klokka er \d\d:\d\d\.", quick.answer(made, "Hva er klokka?") or "")
         assert "dollar igjen" in (quick.answer(made, "Hvor mye er igjen?") or "")
         assert quick.answer(made, "Hva kjører nå?") is not None
+        # The bridge itself must stop there, not only the lookup.
+        settled, _ = server.answered_here(made, "Hva er klokka?")
+        assert re.match(r"Klokka er \d\d:\d\d\.", settled or "")
     finally:
         made.server_close()
 
