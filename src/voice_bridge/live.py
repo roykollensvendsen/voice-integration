@@ -198,11 +198,48 @@ VOICES = (
 )
 
 
+#: What the page says it is running in, in the words the voice would use.
+CLIENTS = {
+    "nb": {
+        "android-app": "telefonappen på Android-telefonen",
+        "phone-browser": "nettleseren på telefonen",
+        "browser": "nettleseren på maskinen",
+    },
+    "en": {
+        "android-app": "the phone app on the Android phone",
+        "phone-browser": "the browser on the phone",
+        "browser": "the browser on the computer",
+    },
+}
+
+
+def whereabouts(client: str | None, language: str | None = None) -> str:
+    """What the voice should know about where it runs, and where its time and place come from.
+
+    Asked where it got the time from, and on which device it ran, it did not know.
+    """
+    if (language or LANGUAGE) == "en":
+        where = CLIENTS["en"].get(str(client), "a device the page did not name")
+        return (
+            f"About yourself: the person is talking to you from {where}. The time the backend gives "
+            "comes from the computer the bridge runs on, and the position from the GPS of the device "
+            "the person speaks from. If asked where you run, or where the time or the position comes "
+            "from, say so."
+        )
+    where = CLIENTS["nb"].get(str(client), "en enhet siden ikke har oppgitt")
+    return (
+        f"Om deg selv: Personen snakker med deg fra {where}. Klokka bakenden gir deg, kommer fra "
+        "maskinen der broen kjører, og posisjonen fra GPS-en på enheten personen snakker fra. Spør "
+        "personen hvor du kjører, eller hvor klokka eller posisjonen kommer fra, så si det."
+    )
+
+
 def session_config(
     language: str | None = None,
     history: list[dict[str, object]] | None = None,
     voice: str = "marin",
     steer: str = "",
+    about: str = "",
 ) -> dict[str, object]:
     """What the session is created with, and deliberately nothing more."""
     return {
@@ -213,7 +250,7 @@ def session_config(
         # Client delegation: the backend is ours, so the Live session is told
         # about no tools at all. ADR-VI-019 is why.
         "delegation": {"type": "client"},
-        "instructions": f"{instructions(language)}\n\n{steer}" if steer else instructions(language),
+        "instructions": "\n\n".join(part for part in (instructions(language), steer, about) if part),
     }
 
 
@@ -226,6 +263,7 @@ def open_session(  # noqa: PLR0913 — the voice joined five that each change wh
     *,
     voice: str = "marin",
     steer: str = "",
+    about: str = "",
 ) -> str:
     """Exchange the page's offer for an answer, or refuse and say why."""
     # RULE: the month is checked before a session is opened
@@ -237,7 +275,7 @@ def open_session(  # noqa: PLR0913 — the voice joined five that each change wh
     body = json.dumps(
         {
             "transport": {"type": "webrtc", "sdp": offer_sdp},
-            "session": session_config(language, history, voice, steer),
+            "session": session_config(language, history, voice, steer, about),
         }
     )
     request = urllib.request.Request(

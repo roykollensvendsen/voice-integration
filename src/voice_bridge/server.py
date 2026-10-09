@@ -989,6 +989,7 @@ class _Handler(BaseHTTPRequestHandler):
                     voice=self.server.voice_now(),
                     # RULE: a chosen session hears everything that is said
                     steer=target.steer(self.server.chosen),
+                    about=live.whereabouts(str(body.get("client") or "")),
                 )
                 self._send(
                     200,

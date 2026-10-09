@@ -527,6 +527,8 @@ def test_a_busy_session_s_answer_is_only_what_it_wrote_after_reading_the_questio
         "put it down",
         "slå av stemmen",
         "hang up",
+        # Said on 2026-10-09, and not understood: the microphone stayed open.
+        "Jeg legger på nå midlertidig",
     ],
 )
 def test_asking_the_voice_to_hang_up_is_understood(said):

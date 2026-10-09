@@ -7,7 +7,7 @@ import urllib.request
 
 import pytest
 
-from voice_bridge import budget, live
+from voice_bridge import budget, live, server
 from voice_bridge.policy import Refused
 
 
@@ -112,3 +112,19 @@ def test_an_empty_account_is_said_plainly_with_what_to_do(tmp_path, monkeypatch)
     monkeypatch.setattr(urllib.request, "urlopen", empty)
     with pytest.raises(Refused, match="no credit left"):
         live.open_session("v=0", budget.Ledger(tmp_path / "spend.json"), key="k")
+
+
+def test_the_voice_is_told_where_it_runs_and_where_its_clock_and_position_come_from():
+    """Roy asked the voice where it got the time from, and on which device it ran: it did not know."""
+    told = live.session_config("nb", about=live.whereabouts("android-app", "nb"))["instructions"]
+    assert "telefonappen" in told
+    assert "maskinen der broen kjører" in told
+    assert "GPS" in told
+    assert "nettleseren" in live.whereabouts("browser", "nb")
+    assert "phone app" in live.whereabouts("android-app", "en")
+
+
+def test_the_page_says_which_kind_of_client_it_is_in():
+    page = server.PAGE.read_text()
+    assert "client: CLIENT" in page
+    assert '"android-app"' in page
