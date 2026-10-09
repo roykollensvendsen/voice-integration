@@ -8,7 +8,7 @@ import urllib.request
 import pytest
 from conftest import NEWS, TOKEN
 
-from voice_bridge import budget, server, sessions, target
+from voice_bridge import budget, live, server, sessions, target
 
 
 @pytest.fixture
@@ -390,10 +390,23 @@ def test_a_busy_session_is_said_to_be_busy_once_and_its_answer_comes_as_news(
         ("Koble meg til hydropower-04", "hydropower-04"),
         ("Bytt til Hermes", target.Target("hermes")),
         ("Snakk med stemmen", target.Target("voice")),
+        # The voice suggested this on 2026-10-09; Roy said it, and it went to a session.
+        ("Start samtale med Hermes", target.Target("hermes")),
     ],
 )
 def test_a_switch_said_in_plain_words_is_understood(said, wanted):
     assert target.switch_request(said) == wanted
+
+
+@pytest.mark.parametrize("said", ["Hei Hermes", "Hei, Hermes.", "hallo Hermes"])
+def test_hei_hermes_is_a_switch_to_hermes_said_alone_or_after_a_greeting(said):
+    """On 2026-10-09 "Hei Hermes" was passed to the chosen session as a message."""
+    assert target.switch_request(said) == target.Target("hermes")
+
+
+@pytest.mark.parametrize("said", ["Hermes", "Hei, hvordan går det?", "hei build-7c", "hei hermes, hva skjer"])
+def test_a_greeting_alone_switches_to_nobody(said):
+    assert target.switch_request(said) is None
 
 
 def test_saying_whom_you_do_not_want_is_not_a_switch_to_them():
@@ -529,10 +542,23 @@ def test_a_busy_session_s_answer_is_only_what_it_wrote_after_reading_the_questio
         "hang up",
         # Said on 2026-10-09, and not understood: the microphone stayed open.
         "Jeg legger på nå midlertidig",
+        # Said on 2026-10-09: the voice answered "Ja, jeg legger på nå" and did not.
+        "legg på røret",
+        "Kan du legge på røret?",
+        "du kan legge på",
+        "Du kan bare legge på nå, takk.",
+        "avslutt samtale",
+        "Avslutt samtalen.",
     ],
 )
 def test_asking_the_voice_to_hang_up_is_understood(said):
     assert target.hang_up_request(said)
+
+
+def test_the_voice_is_told_that_only_the_backend_can_hang_up():
+    """It once said "Ja, jeg legger på nå" by itself, and the microphone stayed open."""
+    assert "Bare bakenden kan legge på" in live.INSTRUCTIONS["nb"]
+    assert "Only the backend can hang up" in live.INSTRUCTIONS["en"]
 
 
 def test_a_sentence_that_only_mentions_the_microphone_is_not_hanging_up():

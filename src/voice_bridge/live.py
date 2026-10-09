@@ -67,7 +67,9 @@ INSTRUCTIONS: dict[str, str] = {
         "ikke er ferdige, så vent. Er du i tvil, vent litt til. Vis at du følger med med en kort lyd "
         "en sjelden gang, ikke hele tiden.\n"
         "Avbrytelse: Blir du avbrutt, slutt å snakke med en gang og lytt. «Stopp» betyr at du "
-        "skal tie. «Avbryt» betyr at arbeidet som er i gang skal stoppes; be bakenden om det.\n"
+        "skal tie. «Avbryt» betyr at arbeidet som er i gang skal stoppes; be bakenden om det. "
+        "«Legg på» eller «avslutt samtalen» betyr at samtalen skal avsluttes. Bare bakenden kan "
+        "legge på, så be den om det, og si aldri at du legger på uten å ha spurt.\n"
         "Delegering: Be bakenden om hjelp før du gir et svar som avhenger av den. Si én kort "
         "setning om at du er i gang når du sender videre, og gjett aldri på resultatet mens du venter. "
         "Lov aldri hvor lang tid noe tar.\n"
@@ -93,7 +95,9 @@ INSTRUCTIONS: dict[str, str] = {
         "done, so wait. When unsure, wait a little longer. Show you are following with a short "
         "sound now and then, not constantly.\n"
         'Interruption: When interrupted, stop speaking at once and listen. "Stop" means be '
-        'quiet. "Cancel" means the work under way should stop; ask the backend for that.\n'
+        'quiet. "Cancel" means the work under way should stop; ask the backend for that. '
+        '"Hang up" or "end the call" means the call should end. Only the backend can hang up, '
+        "so ask it, and never say you are hanging up without having asked.\n"
         "Delegation: Ask the backend before giving an answer that depends on it. Say one short "
         "line that you are on it when you hand work on, and never guess the result while waiting. "
         "Never promise how long something takes.\n"

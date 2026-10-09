@@ -30,7 +30,7 @@ SHORTEST_IS_SAFEST = 60
 _MOVE = re.compile(
     r"^(?:gå tilbake til(?: å)?(?: bare)?(?: (?:snakke|prate) med)?|go back to"
     r"|sett(?:e)? meg over til|koble?(?:e)? meg (?:til|på)|connect me to|bytt(?:e)? til|switch to"
-    r"|gå over til|hopp(?:e)? (?:over )?til"
+    r"|gå over til|hopp(?:e)? (?:over )?til|start(?:e)? (?:en )?samtale(?:n)? med"
     r"|(?:snakk(?:e)?|prat(?:e)?|talk|speak) (?:med|to|with))\s+(?:the\s+)?(.+)$"
 )
 _KIND_WORD = r"(?:[ -]?(?:økta|økten|økt|økte|session))?"
@@ -38,6 +38,9 @@ _TO_VOICE = re.compile(
     r"(?:bare )?(?:stemmen|stemme|stemmelaget|voice|deg|you|gpt[ -]?live(?:[ -]?(?:one|1|en))?)" + _KIND_WORD
 )
 _TO_HERMES = re.compile(r"hermes" + _KIND_WORD)
+# "Hei Hermes", which the voice itself suggests. Only for Hermes: "hei" before
+# anything else is a greeting, not a wish to talk to someone else.
+_GREETING = re.compile(r"^(?:hei|hallo|hey|hi|hello),?\s+")
 # "en Claude Code-økt": a session, but which one was not said.
 _ANY_SESSION = re.compile(r"(?:en |ei |a )?(?:claude(?:[ -]?code)?|kode)?" + _KIND_WORD)
 _FILLER = re.compile(r"\b(?:ehm|eh|øh|hmm)\b")
@@ -205,10 +208,11 @@ _CANCEL = re.compile(
 # "Kan du stoppe pengebruken nå? Be også putt down microphone", said on the
 # phone on 2026-10-09: hang up, so that nothing more is paid for.
 _HANG_UP = re.compile(
-    r"^(?:(?:jeg )?legg(?:e|er)? på(?: nå)?(?: midlertidig)?|hang up|"
+    r"^(?:(?:du kan )?(?:bare )?(?:jeg )?legg(?:e|er)? på(?: røret| telefonen)?(?: nå)?(?: midlertidig)?|"
+    r"hang up|end the call|"
     r"put(?:t)?(?: it)? down(?: the)?(?: microphone)?|"
     r"(?:be (?:også )?)?put(?:t)? down(?: the)? microphone|legg(?:e)? (?:ned|fra deg) mikrofonen|"
-    r"slå av stemmen|stopp(?:e)? stemmen|stopp(?:e)? pengebruken|avslutt(?:e)? samtalen)$"
+    r"slå av stemmen|stopp(?:e)? stemmen|stopp(?:e)? pengebruken|avslutt(?:e)? samtalen?)$"
 )
 
 
@@ -231,11 +235,21 @@ def cancel_request(said: str) -> bool:
     return len(words) <= SHORTEST_IS_SAFEST and bool(_CANCEL.match(words))
 
 
+def greets_hermes(said: str) -> bool:
+    """Whether this is "hei Hermes": what the voice itself suggests saying to reach Hermes."""
+    whole = " ".join(said.casefold().split()).strip(" .!?")
+    greeted = _GREETING.sub("", whole)
+    # RULE: "hei Hermes" is a switch to Hermes, said alone or after a greeting
+    return greeted != whole and bool(_TO_HERMES.fullmatch(greeted))
+
+
 def switch_request(said: str) -> Target | str | None:
     """A target, a session name still to be matched, or None when this was not a switch."""
     # The last thing said is the wish: "not Hermes, back to the voice" is a switch to the voice.
     clauses = [c for c in re.split(r"[,.;!?]", _FILLER.sub(" ", said.casefold())) if c.strip()]
     words = " ".join(clauses[-1].split()) if clauses else ""
+    if greets_hermes(said):
+        return Target("hermes")
     while (shorter := _ASKING.sub("", words)) != words:
         words = shorter
     words = _TRAILING.sub("", words)
@@ -250,9 +264,8 @@ def switch_request(said: str) -> Target | str | None:
         return Target("voice")
     if _TO_HERMES.fullmatch(whom):
         return Target("hermes")
-    if _ANY_SESSION.fullmatch(whom):
-        return ""
-    return _SESSION_WORD.sub("", whom).strip() or None
+    # An unnamed session is "", for the bridge to ask which one.
+    return "" if _ANY_SESSION.fullmatch(whom) else (_SESSION_WORD.sub("", whom).strip() or None)
 
 
 # "Start en ny økt i voice-integration": a session started in the background
