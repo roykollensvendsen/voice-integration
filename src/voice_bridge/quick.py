@@ -41,6 +41,21 @@ DIGEST = re.compile(
 )
 FLEET = ("hva holder øktene på med", "hva skjer i øktene", "hva gjør øktene", "what are the sessions doing")
 HEALTH = ("hvordan har broen", "hvordan går det med broen", "how has the bridge", "how is the bridge")
+# Asked by Roy on 2026-10-09: what can be done with the sessions, said back
+# from here rather than guessed at by a model that has never seen the list.
+HELP = (
+    "hva kan jeg gjøre med øktene",
+    "hva kan jeg si",
+    "hva kan du gjøre",
+    "hva kan jeg be deg om",
+    "what can i do with the sessions",
+    "what can i say",
+)
+HELP_SAID = (
+    "Du kan spørre hva øktene holder på med, be meg oppsummere en økt, og si «snakk med» og et navn "
+    "for å snakke med én økt. Du kan starte en ny økt i et prosjekt, lukke en økt jeg har startet, "
+    "svare ja eller nei når en økt ber om lov, og si avbryt for å stoppe det som pågår."
+)
 PLACE = ("hvor er jeg", "hvor befinner jeg", "where am i", "my location", "hvilket sted er jeg")
 
 #: What marks a question as one for the web rather than for this machine. The
@@ -166,6 +181,8 @@ def _looked_up(bridge: Bridge, said: str) -> str | None:
     digest = DIGEST.match(said.strip(".!? "))
     if digest:
         return bridge.digest_said(digest.group(1))
+    if _matches(said, HELP):
+        return HELP_SAID
     if _matches(said, FLEET):
         return bridge.fleet_said()
     if _matches(said, HEALTH):

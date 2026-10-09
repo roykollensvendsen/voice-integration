@@ -92,3 +92,17 @@ def test_a_place_is_a_name_a_person_can_say(tmp_path):
     finally:
         made.server_close()
         placed.server_close()
+
+
+def test_asking_what_can_be_done_with_the_sessions_is_answered_from_the_bridge(tmp_path):
+    """Roy, 2026-10-09: "I should be able to ask for help with what I can do with the sessions"."""
+    made = bridge(tmp_path)
+    try:
+        for asked in ("Hva kan jeg gjøre med øktene?", "hva kan jeg si", "What can I do with the sessions?"):
+            said = quick.answer(made, asked) or ""
+            assert "starte en ny økt" in said, asked
+            assert "lukke" in said
+            assert "avbryt" in said
+        assert quick.answer(made, "kan du hjelpe meg med koden") is None
+    finally:
+        made.server_close()
