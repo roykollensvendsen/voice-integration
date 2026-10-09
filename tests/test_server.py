@@ -155,7 +155,7 @@ def test_what_the_voice_says_is_drawn_as_it_arrives(bridge):
     """There is no transcript-done event, so waiting for one drew nothing at all."""
     with urllib.request.urlopen(bridge, timeout=10) as reply:
         page = reply.read().decode()
-    assert 'heard("It said", event.delta' in page
+    assert "heard(saidBy(), event.delta" in page
     assert "output_transcript.done" not in page, "that event does not exist"
 
 
@@ -500,7 +500,7 @@ def test_small_talk_the_voice_answered_itself_never_reaches_the_agents(bridge):
     with urllib.request.urlopen(bridge, timeout=10) as reply:
         page = reply.read().decode()
     assert "if (unsent.length) unsent = [];" in page
-    assert page.index("session.output_transcript.delta") < page.index('heard("It said"')
+    assert page.index("session.output_transcript.delta") < page.index("heard(saidBy()")
 
 
 def test_a_request_carries_the_conversation_it_came_out_of(bridge, hermes):

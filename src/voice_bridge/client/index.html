@@ -491,6 +491,10 @@ async function answer(delegationId) {
   if (!finished && runId) waitOn(runId, delegationId);
 }
 
+// Whose words the voice is speaking, for the log: "Jarvis said", "Hermes
+// said", or the session's own name, rather than It said. Roy, 2026-10-09.
+const saidBy = () => `${chosen?.kind === "hermes" ? "Hermes" : chosen?.kind === "session" ? chosen.name : "Jarvis"} said`;
+
 function onEvent(event) {
   if (/transcript|delegation/.test(event.type)) active();
   switch (event.type) {
@@ -508,7 +512,7 @@ function onEvent(event) {
       // request — ten turns of small talk once reached the agents as one
       // confused instruction because nothing cleared this.
       if (unsent.length) unsent = [];
-      heard("It said", event.delta, event.start_ms, event.end_ms);
+      heard(saidBy(), event.delta, event.start_ms, event.end_ms);
       break;
     case "session.delegation.created": delegatedAt = Date.now(); answer(event.delegation.id); break;
     case "session.commentary.appended":
