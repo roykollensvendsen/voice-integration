@@ -223,6 +223,26 @@ def switch_request(said: str) -> Target | str | None:
     return _SESSION_WORD.sub("", whom).strip() or None
 
 
+# "Start en ny økt i voice-integration": a session started in the background
+# and chosen at once. What comes after "i" or "in" is the project, as said.
+_START = re.compile(
+    r"^(?:start(?:e)?|lag(?:e)?|åpne|open|create)\s+(?:en\s+|a\s+)?(?:ny\s+|new\s+)?"
+    r"(?:økt|økta|session)\s+(?:i|in)\s+(.+)$"
+)
+
+
+def start_request(said: str) -> str | None:
+    """The project a new session should start in, or None when this was not asked."""
+    clauses = [c for c in re.split(r"[,;!?]", _FILLER.sub(" ", said.casefold())) if c.strip()]
+    words = " ".join(clauses[-1].split()).rstrip(".") if clauses else ""
+    while (shorter := _ASKING.sub("", words)) != words:
+        words = shorter
+    if len(words) > SHORTEST_IS_SAFEST or _NOT.search(words):
+        return None
+    found = _START.match(words)
+    return found.group(1).strip() if found else None
+
+
 def matching(asked: str, running: list[dict[str, Any]]) -> list[str]:
     """The running sessions a spoken name or project could mean."""
     wanted = asked.casefold().replace(" ", "")
