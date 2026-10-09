@@ -384,8 +384,10 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     here, transcript = answered_here(bridge, transcript)
     if here is not None:
         return here, transcript
-    revoiced = hang_up(bridge, transcript) or (
-        stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript)
+    revoiced = (
+        hang_up(bridge, transcript)
+        or louder_or_softer(transcript)
+        or (stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript))
     )
     if revoiced is not None:
         return revoiced, transcript
@@ -410,6 +412,17 @@ def left_this_month(ledger: Ledger) -> dict[str, int]:
         "remaining_minutes": int(round(ledger.remaining_usd() / budget.USD_PER_MINUTE, 6)),
         "ceiling_minutes": int(budget.ceiling_usd() / budget.USD_PER_MINUTE),
     }
+
+
+def louder_or_softer(transcript: str) -> str | None:
+    """Said back when the volume was asked for; the page sets it, from what it heard."""
+    asked = target.volume_request(transcript)
+    if asked is None:
+        return None
+    how, percent = asked
+    if how == "set":
+        return f"Greit, lyden er {percent} prosent nå."
+    return "Greit, litt høyere." if percent > 0 else "Greit, litt lavere."
 
 
 def hang_up(bridge: Bridge, transcript: str) -> str | None:
@@ -999,6 +1012,7 @@ class _Handler(BaseHTTPRequestHandler):
             # The voice answers "hvem snakker jeg med" by itself too, and then
             # says it cannot see. The page says this instead, if it did.
             "say": quick.navigation(self.server, without_noises(said)) if mine else None,
+            "volume": target.volume_request(said) if mine else None,
         }
 
     def _who(self) -> dict[str, Any]:

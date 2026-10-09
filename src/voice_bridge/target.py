@@ -216,6 +216,51 @@ _HANG_UP = re.compile(
 )
 
 
+#: "Sett lyden til 30 prosent", asked for on 2026-10-09: the number is often
+#: written as a word by the transcriber.
+_VOLUME_WORDS = {
+    "null": 0,
+    "fem": 5,
+    "ti": 10,
+    "femten": 15,
+    "tjue": 20,
+    "tjuefem": 25,
+    "tretti": 30,
+    "førti": 40,
+    "femti": 50,
+    "seksti": 60,
+    "sytti": 70,
+    "åtti": 80,
+    "nitti": 90,
+    "hundre": 100,
+}
+_VOLUME = re.compile(
+    r"\b(?:lyden|lydnivået|lydstyrken|volumet|the volume|volume)\b.{0,20}?\b(?:til|på|to)\s+"
+    r"(\d{1,3}|" + "|".join(_VOLUME_WORDS) + r")\b"
+)
+_LOUDER = re.compile(r"\b(?:skru|sett) opp lyden\b|\bhøyere lyd\b|\bturn (?:it|the volume) up\b")
+_SOFTER = re.compile(r"\b(?:skru|sett) ned lyden\b|\blavere lyd\b|\bturn (?:it|the volume) down\b")
+#: How far "skru ned lyden" moves it, in percent.
+VOLUME_STEP = 20
+
+
+def volume_request(said: str) -> tuple[str, int] | None:
+    """("set", percent) or ("step", ±percent) when this asks to change how loud the voice is."""
+    words = " ".join(said.casefold().split())
+    # RULE: a spoken volume is a change of volume, never a message
+    if len(words) > SHORTEST_IS_SAFEST or _NOT.search(words):
+        return None
+    found = _VOLUME.search(words)
+    if found:
+        number = found.group(1)
+        return "set", min(100, int(number) if number.isdigit() else _VOLUME_WORDS[number])
+    if _LOUDER.search(words):
+        return "step", VOLUME_STEP
+    if _SOFTER.search(words):
+        return "step", -VOLUME_STEP
+    return None
+
+
 def hang_up_request(said: str) -> bool:
     """Whether this asks the voice to put the microphone down."""
     clauses = [c for c in re.split(r"[,;!?.]", _FILLER.sub(" ", said.casefold())) if c.strip()]

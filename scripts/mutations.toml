@@ -347,3 +347,9 @@ name = "asking where you are, or for help, is answered by the bridge wherever yo
 file = "src/voice_bridge/quick.py"
 find = 'if _matches\(said, WHO\):'
 replace = 'if False:'
+
+[[rule]]
+name = "a spoken volume is a change of volume, never a message"
+file = "src/voice_bridge/target.py"
+find = 'if len\(words\) > SHORTEST_IS_SAFEST or _NOT\.search\(words\):'
+replace = 'if True:'

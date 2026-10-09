@@ -35,6 +35,8 @@
            background: transparent; color: inherit; cursor: pointer; }
   button[data-live="yes"] { border-color: var(--live); color: var(--live); }
   #state { margin-left: .9rem; color: var(--dim); }
+  .volume { display: flex; align-items: center; gap: .5rem; margin-top: .6rem; font-size: .8rem; color: var(--dim); }
+  .volume input { flex: 1; max-width: 14rem; }
   .usage svg { width: 100%; height: 5rem; display: block; margin: .4rem 0; }
   .usage rect { fill: var(--live); }
   .usage rect.none { fill: var(--line); }
@@ -87,6 +89,8 @@
 <p class="sub">Talk to your coding agents. Nothing is listening until you press the button.</p>
 
 <button id="talk">Take the microphone</button><span id="state">idle</span>
+<label class="volume">Lyd <input id="volume" type="range" min="0" max="100" step="5" value="100">
+  <span id="volume-said">100 %</span></label>
 
 <section id="who" aria-label="Who you are talking to">
   <div class="now">Du snakker med <strong id="chosen">…</strong></div>
@@ -226,6 +230,24 @@ const show = (who, text) => {
   return row;
 };
 
+// How loud the voice is: set with the slider or by saying "sett lyden til 30
+// prosent", and kept on this device for the next call.
+const volume = document.getElementById("volume");
+const volumeSaid = document.getElementById("volume-said");
+let speaker = null;
+function setVolume(percent) {
+  const level = Math.max(0, Math.min(100, Math.round(percent)));
+  volume.value = level;
+  volumeSaid.textContent = `${level} %`;
+  if (speaker) speaker.volume = level / 100;
+  try { localStorage.setItem("volume", String(level)); } catch { /* kept for this call only */ }
+}
+try {
+  const kept = localStorage.getItem("volume");
+  if (kept != null) setVolume(Number(kept));
+} catch { /* no storage: full volume */ }
+volume.oninput = () => setVolume(Number(volume.value));
+
 // When the voice last passed a turn on: a turn after it was answered alone.
 let delegatedAt = 0;
 const keep = (turn) => fetch("/turn", {
@@ -238,6 +260,11 @@ const keep = (turn) => fetch("/turn", {
   // "Hvem snakker jeg med" or "hjelp", answered alone by a voice that cannot
   // see the sessions: the bridge's answer is said after all.
   if (kept.say && pc && !(delegatedAt > turn.at)) tell(null, kept.say);
+  // "Sett lyden til 30 prosent", heard here whoever answers it.
+  if (kept.volume) {
+    const [how, percent] = kept.volume;
+    setVolume(how === "set" ? percent : Number(volume.value) + percent);
+  }
 }).catch(() => {});
 
 // A fragment either continues the turn it belongs to or starts a new one.
@@ -913,7 +940,12 @@ async function start() {
   });
 
   pc = new RTCPeerConnection();
-  pc.ontrack = (e) => { const a = new Audio(); a.srcObject = e.streams[0]; a.autoplay = true; };
+  pc.ontrack = (e) => {
+    speaker = new Audio();
+    speaker.srcObject = e.streams[0];
+    speaker.autoplay = true;
+    speaker.volume = Number(volume.value) / 100;
+  };
   pc.addTrack(mic.getTracks()[0], mic);
 
   channel = pc.createDataChannel("oai-events");
