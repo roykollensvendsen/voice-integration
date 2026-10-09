@@ -555,6 +555,19 @@ def test_asking_the_voice_to_hang_up_is_understood(said):
     assert target.hang_up_request(said)
 
 
+def test_the_voice_is_told_to_claim_nothing_the_backend_has_not_said():
+    """On 2026-10-09 it told Roy he had been talking to Hermes all along. He had not."""
+    assert "hvem personen snakker med, før bakenden har sagt det" in live.INSTRUCTIONS["nb"]
+    assert "before the backend has said so" in live.INSTRUCTIONS["en"]
+
+
+def test_a_sound_the_transcriber_marked_is_not_something_the_person_said():
+    """Said on 2026-10-09, and relayed to a session as it stood."""
+    heard = "[clear throat\n] Ja. Skal vi se, da skal jeg starte en\nen Spotify podcast"
+    assert server.without_noises(heard) == " Ja. Skal vi se, da skal jeg starte en\nen Spotify podcast"
+    assert server.without_noises("[latter]").strip() == ""
+
+
 def test_the_voice_is_told_that_only_the_backend_can_hang_up():
     """It once said "Ja, jeg legger på nå" by itself, and the microphone stayed open."""
     assert "Bare bakenden kan legge på" in live.INSTRUCTIONS["nb"]
