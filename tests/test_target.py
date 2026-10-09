@@ -90,6 +90,41 @@ def test_the_page_says_the_bridges_answer_when_the_voice_answered_alone(bridge):
     assert "if (kept.say && pc && !(delegatedAt > turn.at)) tell(null, kept.say)" in server.PAGE.read_text()
 
 
+@pytest.mark.parametrize(
+    ("said", "wanted"),
+    [
+        # Asked for by Roy on 2026-10-09: "10 prosent, eller 50 prosent".
+        ("Sett lyden til 10 prosent", ("set", 10)),
+        ("sett lyden til ti prosent", ("set", 10)),
+        ("Kan du sette lyden ned til 30%", ("set", 30)),
+        ("skru ned lyden", ("step", -target.VOLUME_STEP)),
+        ("skru opp lyden", ("step", target.VOLUME_STEP)),
+    ],
+)
+def test_a_spoken_volume_is_a_change_of_volume_never_a_message(bridge, said, wanted):
+    assert target.volume_request(said) == wanted
+    say(bridge, "snakk med build-7c")
+    spoken = server.answer_delegation(said, "http://127.0.0.1:9", bridge=bridge)
+    assert spoken.startswith("Greit")
+
+
+def test_the_page_sets_the_volume_it_is_told_and_keeps_it(bridge):
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        _, kept = post(
+            f"http://127.0.0.1:{bridge.server_port}/turn", {"who": "You", "text": "sett lyden til 30 prosent"}
+        )
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert kept["volume"] == ["set", 30]
+    page = server.PAGE.read_text()
+    assert 'id="volume" type="range"' in page
+    assert 'localStorage.setItem("volume"' in page
+    assert "speaker.volume = Number(volume.value) / 100" in page
+
+
 def test_the_end_of_a_call_is_heard_as_a_falling_tone():
     """Roy, 2026-10-09: a tone at the end too, so he knows the call is over."""
     assert "if (pc) chime(990, 495);" in server.PAGE.read_text()
