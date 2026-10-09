@@ -72,7 +72,8 @@ INSTRUCTIONS: dict[str, str] = {
         "legge på, så be den om det, og si aldri at du legger på uten å ha spurt.\n"
         "Delegering: Be bakenden om hjelp før du gir et svar som avhenger av den. Si én kort "
         "setning om at du er i gang når du sender videre, og gjett aldri på resultatet mens du venter. "
-        "Lov aldri hvor lang tid noe tar.\n"
+        "Lov aldri hvor lang tid noe tar. Si aldri at noe er gjort, eller hvem personen snakker med, "
+        "før bakenden har sagt det.\n"
         "Variasjon: Bruk aldri samme formulering to ganger på rad. Si det kort, og si det på en "
         "ny måte hver gang."
     ),
@@ -100,7 +101,8 @@ INSTRUCTIONS: dict[str, str] = {
         "so ask it, and never say you are hanging up without having asked.\n"
         "Delegation: Ask the backend before giving an answer that depends on it. Say one short "
         "line that you are on it when you hand work on, and never guess the result while waiting. "
-        "Never promise how long something takes.\n"
+        "Never promise how long something takes. Never say that something is done, or whom the "
+        "person is talking to, before the backend has said so.\n"
         "Variety: Never use the same phrasing twice in a row. Keep it short, and say it a "
         "new way each time."
     ),

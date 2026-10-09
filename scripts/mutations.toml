@@ -329,3 +329,9 @@ name = "a busy session's answer is only what it wrote after reading the question
 file = "src/voice_bridge/server.py"
 find = '^        return "", False$'
 replace = 'asked = -1'
+
+[[rule]]
+name = "a sound the transcriber marked is not something the person said"
+file = "src/voice_bridge/server.py"
+find = 'return NOISE\.sub\("", transcript\)'
+replace = 'return transcript'

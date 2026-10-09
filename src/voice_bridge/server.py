@@ -805,6 +805,17 @@ def follow_chosen(bridge: Bridge, following: str, patience: float, said: str = "
         time.sleep(FOLLOW_SECONDS)
 
 
+#: What the transcriber writes for a sound that is not a word: "[clear throat]",
+#: "[latter]". It once reached a session as the start of what Roy said.
+NOISE = re.compile(r"\[[^\]]{0,40}\]")
+
+
+def without_noises(transcript: str) -> str:
+    """What was said, without the sounds the transcriber marked."""
+    # RULE: a sound the transcriber marked is not something the person said
+    return NOISE.sub("", transcript)
+
+
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
@@ -815,6 +826,7 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     bridge: Bridge | None = None,
 ) -> str:
     """Turn what was heard into something to say back."""
+    transcript = without_noises(transcript)
     if not transcript.strip():
         return "I did not catch that."
     # A question that is waiting takes precedence over a new request: "yes" is
