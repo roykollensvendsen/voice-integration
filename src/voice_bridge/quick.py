@@ -69,7 +69,7 @@ WHO = (
 )
 HELP_SAID = (
     "Si «hvem snakker jeg med» for å høre hvem du er koblet til. Bytt med «snakk med» og navnet på "
-    "en økt, «hei Hermes», eller «tilbake til stemmen», uansett hvor du er. Du kan også starte en ny "
+    "en økt, «hei Hermes», eller «tilbake til Jarvis», uansett hvor du er. Du kan også starte en ny "
     "økt, lukke en økt jeg har startet, spørre hva øktene holder på med, svare ja eller nei når en "
     "økt ber om lov, og si avbryt for å stoppe det som pågår."
 )
@@ -222,13 +222,13 @@ def where_you_are(bridge: Bridge) -> str:
         if bridge.chosen.kind == "session"
         else "Du snakker med Hermes."
         if bridge.chosen.kind == "hermes"
-        else "Du snakker bare med stemmen."
+        else "Du snakker bare med Jarvis."
     )
     sessions = f" Øktene som kjører, er {', '.join(names)}." if names else " Ingen økter kjører nå."
     return (
         here
         + sessions
-        + " Si «snakk med» og et navn for en økt, «hei Hermes» for Hermes, eller «tilbake til stemmen»."
+        + " Si «snakk med» og et navn for en økt, «hei Hermes» for Hermes, eller «tilbake til Jarvis»."
     )
 
 

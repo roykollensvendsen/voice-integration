@@ -40,7 +40,7 @@ def test_the_page_is_served_at_the_root(bridge):
     with urllib.request.urlopen(bridge, timeout=10) as reply:
         page = reply.read().decode()
     assert reply.status == 200
-    assert "<title>voice-bridge</title>" in page
+    assert "<title>Jarvis</title>" in page
 
 
 def test_the_page_carries_no_key(bridge):

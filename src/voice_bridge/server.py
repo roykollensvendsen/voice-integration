@@ -97,6 +97,10 @@ TURN_INSTRUCTIONS = (
     "next steps, and do not describe how the system works unless that is what "
     "was asked. "
     "Never ask them to reply with exact words, a quoted phrase, or a number from a list. "
+    # Asked "sett lyden til 50 prosent" on 2026-10-09, it set the computer's
+    # speaker to 50 percent; the voice on the phone was as loud as before.
+    "The voice's loudness is set by the bridge, on the device the person is "
+    "using: never change the computer's sound for it. "
     # Asked which voice model it was, it did not know, and spent 25 seconds
     # asking a coding session.
     "What they hear is the voice bridge: OpenAI's gpt-live-1 hears them and speaks "
@@ -355,7 +359,7 @@ def relayed(bridge: Bridge, transcript: str) -> str:
     first eighty characters in the session's transcript.
     """
     before = [
-        f"- {PERSON if role == 'user' else 'Stemmen'}: {text[:RELAYED_CHARACTERS]}"
+        f"- {PERSON if role == 'user' else 'Jarvis'}: {text[:RELAYED_CHARACTERS]}"
         for role, text in bridge.context_turns()[-RELAYED_TURNS:]
     ]
     context = ("Rett før dette i samtalen:\n" + "\n".join(before) + "\n") if before else ""
@@ -391,11 +395,9 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     )
     if revoiced is not None:
         return revoiced, transcript
-    switched = (
-        switch(bridge, transcript) or start_session(bridge, transcript) or close_session(bridge, transcript)
-    )
-    if switched is not None:
-        return switched, transcript
+    redirected = _redirected(bridge, transcript)
+    if redirected is not None:
+        return redirected
     # RULE: while the voice alone is chosen nothing is forwarded
     if bridge.chosen.kind == "voice":
         bridge.quiet = True
@@ -403,6 +405,20 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     if bridge.chosen.kind == "session":
         return ask_chosen(bridge, transcript), transcript
     return None, transcript
+
+
+def _redirected(bridge: Bridge, transcript: str) -> tuple[str | None, str] | None:
+    """A switch, a start or a close, and where whatever was said after a switch goes."""
+    line, after = target.split_at_switch(transcript)
+    if line is not None and after:
+        switch(bridge, line)
+        return routed(bridge, after)
+    switched = (
+        switch(bridge, line or transcript)
+        or start_session(bridge, transcript)
+        or close_session(bridge, transcript)
+    )
+    return None if switched is None else (switched, transcript)
 
 
 def left_this_month(ledger: Ledger) -> dict[str, int]:
@@ -559,7 +575,7 @@ def _closed(bridge: Bridge, name: str, status: str) -> str:
         return f"{name} is not running."
     if bridge.chosen == target.Target("session", name):
         bridge.choose(target.Target(kind="voice"))
-        return f"I closed {name}. You are talking to the voice alone now."
+        return f"I closed {name}. You are talking to Jarvis alone now."
     return f"I closed {name}."
 
 

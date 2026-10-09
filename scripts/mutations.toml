@@ -353,3 +353,9 @@ name = "a spoken volume is a change of volume, never a message"
 file = "src/voice_bridge/target.py"
 find = 'if len\(words\) > SHORTEST_IS_SAFEST or _NOT\.search\(words\):'
 replace = 'if True:'
+
+[[rule]]
+name = "a switch said among other things still switches, and what follows goes to the new one"
+file = "src/voice_bridge/target.py"
+find = 'if switch_request\(lines\[at\]\) is not None:'
+replace = 'if False:'

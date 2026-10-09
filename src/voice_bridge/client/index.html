@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>voice-bridge</title>
+<title>Jarvis</title>
 <style>
   :root { color-scheme: light dark; --ink: #17181c; --dim: #6c7079; --line: #d7d9de; --live: #1a7f4b; }
   @media (prefers-color-scheme: dark) {
@@ -85,7 +85,7 @@
                    border-radius: .3rem; padding: .1rem .3rem; }
 </style>
 
-<h1>voice-bridge</h1>
+<h1>Jarvis</h1>
 <p class="sub">Talk to your coding agents. Nothing is listening until you press the button.</p>
 
 <button id="talk">Take the microphone</button><span id="state">idle</span>
@@ -264,6 +264,7 @@ const keep = (turn) => fetch("/turn", {
   if (kept.volume) {
     const [how, percent] = kept.volume;
     setVolume(how === "set" ? percent : Number(volume.value) + percent);
+    note("Lydstyrke", `${volume.value} %`);
   }
 }).catch(() => {});
 
@@ -609,7 +610,7 @@ const COST = { voice: "gratis · straks", hermes: "modellkall · ~10 s", session
 let chosen = null;
 
 const same = (a, b) => Boolean(a && b) && a.kind === b.kind && (a.name ?? "") === (b.name ?? "");
-const named = (t) => (t.kind === "voice" ? "bare stemmen" : t.kind === "hermes" ? "Hermes" : t.name);
+const named = (t) => (t.kind === "voice" ? "bare Jarvis" : t.kind === "hermes" ? "Hermes" : t.name);
 
 function node(label, wanted, status) {
   const item = document.createElement("li");
@@ -684,7 +685,7 @@ function drawWho(sessions, nodes) {
 // different one, the session is closed and opened again with the conversation
 // so far. ADR-VI-027.
 const voicesBox = document.getElementById("voices");
-const VOICE_FOR = [["voice", "Stemmen"], ["hermes", "Hermes"], ["session", "Claude-økt"]];
+const VOICE_FOR = [["voice", "Jarvis"], ["hermes", "Hermes"], ["session", "Claude-økt"]];
 let speaking = null;
 // What the voice was last told about who it speaks for. A session opened with
 // it already; a change of target that keeps the voice has to be told.
@@ -711,7 +712,10 @@ function drawVoices(voices, available) {
 async function refreshWho() {
   const body = await fetch("/target").then((r) => r.json()).catch(() => null);
   if (!body) return;
+  const before = chosen && named(chosen);
   chosen = body.chosen;
+  // A switch, by voice or by tap, is part of the conversation: it is shown there.
+  if (before && named(chosen) !== before) note("Du snakker nå med", named(chosen));
   drawWho(body.sessions ?? [], body.tree ?? []);
   drawVoices(body.voices ?? {}, body.available ?? []);
   if (pc && speaking && body.steer && body.steer !== steered) {

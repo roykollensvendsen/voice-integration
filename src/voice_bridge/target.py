@@ -35,7 +35,8 @@ _MOVE = re.compile(
 )
 _KIND_WORD = r"(?:[ -]?(?:økta|økten|økt|økte|session))?"
 _TO_VOICE = re.compile(
-    r"(?:bare )?(?:stemmen|stemme|stemmelaget|voice|deg|you|gpt[ -]?live(?:[ -]?(?:one|1|en))?)" + _KIND_WORD
+    r"(?:bare )?(?:stemmen|stemme|stemmelaget|voice|jarvis|deg|you|gpt[ -]?live(?:[ -]?(?:one|1|en))?)"
+    + _KIND_WORD
 )
 _TO_HERMES = re.compile(r"hermes" + _KIND_WORD)
 # "Hei Hermes", which the voice itself suggests. Only for Hermes: "hei" before
@@ -76,7 +77,7 @@ class Target:
     def said(self) -> str:
         """Who this is, in words a person hears."""
         if self.kind == "voice":
-            return "the voice alone"
+            return "Jarvis alone"
         if self.kind == "hermes":
             return "Hermes"
         return self.name
@@ -278,6 +279,21 @@ def cancel_request(said: str) -> bool:
     """Whether this asks for the work under way to stop."""
     words = said.strip().strip(".!?,").casefold()
     return len(words) <= SHORTEST_IS_SAFEST and bool(_CANCEL.match(words))
+
+
+def split_at_switch(transcript: str) -> tuple[str | None, str]:
+    """The last line that asks to switch, and what was said after it.
+
+    The page sends what was said since the last answer, one turn to a line. On
+    2026-10-09 that was "Hei Hermes", "Bytt til Hermes" twice, and then a
+    request: one message to the session he was leaving, and no switch.
+    """
+    lines = [line for line in transcript.splitlines() if line.strip()]
+    # RULE: a switch said among other things still switches, and what follows goes to the new one
+    for at in range(len(lines) - 1, -1, -1):
+        if switch_request(lines[at]) is not None:
+            return lines[at], "\n".join(lines[at + 1 :])
+    return None, transcript
 
 
 def greets_hermes(said: str) -> bool:

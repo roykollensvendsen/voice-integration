@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Stemmen</string>
+    <string name="app_name">Jarvis</string>
     <string name="ask_address">Adressen til stemmebroen</string>
     <string name="ask_address_hint">https://maskinen.tailnett.ts.net:10000/</string>
     <string name="save">Lagre</string>
-    <string name="listening_title">Stemmen er klar</string>
+    <string name="listening_title">Jarvis er klar</string>
     <string name="listening_text">Si «Hey Jarvis» for å snakke. Ingen lyd sendes før du sier det.</string>
-    <string name="channel">Stemmen</string>
+    <string name="channel">Jarvis</string>
 </resources>
