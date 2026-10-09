@@ -354,19 +354,19 @@ def test_a_busy_session_is_said_to_be_busy_once_and_its_answer_comes_as_news(
     say(bridge, "snakk med build-7c")
     claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
     claude_voice.output = {"turns": [], "status": "busy"}
-    first = say(bridge, "hva skjer")
+    first = say(bridge, "sjekk loggen")
     asked = [a for n, a in claude_voice.called if n == "ask_active_session"][-1]
     assert asked["wait_seconds"] == server.ASK_BUSY_SECONDS
     assert "busy" in first
     assert bridge.following is None, "the page is not left polling"
-    second = say(bridge, "og hva mer")
+    second = say(bridge, "og rydd opp etterpå")
     assert bridge.quiet, "a second question while waiting is passed on without another busy line"
     assert "busy" not in second
     claude_voice.output = {
         "turns": [
-            {"index": 5, "role": "user", "text": "Her kommer en melding fra Roy … «hva skjer»"},
+            {"index": 5, "role": "user", "text": "Her kommer en melding fra Roy … «sjekk loggen»"},
             {"index": 6, "role": "assistant", "text": "Svaret er klart."},
-            {"index": 7, "role": "user", "text": "Her kommer en melding fra Roy … «og hva mer»"},
+            {"index": 7, "role": "user", "text": "Her kommer en melding fra Roy … «og rydd opp etterpå»"},
         ],
         "status": "busy",
     }
@@ -565,10 +565,10 @@ def test_a_note_slipped_in_while_the_session_works_does_not_end_its_reply(bridge
     say(bridge, "snakk med build-7c")
     claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
     claude_voice.output = {"turns": [], "status": "busy"}
-    say(bridge, "hva holder du på med")
+    say(bridge, "fiks den røde testen")
     claude_voice.output = {
         "turns": [
-            {"index": 5, "role": "user", "text": "Her kommer en melding fra Roy … «hva holder du på med»"},
+            {"index": 5, "role": "user", "text": "Her kommer en melding fra Roy … «fiks den røde testen»"},
             {
                 "index": 6,
                 "role": "user",
@@ -581,3 +581,47 @@ def test_a_note_slipped_in_while_the_session_works_does_not_end_its_reply(bridge
     bridge.answers_awaited.pop("build-7c").join(timeout=10)
     told = [e for e in bridge.watching if e["event"] == "claude.news"]
     assert told[-1]["said"] == "Du står i Svennskotveien."
+
+
+def test_a_question_to_a_busy_session_is_answered_at_once_from_what_it_has_written(bridge, claude_voice):
+    """Roy, 2026-10-09: like Claude Code's /btw, a quick answer without waiting for the session to finish."""
+    claude_voice.active = [
+        dict(s, status="busy") if s["name"] == "build-7c" else s for s in claude_voice.active
+    ]
+    say(bridge, "snakk med build-7c")
+    spoken = say(bridge, "hva holder du på med?")
+    asked = [a for n, a in claude_voice.called if n == "side_question"]
+    assert asked
+    assert asked[0]["session"] == "build-7c"
+    assert asked[0]["question"] == "hva holder du på med?"
+    assert "Den kjører testene nå." in spoken
+    assert not [n for n, _ in claude_voice.called if n == "ask_active_session"], "never put into the session"
+
+
+def test_a_request_to_a_busy_session_still_goes_to_the_session(bridge, claude_voice):
+    claude_voice.active = [
+        dict(s, status="busy") if s["name"] == "build-7c" else s for s in claude_voice.active
+    ]
+    say(bridge, "snakk med build-7c")
+    say(bridge, "kjør testene på nytt")
+    assert [n for n, _ in claude_voice.called if n == "ask_active_session"]
+    assert not [n for n, _ in claude_voice.called if n == "side_question"]
+
+
+def test_a_question_to_a_free_session_is_asked_of_the_session_itself(bridge, claude_voice):
+    say(bridge, "snakk med build-7c")
+    say(bridge, "hva holder du på med?")
+    assert [n for n, _ in claude_voice.called if n == "ask_active_session"]
+    assert not [n for n, _ in claude_voice.called if n == "side_question"]
+
+
+def test_a_question_with_no_quick_answer_goes_to_the_busy_session_after_all(
+    bridge, claude_voice, monkeypatch
+):
+    claude_voice.active = [
+        dict(s, status="busy") if s["name"] == "build-7c" else s for s in claude_voice.active
+    ]
+    monkeypatch.setattr(server, "side_answer", lambda *_: None)
+    say(bridge, "snakk med build-7c")
+    say(bridge, "hva holder du på med?")
+    assert [n for n, _ in claude_voice.called if n == "ask_active_session"]

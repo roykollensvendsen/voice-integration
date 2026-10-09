@@ -38,6 +38,7 @@ TOOLS = (
     "read_session_output",
     "start_active_session",
     "stop_active_session",
+    "side_question",
     "session_tree",
     "health",
     "fleet_recap",
