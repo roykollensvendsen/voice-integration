@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -43,6 +44,14 @@ class MainActivity : Activity() {
             }
         }
         page.webChromeClient = object : WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String,
+                callback: GeolocationPermissions.Callback,
+            ) {
+                // The page's own question, answered by what Android was told.
+                callback.invoke(origin, hasLocation(), false)
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 // Only the microphone, and only once Android has given it to the app.
                 val audio = PermissionRequest.RESOURCE_AUDIO_CAPTURE
@@ -92,8 +101,15 @@ class MainActivity : Activity() {
     private fun hasMicrophone() =
         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
+    private fun hasLocation() =
+        checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
     private fun askForPermissions() {
-        val wanted = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        val wanted = mutableListOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             wanted += Manifest.permission.POST_NOTIFICATIONS
         }
