@@ -190,6 +190,27 @@ def test_the_page_reloads_itself_for_a_new_version_but_never_during_a_call(bridg
     assert "else if (page !== served && !pc) location.reload();" in server.PAGE.read_text()
 
 
+def test_nothing_from_one_call_is_said_again_in_the_next():
+    """On 2026-10-09 an answer from before a switch was said again after the call restarted."""
+    page = server.PAGE.read_text()
+    stop = page[page.index("function stop(") :]
+    stop = stop[: stop.index("\n}\n")]
+    assert "unacknowledged.forEach((timer) => clearTimeout(timer));" in stop
+    assert "said.clear();" in stop
+
+
+def test_the_page_shows_what_can_be_said_to_get_around():
+    """Roy, 2026-10-09: a drop-down with help for getting around by voice."""
+    page = server.PAGE.read_text()
+    assert "<summary>Hva kan jeg si?</summary>" in page
+    for said in ("«Hvem snakker jeg med?»", "«Hei Hermes»", "«Tilbake til Jarvis»", "«Legg på»"):
+        assert said in page
+    # What it promises is what the bridge understands.
+    assert target.switch_request("Tilbake til Jarvis") == target.Target("voice")
+    assert target.switch_request("Hei Hermes") == target.Target("hermes")
+    assert target.hang_up_request("Legg på")
+
+
 def test_hermes_is_told_not_to_change_the_computers_sound():
     """On 2026-10-09 Hermes set the computer's speaker, not the voice on the phone."""
     assert "never change the computer's sound" in server.TURN_INSTRUCTIONS
