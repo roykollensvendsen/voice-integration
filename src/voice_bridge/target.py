@@ -195,6 +195,28 @@ _CANCEL = re.compile(
 )
 
 
+# "Kan du stoppe pengebruken nå? Be også putt down microphone", said on the
+# phone on 2026-10-09: hang up, so that nothing more is paid for.
+_HANG_UP = re.compile(
+    r"^(?:legg(?:e)? på|hang up|put(?:t)?(?: it)? down(?: the)?(?: microphone)?|"
+    r"(?:be (?:også )?)?put(?:t)? down(?: the)? microphone|legg(?:e)? (?:ned|fra deg) mikrofonen|"
+    r"slå av stemmen|stopp(?:e)? stemmen|stopp(?:e)? pengebruken|avslutt(?:e)? samtalen)$"
+)
+
+
+def hang_up_request(said: str) -> bool:
+    """Whether this asks the voice to put the microphone down."""
+    clauses = [c for c in re.split(r"[,;!?.]", _FILLER.sub(" ", said.casefold())) if c.strip()]
+    for clause in clauses:
+        words = " ".join(clause.split())
+        while (shorter := _ASKING.sub("", words)) != words:
+            words = shorter
+        words = _TRAILING.sub("", words)
+        if not _NOT.search(words) and _HANG_UP.match(words):
+            return True
+    return False
+
+
 def cancel_request(said: str) -> bool:
     """Whether this asks for the work under way to stop."""
     words = said.strip().strip(".!?,").casefold()

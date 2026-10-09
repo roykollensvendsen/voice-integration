@@ -310,7 +310,7 @@ def test_a_long_conversation_is_trimmed_rather_than_refused(tmp_path):
 
 def test_work_that_outlasts_the_wait_says_which_run_to_keep_waiting_on(bridge):
     _, body = post(f"{bridge}/delegation", {"transcript": "run the tests"})
-    assert set(body) == {"content", "run_id", "finished", "quiet"}
+    assert set(body) == {"content", "run_id", "finished", "quiet", "hang_up"}
 
 
 def test_the_bridge_can_be_asked_to_keep_waiting(bridge, run_id):

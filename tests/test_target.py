@@ -515,3 +515,40 @@ def test_a_busy_session_s_answer_is_only_what_it_wrote_after_reading_the_questio
     say(bridge, "hører du meg")
     spoken, done = server.follow_chosen(bridge, "claude:4:build-7c", 0.2, said="hører du meg")
     assert (spoken, done) == ("", False)
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        # Said on the phone on 2026-10-09, when Roy wanted it to stop costing.
+        "Kan du stoppe pengebruken nå? Be også putt down microphone",
+        "legg på",
+        "Kan du legge på?",
+        "put it down",
+        "slå av stemmen",
+        "hang up",
+    ],
+)
+def test_asking_the_voice_to_hang_up_is_understood(said):
+    assert target.hang_up_request(said)
+
+
+def test_a_sentence_that_only_mentions_the_microphone_is_not_hanging_up():
+    assert not target.hang_up_request("hvorfor tok du ned mikrofonen i stad")
+    assert not target.hang_up_request("ikke legg på")
+
+
+def test_hanging_up_by_voice_tells_the_page_to_put_the_microphone_down(bridge, hermes):
+    """Roy: "Kan du stoppe pengebruken nå? Be også putt down microphone"."""
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        _, reply = post(f"http://127.0.0.1:{bridge.server_port}/delegation", {"transcript": "legg på"})
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert reply["hang_up"] is True
+    assert hermes.seen == []
+    page = server.PAGE.read_text()
+    assert "hang_up: hangUp" in page
+    assert "setTimeout(stop, HANG_UP_MS)" in page
