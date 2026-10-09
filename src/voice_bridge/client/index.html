@@ -150,7 +150,9 @@ async function book() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ seconds }),
   }).then((r) => r.json()).catch(() => null);
-  if (left) state.textContent = `listening · $${left.remaining_usd.toFixed(2)} left`;
+  // Minutes of this month's allowance, not dollars: "$13.22 left" was read as
+  // the person's account at OpenAI.
+  if (left) state.textContent = `listening · ${left.remaining_minutes} of ${left.ceiling_minutes} minutes left this month`;
 }
 
 // Transcript fragments carry start_ms and end_ms on the session timeline, and

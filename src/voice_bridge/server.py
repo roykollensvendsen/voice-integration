@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from voice_bridge import gateway, live, metrics, quick, sessions, target
+from voice_bridge import budget, gateway, live, metrics, quick, sessions, target
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
 from voice_bridge.speech import say
@@ -393,6 +393,15 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     if bridge.chosen.kind == "session":
         return ask_chosen(bridge, transcript), transcript
     return None, transcript
+
+
+def left_this_month(ledger: Ledger) -> dict[str, int]:
+    """What is left of the month's voice, in minutes: a dollar figure read as an account balance."""
+    return {
+        # Rounded to the whole minute: 19.95 / 0.05 is 398.999… in floating point.
+        "remaining_minutes": int(round(ledger.remaining_usd() / budget.USD_PER_MINUTE, 6)),
+        "ceiling_minutes": int(budget.ceiling_usd() / budget.USD_PER_MINUTE),
+    }
 
 
 def hang_up(bridge: Bridge, transcript: str) -> str | None:
@@ -886,7 +895,7 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
             self.server.ledger.record(float(body.get("seconds", 0)))
-            return {"remaining_usd": round(self.server.ledger.remaining_usd(), 2)}
+            return left_this_month(self.server.ledger)
         if path == "/where":
             # RULE: a position is held in memory and written nowhere
             self.server.placed = quick.place_of(

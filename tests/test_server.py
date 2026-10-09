@@ -443,8 +443,8 @@ def test_an_open_microphone_is_booked_while_it_is_open(bridge):
     """The ceiling had a rule, a test and no caller: nothing ever wrote to it."""
     _, before = post(f"{bridge}/spent", {"seconds": 0})
     _, after = post(f"{bridge}/spent", {"seconds": 600})
-    assert before["remaining_usd"] == 20.00
-    assert after["remaining_usd"] == 19.50
+    assert before["remaining_minutes"] == 400
+    assert after["remaining_minutes"] == 390
 
 
 def test_the_page_reports_its_own_time_rather_than_waiting_to_be_closed(bridge):
@@ -543,3 +543,13 @@ def test_the_page_asks_for_a_position_when_the_microphone_is_taken(bridge):
         page = reply.read().decode()
     assert "navigator.geolocation?.getCurrentPosition" in page
     assert page.index("booking = setInterval") < page.index("navigator.geolocation")
+
+
+def test_what_is_left_is_shown_as_minutes_of_this_month_not_as_a_balance(tmp_path):
+    """Roy, 2026-10-09: "$13.22 left" read as his account at OpenAI, and looked wrong."""
+    page = server.PAGE.read_text()
+    assert "remaining_usd" not in page
+    assert "minutes left this month" in page
+    ledger = budget.Ledger(tmp_path / "spend.json")
+    ledger.record(60)
+    assert server.left_this_month(ledger) == {"remaining_minutes": 399, "ceiling_minutes": 400}
