@@ -540,7 +540,7 @@ def ask_chosen(bridge: Bridge, transcript: str) -> str:
         return f"{chosen.name} could not be reached: {refusal}"
     except OSError:
         return "I cannot reach the coding sessions."
-    return _after_asking(bridge, chosen, got)
+    return _after_asking(bridge, chosen, got, transcript)
 
 
 #: The most of a session's answer that is read aloud. The rest is on its screen.
@@ -611,7 +611,7 @@ def _waiting(chosen: target.Target, got: dict[str, Any]) -> str:
     return ""
 
 
-def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) -> str:
+def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any], transcript: str) -> str:
     """What to say about one answer from a chosen session."""
     status = got.get("status")
     if status == "session_ended" or got.get("session_ended"):
@@ -628,12 +628,76 @@ def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any]) ->
         # Not quoted: what a busy session wrote last is not an answer to this.
         # The bridge waits for the answer itself and tells it as news, so the
         # page is not left polling and the voice does not fill the wait.
-        return bridge.await_answer(chosen.name, int(got.get("next_after", 0)))
+        return bridge.await_answer(chosen.name, int(got.get("next_after", 0)), said=transcript)
     return reply or f"{chosen.name} said nothing."
 
 
-def follow_chosen(bridge: Bridge, following: str, patience: float) -> tuple[str, bool]:
+#: How much of what was said is looked for in the session's transcript: the
+#: start is enough to know the question, and long turns may be shown cut.
+QUESTION_CHARACTERS = 40
+
+
+def _reply_to(read: dict[str, Any], said: str) -> tuple[str, bool]:
+    """The session's reply to the turn that carried `said`, and whether that turn is over.
+
+    A busy session reads the question only when it is free, and writes other
+    things meanwhile, for other people and other prompts. On 2026-10-09 one of
+    those, "Venter.", was read aloud as the answer, and the real answer lost.
+    So only what it wrote after the question arrived, and before the next thing
+    it was asked, counts.
+    """
+    wanted = " ".join(said.casefold().split())[:QUESTION_CHARACTERS]
+    turns = list(read.get("turns") or [])
+    asked = next(
+        (
+            i
+            for i, turn in enumerate(turns)
+            if turn.get("role") == "user" and wanted in " ".join(str(turn.get("text", "")).casefold().split())
+        ),
+        None,
+    )
+    if asked is None:
+        # RULE: a busy session's answer is only what it wrote after reading the question
+        return "", False
+    written: list[dict[str, Any]] = []
+    for turn in turns[asked + 1 :]:
+        if turn.get("role") == "user":
+            return (answer_in({"turns": written[-1:]}) if written else ""), True
+        if turn.get("role") == "assistant" and str(turn.get("text", "")).strip():
+            written.append(turn)
+    return (answer_in({"turns": written[-1:]}) if written else ""), False
+
+
+def _follow_reply(bridge: Bridge, following: str, patience: float, said: str) -> tuple[str, bool]:
+    """Wait for the session's reply to what was said, and nothing written before or after it."""
+    _, after, name = following.split(":", 2)
+    deadline = time.monotonic() + patience
+    while time.monotonic() < deadline:
+        try:
+            read = (
+                bridge.sessions.call("read_session_output", {"session": name, "after": int(after)})
+                if bridge.sessions
+                else {}
+            )
+            status = read.get("status") or {s.get("name"): s.get("status") for s in bridge.running()}.get(
+                name
+            )
+        except (OSError, Refused):
+            return "", False
+        reply, over = _reply_to(read, as_said(said))
+        if status is None:
+            bridge.choose(target.Target(kind="voice"))
+            return f"{reply} {name} has ended, so you are talking to me again.".strip(), True
+        if reply and (over or status in ("idle", "waiting")):
+            return reply, True
+        time.sleep(FOLLOW_SECONDS)
+    return "", False
+
+
+def follow_chosen(bridge: Bridge, following: str, patience: float, said: str = "") -> tuple[str, bool]:
     """Wait for a chosen session to finish an answer, and say what it wrote."""
+    if said:
+        return _follow_reply(bridge, following, patience, said)
     _, after, name = following.split(":", 2)
     deadline = time.monotonic() + patience
     while True:
@@ -1269,7 +1333,7 @@ class Bridge(ThreadingHTTPServer):
             self.shape = [n for n in nodes if isinstance(n, dict) and n.get("id")]
         return self.shape
 
-    def await_answer(self, name: str, after: int) -> str:
+    def await_answer(self, name: str, after: int, said: str = "") -> str:
         """Wait in the background for a busy session's answer, and tell it as news when it comes."""
         if name in self.answers_awaited and self.answers_awaited[name].is_alive():
             # Already waiting: this one is passed on too, without another "busy".
@@ -1277,7 +1341,7 @@ class Bridge(ThreadingHTTPServer):
             return f"Also passed on to {name}. Its answer comes when it is free."
 
         def wait() -> None:
-            answer, done = follow_chosen(self, f"claude:{after}:{name}", ANSWER_PATIENCE_SECONDS)
+            answer, done = follow_chosen(self, f"claude:{after}:{name}", ANSWER_PATIENCE_SECONDS, said=said)
             if done and answer:
                 self.hear([{"session": name, "kind": "answer", "text": answer}])
 

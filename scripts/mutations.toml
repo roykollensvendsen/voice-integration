@@ -317,3 +317,9 @@ name = "the same cause raises at most one alert per QUIET_SECONDS"
 file = "src/voice_bridge/alerts.py"
 find = 'if time\.monotonic\(\) - self\.last\.get\(cause, -QUIET_SECONDS\) < QUIET_SECONDS:'
 replace = 'if False:'
+
+[[rule]]
+name = "a busy session's answer is only what it wrote after reading the question"
+file = "src/voice_bridge/server.py"
+find = '^        return "", False$'
+replace = 'asked = -1'

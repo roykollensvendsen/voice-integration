@@ -363,7 +363,11 @@ def test_a_busy_session_is_said_to_be_busy_once_and_its_answer_comes_as_news(
     assert bridge.quiet, "a second question while waiting is passed on without another busy line"
     assert "busy" not in second
     claude_voice.output = {
-        "turns": [{"index": 5, "role": "assistant", "text": "Svaret er klart."}],
+        "turns": [
+            {"index": 5, "role": "user", "text": "Her kommer en melding fra Roy … «hva skjer»"},
+            {"index": 6, "role": "assistant", "text": "Svaret er klart."},
+            {"index": 7, "role": "user", "text": "Her kommer en melding fra Roy … «og hva mer»"},
+        ],
         "status": "busy",
     }
     bridge.answers_awaited.pop("build-7c").join(timeout=10)
@@ -466,3 +470,48 @@ def test_closing_a_session_is_understood(said, which):
 def test_a_sentence_about_closing_something_else_is_not_closing_a_session():
     assert target.close_request("lukk vinduet") is None
     assert target.close_request("ikke lukk økta") is None
+
+
+def test_what_a_busy_session_wrote_before_it_read_the_question_is_never_its_answer(
+    bridge, claude_voice, monkeypatch
+):
+    """On 2026-10-09 the voice read out "Jeg venter", written for something else, and lost the answer."""
+    monkeypatch.setattr(server, "FOLLOW_SECONDS", 0.05)
+    claude_voice.active = [
+        dict(s, status="busy") if s["name"] == "build-7c" else s for s in claude_voice.active
+    ]
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.output = {"turns": [], "status": "busy"}
+    say(bridge, "kan du starte podkasten")
+    claude_voice.output = {
+        "turns": [
+            {"index": 5, "role": "assistant", "text": "Venter."},
+            {"index": 6, "role": "user", "text": "Her kommer en melding fra Roy … «kan du starte podkasten»"},
+            {"index": 7, "role": "assistant", "text": "Jeg sjekker telefonen."},
+            {"index": 8, "role": "assistant", "text": "Nå spiller den igjen."},
+            {"index": 9, "role": "user", "text": "Autonomous loop tick"},
+            {"index": 10, "role": "assistant", "text": "…"},
+        ],
+        "status": "busy",
+    }
+    bridge.answers_awaited.pop("build-7c").join(timeout=10)
+    told = [e for e in bridge.watching if e["event"] == "claude.news"]
+    assert told[-1]["said"] == "Nå spiller den igjen."
+
+
+def test_a_busy_session_s_answer_is_only_what_it_wrote_after_reading_the_question(bridge, claude_voice):
+    """Before the question reached it, it answered other prompts: none of that is the answer."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.output = {
+        "turns": [
+            {"index": 5, "role": "assistant", "text": "Venter."},
+            {"index": 6, "role": "user", "text": "Autonomous loop tick"},
+            {"index": 7, "role": "assistant", "text": "Venter fortsatt."},
+        ],
+        "status": "busy",
+    }
+    say(bridge, "hører du meg")
+    spoken, done = server.follow_chosen(bridge, "claude:4:build-7c", 0.2, said="hører du meg")
+    assert (spoken, done) == ("", False)
