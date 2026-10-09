@@ -61,6 +61,7 @@ decision nobody writes down.
 | [030](ADR-VI-030-no-choice-box-in-a-session-spoken-to.md) | A session spoken to by voice asks out loud, not in a choice box | Accepted |
 | [031](ADR-VI-031-every-turn-is-traced-and-measured.md) | Every turn is traced and measured, and kept long enough to compare weeks | Accepted |
 | [032](ADR-VI-032-the-phone-app-starts-as-the-page-in-a-wrapper.md) | The phone app starts as the page in a wrapper, kept alive with the screen off | Accepted |
+| [033](ADR-VI-033-a-spoken-wake-word-may-open-the-microphone.md) | A spoken wake word may open the microphone | Accepted |
 
 What is deliberately left undone, and what would make each worth doing, is
 [`deferred.md`](deferred.md). A thing left undone with no trigger is a thing

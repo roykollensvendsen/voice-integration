@@ -6,6 +6,21 @@ It adds nothing to what the page does, only what a page cannot have:
 - the microphone with the screen locked;
 - a notification while it is open;
 - a wake lock, so the phone does not sleep under the conversation.
+- listening for "Hey Jarvis" while no conversation is open
+  ([ADR-VI-033](../decisions/ADR-VI-033-a-spoken-wake-word-may-open-the-microphone.md)).
+
+## The wake word
+
+While no conversation is open, the app listens for "Hey Jarvis" with
+[openWakeWord](https://github.com/dscripka/openWakeWord)'s small models, on the
+phone. No sound leaves the phone until the word is heard. Then it gives a short
+tone, and the page takes the microphone as if the button had been pressed. A
+conversation opened by the word puts the microphone down by itself after 45
+seconds with nobody speaking, and the app listens for the word again.
+
+The models are under CC BY-NC-SA 4.0, not this repository's licence, so the
+build fetches them from openWakeWord's release instead of keeping them here.
+That makes the app fine for your own use, and not for selling.
 
 ## Build it
 

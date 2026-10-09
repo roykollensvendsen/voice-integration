@@ -5,6 +5,6 @@
     <string name="ask_address_hint">https://maskinen.tailnett.ts.net:10000/</string>
     <string name="save">Lagre</string>
     <string name="listening_title">Stemmen er klar</string>
-    <string name="listening_text">Lyden fortsetter med skjermen av. Trykk for å åpne.</string>
+    <string name="listening_text">Si «Hey Jarvis» for å snakke. Ingen lyd sendes før du sier det.</string>
     <string name="channel">Stemmen</string>
 </resources>

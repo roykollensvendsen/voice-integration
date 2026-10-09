@@ -407,6 +407,7 @@ async function answer(delegationId) {
     content = FAILED_PLAINLY.unreachable;
   }
   settled = true;
+  active();
   timed("bridge_ms");
   if (quiet) {
     // Nothing was passed on; the voice is told so, and answers by itself.
@@ -425,6 +426,7 @@ async function answer(delegationId) {
 }
 
 function onEvent(event) {
+  if (/transcript|delegation/.test(event.type)) active();
   switch (event.type) {
     case "session.input_transcript.delta": {
       const turn = heard("You", event.delta, event.start_ms, event.end_ms);
@@ -852,8 +854,40 @@ watch();
 const CLIENT = /; wv\)/.test(navigator.userAgent) ? "android-app"
   : /Android|iPhone|iPad/.test(navigator.userAgent) ? "phone-browser" : "browser";
 
+// The phone app listens for "Hey Jarvis" while no session is open, and hands
+// the microphone over when it hears it. A session opened that way closes by
+// itself after a quiet spell, so a false start costs at most that: ADR-VI-033.
+const QUIET_MS = 45_000;
+let woken = false, lastActive = 0, quietCheck = null, mic = null;
+function active() { lastActive = Date.now(); }
+
+// A short rising tone: the word was heard, and the voice is coming.
+function chime() {
+  try {
+    const sound = new AudioContext();
+    const tone = sound.createOscillator(), level = sound.createGain();
+    tone.frequency.setValueAtTime(660, sound.currentTime);
+    tone.frequency.linearRampToValueAtTime(990, sound.currentTime + 0.15);
+    level.gain.setValueAtTime(0.2, sound.currentTime);
+    level.gain.linearRampToValueAtTime(0, sound.currentTime + 0.2);
+    tone.connect(level).connect(sound.destination);
+    tone.start();
+    tone.stop(sound.currentTime + 0.2);
+    tone.onended = () => sound.close();
+  } catch { /* no sound is no reason not to listen */ }
+}
+
+window.wakeWordHeard = async () => {
+  if (pc) return;
+  chime();
+  woken = true;
+  try { await start(); } catch (failure) { stop(); state.textContent = failure.message; }
+};
+
 async function start() {
   const pressed = Date.now();
+  // One microphone at a time: the app stops listening for the word first.
+  window.VoiceApp?.sessionOpened();
   state.textContent = "opening";
   session += 1;
   if (session > 1) {
@@ -865,7 +899,7 @@ async function start() {
   holding = await fetch("/config").then((r) => r.json()).then((c) => c.holding).catch(() => "");
   // Echo cancellation is the browser's, and it is the whole reason this is a
   // page rather than a program: ADR-VI-018.
-  const mic = await navigator.mediaDevices.getUserMedia({
+  mic = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
 
@@ -913,6 +947,10 @@ async function start() {
   talk.dataset.live = "yes";
   booked = Date.now();
   booking = setInterval(book, BOOK_EVERY_MS);
+  if (woken) {
+    active();
+    quietCheck = setInterval(() => Date.now() - lastActive > QUIET_MS && stop(), 5000);
+  }
   // Asked once per session, when the microphone is taken — a person who has
   // just opted into being listened to is in the right frame for this question,
   // and asking on page load is not. Declining is answered honestly rather than
@@ -944,6 +982,13 @@ function stop() {
   booked = booking = null;
   pc?.close();
   pc = channel = null;
+  // Closing the call does not let go of the microphone; this does.
+  mic?.getTracks().forEach((track) => track.stop());
+  mic = null;
+  clearInterval(quietCheck);
+  quietCheck = null;
+  woken = false;
+  window.VoiceApp?.sessionClosed();
   state.textContent = "idle";
   talk.textContent = "Take the microphone";
   delete talk.dataset.live;

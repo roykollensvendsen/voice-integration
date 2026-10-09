@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted, by Roy Kollen Svendsen, 2026-09-16.
+Accepted, by Roy Kollen Svendsen, 2026-09-16. Amended by [ADR-VI-033](ADR-VI-033-a-spoken-wake-word-may-open-the-microphone.md):
+a spoken wake word on the phone is a deliberate act too.
 
 ## Context
 

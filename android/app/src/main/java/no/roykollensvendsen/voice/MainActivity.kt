@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
+import android.webkit.JavascriptInterface
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -62,6 +64,12 @@ class MainActivity : Activity() {
                 }
             }
         }
+        // The page tells the app when a session takes the microphone and when it
+        // gives it back, so the wake word is listened for only in between.
+        page.addJavascriptInterface(Microphone(), "VoiceApp")
+        VoiceService.onWake = {
+            page.evaluateJavascript("window.wakeWordHeard && window.wakeWordHeard()", null)
+        }
         // A page out of sight is normally given a low priority and paused.
         // This one is the conversation, so it keeps its priority.
         page.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
@@ -70,6 +78,47 @@ class MainActivity : Activity() {
         askForPermissions()
         val address = Settings.address(this)
         if (address == null) askForAddress() else page.loadUrl(address)
+        testTheWord(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        testTheWord(intent)
+    }
+
+    /**
+     * Run a recording through the wake-word models, log how sure they were,
+     * and wake the page as the real word would, so the whole path can be
+     * checked on a phone with known speech:
+     * adb shell am start -n no.roykollensvendsen.voice/.MainActivity --es wake_test clip.raw
+     * with clip.raw, 16 kHz mono 16-bit, in the app's own files folder.
+     */
+    private fun testTheWord(intent: Intent?) {
+        val name = intent?.getStringExtra("wake_test") ?: return
+        Thread {
+            val bytes = getExternalFilesDir(null)!!.resolve(name).readBytes()
+            val silence = ShortArray(32_000)
+            val speech = ShortArray(bytes.size / 2) { (bytes[2 * it].toInt() and 0xff or (bytes[2 * it + 1].toInt() shl 8)).toShort() }
+            val audio = silence + speech + silence
+            var peak = 0f
+            WakeWord(this).use { word ->
+                for (start in 0..audio.size - WakeWord.CHUNK step WakeWord.CHUNK) {
+                    peak = maxOf(peak, word.hear(audio.copyOfRange(start, start + WakeWord.CHUNK)))
+                }
+            }
+            Log.i("WakeWord", "test $name: peak %.3f".format(peak))
+            // Heard in a recording is heard: the page opens a session as it would.
+            if (peak > WakeWord.THRESHOLD) VoiceService.onWake?.let { runOnUiThread(it) }
+        }.start()
+    }
+
+    /** What the page calls when it takes the microphone, and when it gives it back. */
+    inner class Microphone {
+        @JavascriptInterface
+        fun sessionOpened() = VoiceService.pause()
+
+        @JavascriptInterface
+        fun sessionClosed() = VoiceService.listen(this@MainActivity)
     }
 
     override fun onStart() {
@@ -82,6 +131,7 @@ class MainActivity : Activity() {
     // stop the conversation the moment the screen goes off.
 
     override fun onDestroy() {
+        VoiceService.onWake = null
         // A change of screen or theme is not the end of the conversation.
         if (!isChangingConfigurations) stopService(Intent(this, VoiceService::class.java))
         page.destroy()
