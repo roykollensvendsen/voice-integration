@@ -35,6 +35,10 @@
            background: transparent; color: inherit; cursor: pointer; }
   button[data-live="yes"] { border-color: var(--live); color: var(--live); }
   #state { margin-left: .9rem; color: var(--dim); }
+  .usage svg { width: 100%; height: 5rem; display: block; margin: .4rem 0; }
+  .usage rect { fill: var(--live); }
+  .usage rect.none { fill: var(--line); }
+  .usage .said { color: var(--dim); font-size: .9em; }
   #log { border-top: 1px solid var(--line); }
   h2 { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
        color: var(--dim); margin: 2.25rem 0 .5rem; }
@@ -92,6 +96,7 @@
 
 <details id="health">
   <summary>Helse</summary>
+  <div class="usage"></div>
   <div class="body"></div>
 </details>
 
@@ -731,6 +736,52 @@ async function refreshHealth() {
 
 refreshHealth();
 setInterval(refreshHealth, 60_000);
+
+// Minutes of voice and what they cost, day by day over the last thirty days,
+// and month by month: the cost of the audio followed over time.
+const usage = document.querySelector("#health .usage");
+const MONTHS = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"];
+
+function bars(days) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const most = Math.max(1, ...days.map((d) => d.minutes));
+  const wide = 10;
+  svg.setAttribute("viewBox", `0 0 ${days.length * wide} 100`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  days.forEach((d, i) => {
+    const high = d.minutes ? Math.max(2, (d.minutes / most) * 100) : 2;
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bar.setAttribute("x", i * wide + 1);
+    bar.setAttribute("width", wide - 2);
+    bar.setAttribute("y", 100 - high);
+    bar.setAttribute("height", high);
+    if (!d.minutes) bar.setAttribute("class", "none");
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${d.day}: ${d.minutes} min, $${d.usd.toFixed(2)}`;
+    bar.append(title);
+    svg.append(bar);
+  });
+  return svg;
+}
+
+async function refreshUsage() {
+  const body = await fetch("/usage").then((r) => r.json()).catch(() => null);
+  if (!body) return;
+  const month = body.months.at(-1) ?? { minutes: 0, usd: 0 };
+  const head = document.createElement("div");
+  head.textContent = `Stemme denne måneden: ${Math.round(month.minutes)} av ${body.ceiling_minutes} minutter, $${month.usd.toFixed(2)}`;
+  const earlier = document.createElement("div");
+  earlier.className = "said";
+  earlier.textContent = body.months.slice(-6).map((m) =>
+    `${MONTHS[Number(m.month.slice(5)) - 1]}: ${Math.round(m.minutes)} min, $${m.usd.toFixed(2)}`).join(" · ");
+  const scale = document.createElement("div");
+  scale.className = "said";
+  scale.textContent = "Siste 30 dager, i minutter per dag";
+  usage.replaceChildren(head, bars(body.days), scale, earlier);
+}
+
+refreshUsage();
+setInterval(refreshUsage, 60_000);
 
 // One row in the panel underneath, in words rather than event names.
 function note(kind, detail) {

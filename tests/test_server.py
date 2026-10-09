@@ -8,7 +8,7 @@ import urllib.request
 
 import pytest
 
-from voice_bridge import budget, live, server
+from voice_bridge import budget, live, metrics, server
 
 
 @pytest.fixture
@@ -553,3 +553,26 @@ def test_what_is_left_is_shown_as_minutes_of_this_month_not_as_a_balance(tmp_pat
     ledger = budget.Ledger(tmp_path / "spend.json")
     ledger.record(60)
     assert server.left_this_month(ledger) == {"remaining_minutes": 399, "ceiling_minutes": 400}
+
+
+def test_voice_use_is_shown_day_by_day_and_month_by_month(bridge):
+    """Roy, 2026-10-09: the cost and the time of the voice should be followed over time, as a chart."""
+    post(f"{bridge}/spent", {"seconds": 600})
+    with urllib.request.urlopen(f"{bridge}/usage", timeout=10) as reply:
+        usage = json.loads(reply.read())
+    assert len(usage["days"]) == 30
+    today = usage["days"][-1]
+    assert today["minutes"] == 10
+    assert today["usd"] == 0.5
+    assert usage["months"][-1]["minutes"] == 10
+    page = server.PAGE.read_text()
+    assert 'fetch("/usage")' in page
+    assert "<svg" in page or "createElementNS" in page
+
+
+def test_days_without_voice_are_shown_as_nothing_rather_than_left_out(tmp_path):
+    store = metrics.Store(tmp_path / "m.sqlite")
+    now = 1_791_500_000.0
+    store.record("voice", "open", ms=120_000, at=now - 3 * 86_400)
+    days = metrics.voice_by_day(store, days=7, now=now)
+    assert [d["minutes"] for d in days] == [0, 0, 0, 2, 0, 0, 0]

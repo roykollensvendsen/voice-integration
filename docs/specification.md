@@ -282,6 +282,7 @@ The bridge writes one JSON line per event to its log, and keeps these in
 | `turn` | the target: `voice`, `hermes`, `session` | milliseconds from request to answer, and how it ended |
 | `tool` | the claude-voice tool | milliseconds, and whether it failed |
 | `cut` | the session | that an answer had to be cut to be spoken |
+| `voice` | `open` | seconds of open microphone, as the page books them; read back day by day for the chart of voice use |
 | `stage` | `bridge`, `acknowledged`, `first_words` of a turn; `opened` of a session | milliseconds, as the page saw them |
 
 `voice_bridge.metrics.summary()` turns them into the one summary the page,

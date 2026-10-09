@@ -836,6 +836,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, self._who())
         elif self.path == "/health":
             self._send(200, self.server.health())
+        elif self.path == "/usage":
+            self._send(200, self.server.usage())
         elif self.path == "/config":
             # The page needs one phrase in the session's language and nothing
             # else. It is never given a key, a model name or a gateway address.
@@ -895,6 +897,8 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
             self.server.ledger.record(float(body.get("seconds", 0)))
+            # Kept by day too, for the chart of voice use over time.
+            self.server.store.record("voice", "open", ms=float(body.get("seconds", 0)) * 1000)
             return left_this_month(self.server.ledger)
         if path == "/where":
             # RULE: a position is held in memory and written nowhere
@@ -1326,6 +1330,18 @@ class Bridge(ThreadingHTTPServer):
             answer_in({"reply": str(got.get("digest") or "")})
             or f"There was nothing to sum up in {found[0]}."
         )
+
+    def usage(self) -> dict[str, Any]:
+        """Minutes of voice and what they cost: day by day this month, and month by month."""
+        per_minute = budget.USD_PER_MINUTE
+        days = [
+            {**day, "usd": round(day["minutes"] * per_minute, 2)} for day in metrics.voice_by_day(self.store)
+        ]
+        months = [
+            {"month": month, "minutes": round(seconds / 60, 1), "usd": round(seconds / 60 * per_minute, 2)}
+            for month, seconds in self.ledger.by_month().items()
+        ]
+        return {"days": days, "months": months, "ceiling_minutes": int(budget.ceiling_usd() / per_minute)}
 
     def health(self) -> dict[str, Any]:
         """How the bridge and claude-voice are doing, in one read: now, lately, and against last week."""
