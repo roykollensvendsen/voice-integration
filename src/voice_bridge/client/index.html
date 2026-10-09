@@ -769,7 +769,7 @@ async function refreshUsage() {
   if (!body) return;
   const month = body.months.at(-1) ?? { minutes: 0, usd: 0 };
   const head = document.createElement("div");
-  head.textContent = `Stemme denne måneden: ${Math.round(month.minutes)} av ${body.ceiling_minutes} minutter, $${month.usd.toFixed(2)}`;
+  head.textContent = `Stemme denne måneden: ${Math.round(month.minutes)} av ${body.ceiling_minutes} minutter brukt, anslått $${month.usd.toFixed(2)}`;
   const earlier = document.createElement("div");
   earlier.className = "said";
   earlier.textContent = body.months.slice(-6).map((m) =>
@@ -846,6 +846,12 @@ function watch() {
 }
 watch();
 
+// Where this page runs, so the voice can say so when asked: the phone app's
+// view of the web says "; wv)" in its name, a phone's browser says Android or
+// iPhone, and anything else is a browser on a computer.
+const CLIENT = /; wv\)/.test(navigator.userAgent) ? "android-app"
+  : /Android|iPhone|iPad/.test(navigator.userAgent) ? "phone-browser" : "browser";
+
 async function start() {
   const pressed = Date.now();
   state.textContent = "opening";
@@ -888,7 +894,7 @@ async function start() {
   const reply = await fetch("/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sdp: pc.localDescription.sdp }),
+    body: JSON.stringify({ sdp: pc.localDescription.sdp, client: CLIENT }),
   });
   const body = await reply.json();
   if (!reply.ok) throw new Error(body.error ?? "the bridge refused");

@@ -198,7 +198,8 @@ _CANCEL = re.compile(
 # "Kan du stoppe pengebruken nå? Be også putt down microphone", said on the
 # phone on 2026-10-09: hang up, so that nothing more is paid for.
 _HANG_UP = re.compile(
-    r"^(?:legg(?:e)? på|hang up|put(?:t)?(?: it)? down(?: the)?(?: microphone)?|"
+    r"^(?:(?:jeg )?legg(?:e|er)? på(?: nå)?(?: midlertidig)?|hang up|"
+    r"put(?:t)?(?: it)? down(?: the)?(?: microphone)?|"
     r"(?:be (?:også )?)?put(?:t)? down(?: the)? microphone|legg(?:e)? (?:ned|fra deg) mikrofonen|"
     r"slå av stemmen|stopp(?:e)? stemmen|stopp(?:e)? pengebruken|avslutt(?:e)? samtalen)$"
 )
