@@ -211,6 +211,15 @@ def test_the_page_shows_what_can_be_said_to_get_around():
     assert target.hang_up_request("Legg på")
 
 
+def test_the_log_says_who_said_it():
+    """Roy, 2026-10-09: "Hermes said", "Jarvis said" and the session's name, not "It said"."""
+    page = server.PAGE.read_text()
+    assert '"It said"' not in page
+    assert (
+        'chosen?.kind === "hermes" ? "Hermes" : chosen?.kind === "session" ? chosen.name : "Jarvis"' in page
+    )
+
+
 def test_hermes_is_told_not_to_change_the_computers_sound():
     """On 2026-10-09 Hermes set the computer's speaker, not the voice on the phone."""
     assert "never change the computer's sound" in server.TURN_INSTRUCTIONS
