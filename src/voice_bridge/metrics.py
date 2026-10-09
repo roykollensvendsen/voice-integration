@@ -109,6 +109,27 @@ class Store:
         return [dict(row) for row in found]
 
 
+def voice_by_day(store: Store, days: int = 30, now: float | None = None) -> list[dict[str, Any]]:
+    """Minutes of open microphone on each of the last `days` days, today last, none left out."""
+    at = time.time() if now is None else now
+    today = time.localtime(at)
+    start = time.mktime((today.tm_year, today.tm_mon, today.tm_mday - days + 1, 0, 0, 0, 0, 0, -1))
+    minutes: dict[str, float] = {}
+    for row in store.rows("voice", since=start):
+        day = time.strftime("%Y-%m-%d", time.localtime(row["at"]))
+        minutes[day] = minutes.get(day, 0.0) + (row["ms"] or 0.0) / 60_000
+    shown = []
+    for back in range(days - 1, -1, -1):
+        day = time.strftime(
+            "%Y-%m-%d",
+            time.localtime(
+                time.mktime((today.tm_year, today.tm_mon, today.tm_mday - back, 12, 0, 0, 0, 0, -1))
+            ),
+        )
+        shown.append({"day": day, "minutes": round(minutes.get(day, 0.0), 1)})
+    return shown
+
+
 @contextlib.contextmanager
 def measured(store: Store | None, event: str, name: str) -> Iterator[dict[str, Any]]:
     """Time what happens inside, and keep it; a raised error is kept as a failure."""

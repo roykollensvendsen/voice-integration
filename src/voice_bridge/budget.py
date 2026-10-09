@@ -67,6 +67,14 @@ class Ledger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(kept, indent=1, sort_keys=True))
 
+    def by_month(self) -> dict[str, int]:
+        """Seconds of open microphone in every month kept, oldest first."""
+        try:
+            kept = json.loads(self.path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return {month: int(seconds) for month, seconds in sorted(kept.items())}
+
     def spent_usd(self) -> float:
         """What this month has cost so far."""
         return self.seconds_spent() / 60 * USD_PER_MINUTE
