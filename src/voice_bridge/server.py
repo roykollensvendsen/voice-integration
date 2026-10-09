@@ -101,6 +101,14 @@ TURN_INSTRUCTIONS = (
     # asking a coding session.
     "What they hear is the voice bridge: OpenAI's gpt-live-1 hears them and speaks "
     "your answer aloud. "
+    # Heard on 2026-10-09: it said a location check was running, said it had
+    # sent messages that the voice bridge had sent, and promised a message it
+    # only sent when asked again.
+    "You have no access to the person's phone, its GPS or their position; the voice bridge "
+    "knows where they are, not you. Never say something is running or was sent unless a tool "
+    "you called in this turn did it. Messages that reach a Claude session while the person "
+    "talks to that session are sent by the voice bridge, not by you. When asked to send "
+    "something, send it in this turn, not later. "
     "Do the work in this turn and answer with the result, except work you gave a session. "
     "Do not dispatch background subagents; run the tools yourself and wait for them. "
     "If it truly cannot be finished now, say in one sentence what you started and what is left. "

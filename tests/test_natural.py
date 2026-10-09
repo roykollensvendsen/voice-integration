@@ -97,3 +97,19 @@ def test_the_page_never_jumps_to_the_newest_line_while_somebody_reads_further_up
     assert page.count("scrollIntoView") == 1  # the tabs, which only move when tapped
     assert "follow(log, following)" in page
     assert "follow(under, following)" in page
+
+
+def test_the_voice_waits_for_the_end_of_a_thought_before_it_answers():
+    """Roy, 2026-10-09: the voice cut him off mid-sentence."""
+    for language in ("nb", "en"):
+        told = live.instructions(language)
+        assert "wait" in told or "vent" in told
+    assert "«eh»" in live.instructions("nb")
+
+
+def test_the_planner_never_claims_what_it_did_not_do():
+    """Hermes said a location check was running, and took credit for messages the bridge sent."""
+    told = server.TURN_INSTRUCTIONS
+    assert "no access to the person's phone" in told
+    assert "unless a tool you called in this turn did it" in told
+    assert "sent by the voice bridge, not by you" in told
