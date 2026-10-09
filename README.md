@@ -95,7 +95,8 @@ gives the page an HTTPS address that only your own devices can reach:
 tailscale serve --bg --https=10000 http://127.0.0.1:8760
 ```
 
-Open `https://<the computer's name>.<your tailnet>.ts.net:10000` on the phone.
+Open `https://<the computer's name>.<your tailnet>.ts.net:10000` on the phone. On Android, [the phone app](android/README.md) shows the same page and keeps
+it going with the screen locked.
 If the phone cannot find that name, it is asking ordinary DNS instead of
 Tailscale's: turn on **Use Tailscale DNS** in the Tailscale app, and on Android
 turn **Private DNS** off.
