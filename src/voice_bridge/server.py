@@ -379,7 +379,9 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     revoiced = stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript)
     if revoiced is not None:
         return revoiced, transcript
-    switched = switch(bridge, transcript) or start_session(bridge, transcript)
+    switched = (
+        switch(bridge, transcript) or start_session(bridge, transcript) or close_session(bridge, transcript)
+    )
     if switched is not None:
         return switched, transcript
     # RULE: while the voice alone is chosen nothing is forwarded
@@ -485,6 +487,36 @@ def start_session(bridge: Bridge, transcript: str) -> str | None:
         return f"I could not start a session in {project}."
     bridge.choose(target.Target("session", name))
     return f"I started {name} in {project}, and you are talking to it now."
+
+
+def close_session(bridge: Bridge, transcript: str) -> str | None:
+    """Stop a session the voice started, if that was asked, and hand the talk back to the voice."""
+    asked = target.close_request(transcript)
+    if asked is None:
+        return None
+    name = asked or (bridge.chosen.name if bridge.chosen.kind == "session" else "")
+    if not name:
+        return "Which session should I close?"
+    if bridge.sessions is None:
+        return "I cannot close a session: the coding sessions cannot be reached."
+    try:
+        stopped = bridge.sessions.call("stop_active_session", {"name": name})
+    except (OSError, Refused) as failure:
+        return f"I could not close {name}: {failure}"
+    return _closed(bridge, name, str(stopped.get("status") or ""))
+
+
+def _closed(bridge: Bridge, name: str, status: str) -> str:
+    """What to say once claude-voice has answered a close, and who is talked to after."""
+    if status == "not_started_here":
+        # claude-voice keeps the record, and refuses anything it did not start.
+        return f"I only close sessions I started myself. {name} has to be closed where it was opened."
+    if status != "stopped":
+        return f"{name} is not running."
+    if bridge.chosen == target.Target("session", name):
+        bridge.choose(target.Target(kind="voice"))
+        return f"I closed {name}. You are talking to the voice alone now."
+    return f"I closed {name}."
 
 
 def ask_chosen(bridge: Bridge, transcript: str) -> str:

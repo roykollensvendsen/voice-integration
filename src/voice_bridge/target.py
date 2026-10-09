@@ -243,6 +243,26 @@ def start_request(said: str) -> str | None:
     return found.group(1).strip() if found else None
 
 
+# "Lukk denne økta": stop a session the voice started. "Stopp" is left out,
+# because it already means "avbryt" for whatever is under way.
+_CLOSE = re.compile(
+    r"^(?:lukk(?:e)?|avslutt(?:e)?|close|end)\s+(?:(?:denne|den|this|the)\s+)?"
+    r"(?:økta|økten|session)(?:\s+(.+))?$"
+)
+
+
+def close_request(said: str) -> str | None:
+    """The session to close, "" for the chosen one, or None when this was not asked."""
+    clauses = [c for c in re.split(r"[,;!?]", _FILLER.sub(" ", said.casefold())) if c.strip()]
+    words = " ".join(clauses[-1].split()).rstrip(".") if clauses else ""
+    while (shorter := _ASKING.sub("", words)) != words:
+        words = shorter
+    if len(words) > SHORTEST_IS_SAFEST or _NOT.search(words):
+        return None
+    found = _CLOSE.match(words)
+    return (found.group(1) or "").strip() if found else None
+
+
 def matching(asked: str, running: list[dict[str, Any]]) -> list[str]:
     """The running sessions a spoken name or project could mean."""
     wanted = asked.casefold().replace(" ", "")

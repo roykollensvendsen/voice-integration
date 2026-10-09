@@ -432,3 +432,37 @@ def test_a_session_cannot_be_started_without_claude_voice(bridge):
     spoken = say(bridge, "start en ny økt i hydropower")
     assert bridge.chosen == target.Target("hermes")
     assert "cannot" in spoken
+
+
+def test_a_session_the_voice_started_is_closed_by_voice(bridge, claude_voice):
+    """Roy, 2026-10-09: yes, the voice may close a session it started itself."""
+    say(bridge, "Start en ny økt i claude voice scratch")
+    spoken = say(bridge, "lukk denne økta")
+    stopped = [arguments for name, arguments in claude_voice.called if name == "stop_active_session"]
+    assert stopped == [{"name": "claude-voice-scratch-1a2b"}]
+    assert bridge.chosen == target.Target("voice")
+    assert "closed" in spoken
+
+
+def test_a_session_the_voice_did_not_start_is_never_closed(bridge, claude_voice):
+    spoken = say(bridge, "lukk økta build-7c")
+    assert "build-7c" in [s["name"] for s in claude_voice.active]
+    assert "only" in spoken
+
+
+@pytest.mark.parametrize(
+    ("said", "which"),
+    [
+        ("lukk denne økta", ""),
+        ("Kan du lukke økta?", ""),
+        ("avslutt økta claude-voice-scratch-1a2b", "claude-voice-scratch-1a2b"),
+        ("close this session", ""),
+    ],
+)
+def test_closing_a_session_is_understood(said, which):
+    assert target.close_request(said) == which
+
+
+def test_a_sentence_about_closing_something_else_is_not_closing_a_session():
+    assert target.close_request("lukk vinduet") is None
+    assert target.close_request("ikke lukk økta") is None

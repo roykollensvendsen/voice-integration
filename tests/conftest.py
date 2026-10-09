@@ -224,7 +224,15 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
                 "status": "idle",
             }
             self.server.active.append({**started, "kind": "bg", "claude_session_id": "new-1"})
+        if name == "stop_active_session":
+            # Like claude-voice: only a session start_active_session started is ever stopped.
+            mine = [x for x in self.server.active if x.get("claude_session_id") == "new-1"]
+            hit = [x for x in mine if x["name"] == arguments.get("name")]
+            self.server.active = [x for x in self.server.active if x not in hit]
+            known = any(x["name"] == arguments.get("name") for x in self.server.active) or hit
+            stopped = "stopped" if hit else ("not_started_here" if known else "not_running")
         canned = {
+            "stop_active_session": {"name": arguments.get("name"), "status": locals().get("stopped")},
             "start_active_session": {**self.server.active[-1]},
             "whats_new": {"cursor": "b9.f0", "events": NEWS},
             "list_active_sessions": {"sessions": self.server.active},

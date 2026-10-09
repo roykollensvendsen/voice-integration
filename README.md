@@ -191,7 +191,7 @@ rule has to have a test that names it:
 $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed
-claude-voice tools: 12 in docs/claude-voice-contract.md, 12 in the code, agreed
+claude-voice tools: 13 in docs/claude-voice-contract.md, 13 in the code, agreed
 rules: 49 in the source, 49 in scripts/mutations.toml, agreed
 rule tests: 49 rules, each with a test named after it
 mutation rows: 49, each on the line its rule marks
