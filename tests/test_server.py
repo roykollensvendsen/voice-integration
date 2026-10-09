@@ -1,5 +1,6 @@
 """The three routes the browser can reach, and nothing else."""
 
+import hashlib
 import json
 import pathlib
 import threading
@@ -95,11 +96,13 @@ def test_a_spent_month_refuses_the_session_rather_than_opening_one(bridge, tmp_p
     assert "ceiling" in body["error"]
 
 
-def test_the_page_is_given_one_phrase_and_nothing_else(bridge):
+def test_the_page_is_given_one_phrase_its_own_version_and_nothing_else(bridge):
     with urllib.request.urlopen(f"{bridge}/config", timeout=10) as reply:
         config = json.loads(reply.read())
-    assert set(config) == {"holding"}
+    # No key, model name or gateway address: a phrase, and which page is served.
+    assert set(config) == {"holding", "page"}
     assert config["holding"] == live.holding()
+    assert config["page"] == hashlib.sha256(server.PAGE.read_bytes()).hexdigest()[:12]
 
 
 def test_what_the_voice_does_not_say_is_kept_for_the_screen(bridge):
