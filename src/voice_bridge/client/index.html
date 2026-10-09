@@ -247,16 +247,21 @@ try {
   if (kept != null) setVolume(Number(kept));
 } catch { /* no storage: full volume */ }
 volume.oninput = () => setVolume(Number(volume.value));
+volume.onchange = () => noticed("volume.changed", `${volume.value} slider`);
 
 // When the voice last passed a turn on: a turn after it was answered alone.
 let delegatedAt = 0;
 const keep = (turn) => fetch("/turn", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ who: turn.who, text: turn.text }),
+  // The volume rides along, so "hva står lyden på" is answered with the truth.
+  body: JSON.stringify({ who: turn.who, text: turn.text, volume: Number(volume.value) }),
 }).then((r) => r.json()).then((kept) => {
   // "Legg på", heard by the bridge even when the voice answered it alone.
-  if (kept.hang_up && pc) setTimeout(stop, HANG_UP_MS);
+  if (kept.hang_up && pc) {
+    noticed("hang_up.heard", turn.text);
+    setTimeout(() => stop("hang-up"), HANG_UP_MS);
+  }
   // "Hvem snakker jeg med" or "hjelp", answered alone by a voice that cannot
   // see the sessions: the bridge's answer is said after all.
   if (kept.say && pc && !(delegatedAt > turn.at)) tell(null, kept.say);
@@ -265,6 +270,7 @@ const keep = (turn) => fetch("/turn", {
     const [how, percent] = kept.volume;
     setVolume(how === "set" ? percent : Number(volume.value) + percent);
     note("Lydstyrke", `${volume.value} %`);
+    noticed("volume.changed", `${volume.value} said`);
   }
 }).catch(() => {});
 
@@ -455,7 +461,7 @@ async function answer(delegationId) {
   tell(delegationId, content);
   // "Legg på": the voice says it, and then the microphone goes down, so that
   // nothing more is paid for.
-  if (hangUp) setTimeout(stop, HANG_UP_MS);
+  if (hangUp) setTimeout(() => stop("hang-up"), HANG_UP_MS);
   // A spoken "snakk med …" changes who is chosen; the tree should say so.
   refreshWho();
   if (!finished && runId) waitOn(runId, delegationId);
@@ -715,7 +721,10 @@ async function refreshWho() {
   const before = chosen && named(chosen);
   chosen = body.chosen;
   // A switch, by voice or by tap, is part of the conversation: it is shown there.
-  if (before && named(chosen) !== before) note("Du snakker nå med", named(chosen));
+  if (before && named(chosen) !== before) {
+    note("Du snakker nå med", named(chosen));
+    noticed("target.changed", named(chosen));
+  }
   drawWho(body.sessions ?? [], body.tree ?? []);
   drawVoices(body.voices ?? {}, body.available ?? []);
   if (pc && speaking && body.steer && body.steer !== steered) {
@@ -725,7 +734,7 @@ async function refreshWho() {
   if (pc && speaking && speaking !== body.voice) {
     note("A new voice", `${named(chosen)} speaks as ${body.voice}`);
     speaking = null;
-    stop();
+    stop("new voice");
     start().catch((failure) => { state.textContent = failure.message; });
   }
 }
@@ -919,9 +928,10 @@ function chime(from = 660, to = 990) {
 
 window.wakeWordHeard = async () => {
   if (pc) return;
+  noticed("wake.heard", "");
   chime();
   woken = true;
-  try { await start(); } catch (failure) { stop(); state.textContent = failure.message; }
+  try { await start(); } catch (failure) { stop("failed"); state.textContent = failure.message; }
 };
 
 async function start() {
@@ -992,9 +1002,10 @@ async function start() {
   talk.dataset.live = "yes";
   booked = Date.now();
   booking = setInterval(book, BOOK_EVERY_MS);
+  noticed("call.opened", woken ? "wake word" : "button");
   if (woken) {
     active();
-    quietCheck = setInterval(() => Date.now() - lastActive > QUIET_MS && stop(), 5000);
+    quietCheck = setInterval(() => Date.now() - lastActive > QUIET_MS && stop("quiet"), 5000);
   }
   // Asked once per session, when the microphone is taken — a person who has
   // just opted into being listened to is in the right frame for this question,
@@ -1020,9 +1031,12 @@ async function start() {
 // Long enough for the voice to say that it is hanging up.
 const HANG_UP_MS = 3500;
 
-function stop() {
+function stop(why = "button") {
   // Only a call that was open ends with a tone; a failed start never began.
-  if (pc) chime(990, 495);
+  if (pc) {
+    chime(990, 495);
+    noticed("call.closed", why);
+  }
   book();
   queued = [];
   clearInterval(booking);
@@ -1042,7 +1056,7 @@ function stop() {
 }
 
 talk.onclick = async () => {
-  if (pc) return stop();
-  try { await start(); } catch (failure) { stop(); state.textContent = failure.message; }
+  if (pc) return stop("button");
+  try { await start(); } catch (failure) { stop("failed"); state.textContent = failure.message; }
 };
 </script>

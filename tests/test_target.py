@@ -134,6 +134,48 @@ def test_switches_and_spoken_volume_are_shown_in_the_conversation():
     assert 'note("Lydstyrke", `${volume.value} %`)' in page
 
 
+def test_what_the_page_reports_is_kept_with_its_time_for_checking_afterwards(bridge):
+    """Roy, 2026-10-09: events in the log, to check that each happens when it should."""
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    noticed = f"http://127.0.0.1:{bridge.server_port}/noticed"
+    try:
+        for event, detail in [
+            ("call.opened", "wake word"),
+            ("hang_up.heard", "Legg på røret"),
+            ("call.closed", "hang-up"),
+        ]:
+            post(noticed, {"event": event, "detail": detail})
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    kept = [(row["name"], row["detail"]) for row in bridge.store.rows("page")]
+    assert kept == [
+        ("call.opened", "wake word"),
+        ("hang_up.heard", "Legg på røret"),
+        ("call.closed", "hang-up"),
+    ]
+    page = server.PAGE.read_text()
+    for reported in ('noticed("call.closed", why)', 'noticed("wake.heard"', 'noticed("target.changed"'):
+        assert reported in page
+
+
+def test_asking_how_loud_it_is_gets_the_level_the_page_last_said(bridge):
+    """Roy, 2026-10-09: read out what the volume actually is."""
+    assert quick.navigation(bridge, "hva er lydstyrken") == "Jeg vet ikke hvor høy lyden er ennå."
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        _, kept = post(
+            f"http://127.0.0.1:{bridge.server_port}/turn",
+            {"who": "You", "text": "Hva står lyden på?", "volume": 35},
+        )
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert kept["say"] == "Lyden står på 35 prosent."
+
+
 def test_hermes_is_told_not_to_change_the_computers_sound():
     """On 2026-10-09 Hermes set the computer's speaker, not the voice on the phone."""
     assert "never change the computer's sound" in server.TURN_INSTRUCTIONS
@@ -158,7 +200,7 @@ def test_the_page_sets_the_volume_it_is_told_and_keeps_it(bridge):
 
 def test_the_end_of_a_call_is_heard_as_a_falling_tone():
     """Roy, 2026-10-09: a tone at the end too, so he knows the call is over."""
-    assert "if (pc) chime(990, 495);" in server.PAGE.read_text()
+    assert "chime(990, 495);" in server.PAGE.read_text()
 
 
 @pytest.mark.parametrize(
@@ -733,7 +775,7 @@ def test_a_spoken_hang_up_puts_the_microphone_down_even_when_the_voice_answered_
     assert roy["hang_up"] is True
     assert voice["hang_up"] is False
     assert other["hang_up"] is False
-    assert "if (kept.hang_up && pc) setTimeout(stop, HANG_UP_MS)" in server.PAGE.read_text()
+    assert 'setTimeout(() => stop("hang-up"), HANG_UP_MS)' in server.PAGE.read_text()
 
 
 def test_hanging_up_by_voice_tells_the_page_to_put_the_microphone_down(bridge, hermes):
@@ -749,7 +791,7 @@ def test_hanging_up_by_voice_tells_the_page_to_put_the_microphone_down(bridge, h
     assert hermes.seen == []
     page = server.PAGE.read_text()
     assert "hang_up: hangUp" in page
-    assert "setTimeout(stop, HANG_UP_MS)" in page
+    assert 'if (hangUp) setTimeout(() => stop("hang-up"), HANG_UP_MS)' in page
 
 
 def test_a_note_slipped_in_while_the_session_works_does_not_end_its_reply(bridge, claude_voice, monkeypatch):
