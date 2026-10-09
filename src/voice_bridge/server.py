@@ -483,6 +483,9 @@ def switch(bridge: Bridge, transcript: str) -> str | None:
     if isinstance(asked, target.Target):
         bridge.choose(asked)
         return f"You are talking to {asked.said()} now."
+    if not asked:
+        names = [str(s.get("name")) for s in bridge.running()][:3]
+        return "Which session? " + (f"For example {', '.join(names)}." if names else "None is running now.")
     found = target.matching(asked, bridge.running())
     # RULE: a name is switched to only when it matches exactly one session
     if len(found) != 1:

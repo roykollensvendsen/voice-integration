@@ -30,9 +30,16 @@ SHORTEST_IS_SAFEST = 60
 _MOVE = re.compile(
     r"^(?:gå tilbake til(?: å)?(?: bare)?(?: (?:snakke|prate) med)?|go back to"
     r"|sett(?:e)? meg over til|koble?(?:e)? meg (?:til|på)|connect me to|bytt(?:e)? til|switch to"
+    r"|gå over til|hopp(?:e)? (?:over )?til"
     r"|(?:snakk(?:e)?|prat(?:e)?|talk|speak) (?:med|to|with))\s+(?:the\s+)?(.+)$"
 )
-_TO_VOICE = re.compile(r"(?:bare )?(?:stemmen|stemmelaget|voice|deg|you|gpt[ -]?live(?:[ -]?(?:one|1|en))?)")
+_KIND_WORD = r"(?:[ -]?(?:økta|økten|økt|økte|session))?"
+_TO_VOICE = re.compile(
+    r"(?:bare )?(?:stemmen|stemme|stemmelaget|voice|deg|you|gpt[ -]?live(?:[ -]?(?:one|1|en))?)" + _KIND_WORD
+)
+_TO_HERMES = re.compile(r"hermes" + _KIND_WORD)
+# "en Claude Code-økt": a session, but which one was not said.
+_ANY_SESSION = re.compile(r"(?:en |ei |a )?(?:claude(?:[ -]?code)?|kode)?" + _KIND_WORD)
 _FILLER = re.compile(r"\b(?:ehm|eh|øh|hmm)\b")
 _ASKING = re.compile(
     r"^(?:ok(?:ei)?|ja|men|så|og|altså|kan du(?: stemmen)?|kan vi|la oss|jeg (?:vil|ønsker å|skal)"
@@ -241,8 +248,10 @@ def switch_request(said: str) -> Target | str | None:
     whom = found.group(1).strip()
     if _TO_VOICE.fullmatch(whom):
         return Target("voice")
-    if whom == "hermes":
+    if _TO_HERMES.fullmatch(whom):
         return Target("hermes")
+    if _ANY_SESSION.fullmatch(whom):
+        return ""
     return _SESSION_WORD.sub("", whom).strip() or None
 
 
