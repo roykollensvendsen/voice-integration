@@ -993,7 +993,13 @@ class _Handler(BaseHTTPRequestHandler):
         # then nothing hangs up. Every turn the person says comes past here, so
         # the page is told from here too.
         # RULE: a spoken hang-up puts the microphone down even when the voice answered it alone
-        return {"hang_up": who == "You" and target.hang_up_request(without_noises(said))}
+        mine = who == "You"
+        return {
+            "hang_up": mine and target.hang_up_request(without_noises(said)),
+            # The voice answers "hvem snakker jeg med" by itself too, and then
+            # says it cannot see. The page says this instead, if it did.
+            "say": quick.navigation(self.server, without_noises(said)) if mine else None,
+        }
 
     def _who(self) -> dict[str, Any]:
         """Who turns go to now, and who else they could go to, and what each is doing."""

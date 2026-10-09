@@ -43,7 +43,13 @@ FLEET = ("hva holder øktene på med", "hva skjer i øktene", "hva gjør øktene
 HEALTH = ("hvordan har broen", "hvordan går det med broen", "how has the bridge", "how is the bridge")
 # Asked by Roy on 2026-10-09: what can be done with the sessions, said back
 # from here rather than guessed at by a model that has never seen the list.
+#: Said alone, these ask for help; inside a sentence they ask somebody else for it.
+HELP_ALONE = ("hjelp", "help", "hjelp meg", "jeg trenger hjelp", "i need help")
 HELP = (
+    "hvordan bytter jeg",
+    "hvordan navigerer jeg",
+    "hvordan kommer jeg til",
+    "how do i switch",
     "hva kan jeg gjøre med øktene",
     "hva kan jeg si",
     "hva kan du gjøre",
@@ -51,10 +57,21 @@ HELP = (
     "what can i do with the sessions",
     "what can i say",
 )
+#: "Hvilke økter har jeg snakket med", asked on 2026-10-09, and the voice
+#: answered "Det ser jeg ikke herfra". Where you are, and where you can go.
+WHO = (
+    "hvem snakker jeg med",
+    "hvem er jeg koblet til",
+    "hvem prater jeg med",
+    "hvilke økter",
+    "who am i talking to",
+    "which sessions",
+)
 HELP_SAID = (
-    "Du kan spørre hva øktene holder på med, be meg oppsummere en økt, og si «snakk med» og et navn "
-    "for å snakke med én økt. Du kan starte en ny økt i et prosjekt, lukke en økt jeg har startet, "
-    "svare ja eller nei når en økt ber om lov, og si avbryt for å stoppe det som pågår."
+    "Si «hvem snakker jeg med» for å høre hvem du er koblet til. Bytt med «snakk med» og navnet på "
+    "en økt, «hei Hermes», eller «tilbake til stemmen», uansett hvor du er. Du kan også starte en ny "
+    "økt, lukke en økt jeg har startet, spørre hva øktene holder på med, svare ja eller nei når en "
+    "økt ber om lov, og si avbryt for å stoppe det som pågår."
 )
 # "Jeg lurer på GPS-posisjonen min", asked on 2026-10-09, went past these.
 PLACE = (
@@ -197,13 +214,45 @@ def answer(bridge: Bridge, transcript: str) -> str | None:
     return _known(bridge, said) or _looked_up(bridge, said)
 
 
+def where_you_are(bridge: Bridge) -> str:
+    """Who the person is talking to, and the words that take them anywhere else."""
+    names = [str(s["name"]) for s in bridge.running()]
+    here = (
+        f"Du snakker med økta {bridge.chosen.name}."
+        if bridge.chosen.kind == "session"
+        else "Du snakker med Hermes."
+        if bridge.chosen.kind == "hermes"
+        else "Du snakker bare med stemmen."
+    )
+    sessions = f" Øktene som kjører, er {', '.join(names)}." if names else " Ingen økter kjører nå."
+    return (
+        here
+        + sessions
+        + " Si «snakk med» og et navn for en økt, «hei Hermes» for Hermes, eller «tilbake til stemmen»."
+    )
+
+
+def navigation(bridge: Bridge, said: str) -> str | None:
+    """Help with getting around, answered the same wherever the person is."""
+    said = said.strip().casefold()
+    # RULE: asking where you are, or for help, is answered by the bridge wherever you are
+    if len(said) > SHORTEST_IS_SAFEST:
+        return None
+    if _matches(said, WHO):
+        return where_you_are(bridge)
+    if _matches(said, HELP) or said.strip(".!? ") in HELP_ALONE:
+        return HELP_SAID
+    return None
+
+
 def _looked_up(bridge: Bridge, said: str) -> str | None:
     """The two the bridge reads from its own records and from claude-voice's."""
     digest = DIGEST.match(said.strip(".!? "))
     if digest:
         return bridge.digest_said(digest.group(1))
-    if _matches(said, HELP):
-        return HELP_SAID
+    found = navigation(bridge, said)
+    if found:
+        return found
     if _matches(said, FLEET):
         return bridge.fleet_said()
     if _matches(said, HEALTH):

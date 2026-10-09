@@ -28,8 +28,8 @@ SHORTEST_IS_SAFEST = 60
 # sette meg over til …-økta", "jeg vil gå tilbake til å bare prate med GPT Live
 # One". A switch is a way of moving, then whoever it is to.
 _MOVE = re.compile(
-    r"^(?:gå tilbake til(?: å)?(?: bare)?(?: (?:snakke|prate) med)?|go back to"
-    r"|sett(?:e)? meg over til|koble?(?:e)? meg (?:til|på)|connect me to|bytt(?:e)? til|switch to"
+    r"^(?:(?:gå )?tilbake til(?: å)?(?: bare)?(?: (?:snakke|prate) med)?|go back to"
+    r"|sett(?:e)? (?:meg )?over til|koble?(?:e)? meg (?:til|på)|connect me to|bytt(?:e)? til|switch to"
     r"|gå over til|hopp(?:e)? (?:over )?til|start(?:e)? (?:en )?samtale(?:n)? med"
     r"|(?:snakk(?:e)?|prat(?:e)?|talk|speak) (?:med|to|with))\s+(?:the\s+)?(.+)$"
 )
