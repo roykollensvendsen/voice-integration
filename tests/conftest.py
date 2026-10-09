@@ -233,6 +233,7 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
             stopped = "stopped" if hit else ("not_started_here" if known else "not_running")
         canned = {
             "stop_active_session": {"name": arguments.get("name"), "status": locals().get("stopped")},
+            "side_question": {"answer": "Den kjører testene nå.", "considered_turns": 12, "cut": False},
             "start_active_session": {**self.server.active[-1]},
             "whats_new": {"cursor": "b9.f0", "events": NEWS},
             "list_active_sessions": {"sessions": self.server.active},

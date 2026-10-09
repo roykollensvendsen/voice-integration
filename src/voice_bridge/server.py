@@ -539,6 +539,43 @@ def _closed(bridge: Bridge, name: str, status: str) -> str:
     return f"I closed {name}."
 
 
+#: How long claude-voice may take to answer from a busy session's transcript.
+SIDE_SECONDS = 20.0
+
+# Words a question starts with. "kan du …" and "vil du …" are left out: they
+# are as often requests to do something as questions.
+_QUESTION = re.compile(
+    r"^(?:hva|hvor|hvordan|hvorfor|hvem|når|hvilke|hvilken|har|er|"
+    r"what|where|how|why|who|when|which|has|have|is|are|did|does)\b"
+)
+
+
+def is_question(transcript: str) -> bool:
+    """Whether what was said asks something, rather than asking for something to be done."""
+    said = " ".join(transcript.casefold().split())
+    return said.endswith("?") or bool(_QUESTION.match(said))
+
+
+def side_answer(bridge: Bridge, name: str, transcript: str) -> str | None:
+    """A question to a busy session, answered at once from what it has written.
+
+    Like Claude Code's /btw, asked for by Roy on 2026-10-09: the session is not
+    interrupted and the question never reaches it, so the person does not wait
+    for the work to end.
+    """
+    language = live.LANGUAGE_NAMES.get(live.LANGUAGE, live.LANGUAGE)
+    try:
+        got = bridge.sessions.call(  # type: ignore[union-attr]  # checked by the caller
+            "side_question",
+            {"session": name, "question": transcript, "language": language},
+            waits=SIDE_SECONDS,
+        )
+    except (OSError, Refused):
+        return None
+    answer = answer_in({"reply": str(got.get("answer") or "")})
+    return f"Fra det {name} har skrevet: {answer}" if answer else None
+
+
 def ask_chosen(bridge: Bridge, transcript: str) -> str:
     """Put a turn to the chosen session, as if it were the only one there is."""
     chosen = bridge.chosen
@@ -547,6 +584,12 @@ def ask_chosen(bridge: Bridge, transcript: str) -> str:
     # A session busy with other work reads nothing until it is done; waiting
     # the full time only fills the silence with "still working".
     busy = {s.get("name"): s.get("status") for s in bridge.running()}.get(chosen.name) in ("busy", "shell")
+    if busy and is_question(transcript):
+        aside = side_answer(bridge, chosen.name, transcript)
+        if aside:
+            return aside
+        # No quick answer to be had: the question goes to the session, and its
+        # answer comes as news when it is free.
     wait = ASK_BUSY_SECONDS if busy else ASK_SECONDS
     try:
         got = bridge.sessions.call(
