@@ -64,7 +64,7 @@ def test_asking_where_you_are_or_for_help_is_answered_by_the_bridge_wherever_you
     say(bridge, "snakk med build-7c")
     spoken = server.answer_delegation(said, "http://127.0.0.1:9", bridge=bridge)
     assert "«hei Hermes»" in spoken
-    assert "tilbake til stemmen" in spoken
+    assert "tilbake til Jarvis" in spoken
 
 
 def test_who_you_are_talking_to_names_the_choice_and_the_running_sessions(bridge):
@@ -106,6 +106,37 @@ def test_a_spoken_volume_is_a_change_of_volume_never_a_message(bridge, said, wan
     say(bridge, "snakk med build-7c")
     spoken = server.answer_delegation(said, "http://127.0.0.1:9", bridge=bridge)
     assert spoken.startswith("Greit")
+
+
+def test_a_switch_said_among_other_things_still_switches_and_what_follows_goes_to_the_new_one(bridge):
+    """Said on 2026-10-09, as one message to the session Roy was leaving."""
+    say(bridge, "snakk med build-7c")
+    said = (
+        "Hei Hermes\nHei Hermes\nSett meg over til Hermes\n. Bytt til Hermes\nBytt til Hermes\nKan vi få\n"
+        "endring i lydstyrke og andre operasjoner som bytte av agent inni samtaleloggen"
+    )
+    here, sent = server.routed(bridge, said)
+    assert bridge.chosen == target.Target("hermes")
+    assert here is None
+    assert sent == "Kan vi få\nendring i lydstyrke og andre operasjoner som bytte av agent inni samtaleloggen"
+
+
+def test_a_switch_on_the_last_line_alone_is_just_a_switch(bridge):
+    say(bridge, "snakk med build-7c")
+    here, _ = server.routed(bridge, "hører du meg\nBytt til Hermes")
+    assert bridge.chosen == target.Target("hermes")
+    assert here == "You are talking to Hermes now."
+
+
+def test_switches_and_spoken_volume_are_shown_in_the_conversation():
+    page = server.PAGE.read_text()
+    assert 'note("Du snakker nå med", named(chosen))' in page
+    assert 'note("Lydstyrke", `${volume.value} %`)' in page
+
+
+def test_hermes_is_told_not_to_change_the_computers_sound():
+    """On 2026-10-09 Hermes set the computer's speaker, not the voice on the phone."""
+    assert "never change the computer's sound" in server.TURN_INSTRUCTIONS
 
 
 def test_the_page_sets_the_volume_it_is_told_and_keeps_it(bridge):
