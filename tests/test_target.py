@@ -50,28 +50,26 @@ def test_while_the_voice_alone_is_chosen_nothing_is_forwarded(bridge, hermes, cl
     assert "nothing" in spoken.lower()
 
 
-@pytest.mark.parametrize(
-    "said",
-    # Said on 2026-10-09; the voice answered "Det ser jeg ikke herfra".
-    [
-        "Hvilke økter har jeg snakket med nå da",
-        "Hvem snakker jeg med?",
-        "Hjelp!",
-        "hvordan bytter jeg til Hermes",
-    ],
-)
+@pytest.mark.parametrize("said", ["Hjelp!", "hvordan bytter jeg til Hermes"])
 def test_asking_where_you_are_or_for_help_is_answered_by_the_bridge_wherever_you_are(bridge, said):
     say(bridge, "snakk med build-7c")
     spoken = server.answer_delegation(said, "http://127.0.0.1:9", bridge=bridge)
-    assert "«hei Hermes»" in spoken
+    assert "«Hei Hermes»" in spoken or "«hei Hermes»" in spoken
     assert "tilbake til Jarvis" in spoken
+    # Said on 2026-10-09; the voice answered "Det ser jeg ikke herfra".
+    assert server.answer_delegation("Hvem snakker jeg med?", "http://127.0.0.1:9", bridge=bridge) == (
+        "Du snakker med build-7c."
+    )
 
 
-def test_who_you_are_talking_to_names_the_choice_and_the_running_sessions(bridge):
+def test_who_you_are_talking_to_is_all_that_is_said_when_that_is_asked(bridge):
+    """Roy, 2026-10-09: "Det var mer enn jeg spurte om", given the help along with it."""
     say(bridge, "snakk med build-7c")
-    spoken = quick.where_you_are(bridge)
-    assert spoken.startswith("Du snakker med økta build-7c.")
-    assert "build-7c" in spoken.split("Øktene som kjører, er ", 1)[1]
+    assert quick.navigation(bridge, "Hvem snakker jeg med?") == "Du snakker med build-7c."
+    listed = quick.navigation(bridge, "Hvilke økter har jeg snakket med nå da")
+    assert listed.startswith("Øktene som kjører, er ")
+    assert "build-7c" in listed
+    assert "Si " not in listed
 
 
 def test_help_inside_a_sentence_goes_where_it_was_going():
@@ -218,6 +216,12 @@ def test_the_log_says_who_said_it():
     assert (
         'chosen?.kind === "hermes" ? "Hermes" : chosen?.kind === "session" ? chosen.name : "Jarvis"' in page
     )
+
+
+def test_a_tap_between_calls_is_not_told_to_the_next_call():
+    """On 2026-10-09 seven taps between calls reached the next call as three stale notices."""
+    page = server.PAGE.read_text()
+    assert "if (reply.said && pc) think(reply.said);" in page
 
 
 def test_hermes_is_told_not_to_change_the_computers_sound():

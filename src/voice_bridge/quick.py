@@ -68,14 +68,10 @@ HELP = (
 )
 #: "Hvilke økter har jeg snakket med", asked on 2026-10-09, and the voice
 #: answered "Det ser jeg ikke herfra". Where you are, and where you can go.
-WHO = (
-    "hvem snakker jeg med",
-    "hvem er jeg koblet til",
-    "hvem prater jeg med",
-    "hvilke økter",
-    "who am i talking to",
-    "which sessions",
-)
+WHO = ("hvem snakker jeg med", "hvem er jeg koblet til", "hvem prater jeg med", "who am i talking to")
+#: Asked for the sessions, the sessions are said; asked who, only who. "Det var
+#: mer enn jeg spurte om" — Roy, 2026-10-09, given the help along with it.
+SESSIONS = ("hvilke økter", "which sessions")
 HELP_SAID = (
     "Si «hvem snakker jeg med» for å høre hvem du er koblet til. Bytt med «snakk med» og navnet på "
     "en økt, «hei Hermes», eller «tilbake til Jarvis», uansett hvor du er. Du kan også starte en ny "
@@ -224,21 +220,16 @@ def answer(bridge: Bridge, transcript: str) -> str | None:
 
 
 def where_you_are(bridge: Bridge) -> str:
-    """Who the person is talking to, and the words that take them anywhere else."""
+    """Who the person is talking to, and nothing more."""
+    if bridge.chosen.kind == "session":
+        return f"Du snakker med {bridge.chosen.name}."
+    return "Du snakker med Hermes." if bridge.chosen.kind == "hermes" else "Du snakker med Jarvis."
+
+
+def sessions_running(bridge: Bridge) -> str:
+    """The sessions that can be talked to, by name."""
     names = [str(s["name"]) for s in bridge.running()]
-    here = (
-        f"Du snakker med økta {bridge.chosen.name}."
-        if bridge.chosen.kind == "session"
-        else "Du snakker med Hermes."
-        if bridge.chosen.kind == "hermes"
-        else "Du snakker bare med Jarvis."
-    )
-    sessions = f" Øktene som kjører, er {', '.join(names)}." if names else " Ingen økter kjører nå."
-    return (
-        here
-        + sessions
-        + " Si «snakk med» og et navn for en økt, «hei Hermes» for Hermes, eller «tilbake til Jarvis»."
-    )
+    return f"Øktene som kjører, er {', '.join(names)}." if names else "Ingen økter kjører nå."
 
 
 def navigation(bridge: Bridge, said: str) -> str | None:
@@ -249,6 +240,8 @@ def navigation(bridge: Bridge, said: str) -> str | None:
         return None
     if _matches(said, WHO):
         return where_you_are(bridge)
+    if _matches(said, SESSIONS):
+        return sessions_running(bridge)
     if _matches(said, VOLUME_ASKED):
         known = bridge.volume
         return "Jeg vet ikke hvor høy lyden er ennå." if known is None else f"Lyden står på {known} prosent."
