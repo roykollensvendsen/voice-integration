@@ -83,6 +83,11 @@
   .voices { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin-top: .6rem; font-size: .8rem; color: var(--dim); }
   .voices select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
                    border-radius: .3rem; padding: .1rem .3rem; }
+  #sayable { margin-top: .8rem; font-size: .85rem; }
+  #sayable summary { cursor: pointer; color: var(--dim); }
+  #sayable dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: .1rem; margin: .5rem 0 0; }
+  #sayable dt { margin-top: .4rem; }
+  #sayable dd { margin: 0 0 0 .8rem; color: var(--dim); }
 </style>
 
 <h1>Jarvis</h1>
@@ -91,6 +96,25 @@
 <button id="talk">Take the microphone</button><span id="state">idle</span>
 <label class="volume">Lyd <input id="volume" type="range" min="0" max="100" step="5" value="100">
   <span id="volume-said">100 %</span></label>
+
+<details id="sayable">
+  <summary>Hva kan jeg si?</summary>
+  <dl>
+    <dt>«Hvem snakker jeg med?»</dt><dd>Hvem du er koblet til, og hvilke økter som kjører.</dd>
+    <dt>«Hjelp»</dt><dd>Det samme som her, lest opp.</dd>
+    <dt>«Snakk med» og navnet på en økt</dt><dd>Bytter til den økta.</dd>
+    <dt>«Hei Hermes»</dt><dd>Bytter til Hermes, som styrer agentene.</dd>
+    <dt>«Tilbake til Jarvis»</dt><dd>Bare stemmen, uten å sende noe videre.</dd>
+    <dt>«Start en ny økt i» og et prosjekt</dt><dd>Starter en økt og setter deg over til den.</dd>
+    <dt>«Lukk økta»</dt><dd>Stopper en økt Jarvis har startet.</dd>
+    <dt>«Hva holder øktene på med?»</dt><dd>Kort om hver økt.</dd>
+    <dt>«Ja» eller «nei»</dt><dd>Svar når en økt ber om lov.</dd>
+    <dt>«Avbryt»</dt><dd>Stopper arbeidet som pågår.</dd>
+    <dt>«Sett lyden til 30 prosent»</dt><dd>Eller «skru opp/ned lyden», og «hva står lyden på?».</dd>
+    <dt>«Hvor er jeg?» og «hva er klokka?»</dt><dd>Svar med en gang.</dd>
+    <dt>«Legg på» eller «avslutt samtalen»</dt><dd>Legger på, med et fallende pip.</dd>
+  </dl>
+</details>
 
 <section id="who" aria-label="Who you are talking to">
   <div class="now">Du snakker med <strong id="chosen">…</strong></div>
@@ -1053,6 +1077,11 @@ function stop(why = "button") {
   }
   book();
   queued = [];
+  // What was waiting to be confirmed belonged to this call. Left running, it
+  // was said again in the next one: "Klokka er 22:14" twice, on 2026-10-09.
+  unacknowledged.forEach((timer) => clearTimeout(timer));
+  unacknowledged.clear();
+  said.clear();
   clearInterval(booking);
   booked = booking = null;
   pc?.close();
