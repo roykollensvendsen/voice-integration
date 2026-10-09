@@ -86,10 +86,14 @@ turn is `ask_active_session` with the words as they were said, waiting up to
 * `needs_input`: the session waits for somebody at its own screen. That is said,
   and the target stays.
 * `session_ended`: the target goes back to the voice, and that is said.
-* `still_working`: whatever was written so far is spoken, and the page keeps
-  waiting. The bridge then asks `read_session_output` for turns after
-  `next_after` every few seconds, and speaks the new text once the session is
-  idle in `list_active_sessions`.
+* `still_working`: nothing it wrote is quoted. The voice says once that the
+  session is busy, and the bridge waits in the background. It asks
+  `read_session_output` for turns after `next_after` every few seconds, and
+  looks for the turn that carries what was said. The answer is the last thing
+  the session wrote after that turn, and before the next thing it was asked.
+  It is told as news once the next turn has begun or the session is idle.
+  Anything written before the question reached it, for other people or other
+  prompts, is never the answer.
 
 The tree on the page is `session_tree`, fetched again whenever `whats_new`
 reports `tree_changed`, which is never spoken. A node can be chosen when
