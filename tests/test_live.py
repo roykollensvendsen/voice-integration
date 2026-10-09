@@ -1,5 +1,10 @@
 """Opening a voice session: what is sent, and what is refused before anything is."""
 
+import io
+import json
+import urllib.error
+import urllib.request
+
 import pytest
 
 from voice_bridge import budget, live
@@ -91,3 +96,19 @@ def test_the_voice_never_says_it_has_no_tools():
         assert "Claude Code" in written
     assert "Si aldri at du ikke har verktøy" in live.INSTRUCTIONS["nb"]
     assert "Never say you have no tools" in live.INSTRUCTIONS["en"]
+
+
+def test_an_empty_account_is_said_plainly_with_what_to_do(tmp_path, monkeypatch):
+    """Roy's credits were down to a few cents while the page still showed minutes left."""
+
+    def empty(request, **_):
+        body = io.BytesIO(
+            json.dumps(
+                {"error": {"code": "insufficient_quota", "message": "You exceeded your current quota"}}
+            ).encode()
+        )
+        raise urllib.error.HTTPError(request.full_url, 429, "Too Many Requests", {}, body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", empty)
+    with pytest.raises(Refused, match="no credit left"):
+        live.open_session("v=0", budget.Ledger(tmp_path / "spend.json"), key="k")

@@ -112,7 +112,7 @@ def _matches(said: str, words: tuple[str, ...]) -> bool:
 
 def place_of(latitude: float, longitude: float) -> str | None:
     """The name of a place, from coordinates nobody can say out loud."""
-    query = urllib.parse.urlencode({"lat": latitude, "lon": longitude, "format": "jsonv2", "zoom": 14})
+    query = urllib.parse.urlencode({"lat": latitude, "lon": longitude, "format": "jsonv2", "zoom": 18})
     request = urllib.request.Request(  # noqa: S310 — a constant HTTPS URL
         f"{PLACES_URL}?{query}",
         headers={"User-Agent": POLITE},
@@ -123,7 +123,16 @@ def place_of(latitude: float, longitude: float) -> str | None:
     except (OSError, json.JSONDecodeError):
         return None
     near = found.get("city") or found.get("town") or found.get("village") or found.get("municipality")
-    return ", ".join(part for part in (found.get("suburb"), near, found.get("country")) if part) or None
+    # Down to the street: Roy asked for the exact position from the phone's GPS,
+    # and the town alone was not it. A street and number can be said; figures cannot.
+    street = " ".join(part for part in (found.get("road"), found.get("house_number")) if part)
+    parts = (
+        street,
+        found.get("suburb") or found.get("hamlet") or found.get("neighbourhood"),
+        near,
+        found.get("country"),
+    )
+    return ", ".join(part for part in parts if part) or None
 
 
 def on_the_web(question: str, key: str | None = None) -> str | None:

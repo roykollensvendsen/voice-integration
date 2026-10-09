@@ -552,3 +552,30 @@ def test_hanging_up_by_voice_tells_the_page_to_put_the_microphone_down(bridge, h
     page = server.PAGE.read_text()
     assert "hang_up: hangUp" in page
     assert "setTimeout(stop, HANG_UP_MS)" in page
+
+
+def test_a_note_slipped_in_while_the_session_works_does_not_end_its_reply(bridge, claude_voice, monkeypatch):
+    """On 2026-10-09 a message arriving mid-reply ended the reply before it was written: no answer at all."""
+    monkeypatch.setattr(server, "FOLLOW_SECONDS", 0.05)
+    claude_voice.active = [
+        dict(s, status="busy") if s["name"] == "build-7c" else s for s in claude_voice.active
+    ]
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.output = {"turns": [], "status": "busy"}
+    say(bridge, "hva holder du på med")
+    claude_voice.output = {
+        "turns": [
+            {"index": 5, "role": "user", "text": "Her kommer en melding fra Roy … «hva holder du på med»"},
+            {
+                "index": 6,
+                "role": "user",
+                "text": "<system-reminder>Another session sent a message</system-reminder>",
+            },
+            {"index": 7, "role": "assistant", "text": "Du står i Svennskotveien."},
+        ],
+        "status": "idle",
+    }
+    bridge.answers_awaited.pop("build-7c").join(timeout=10)
+    told = [e for e in bridge.watching if e["event"] == "claude.news"]
+    assert told[-1]["said"] == "Du står i Svennskotveien."

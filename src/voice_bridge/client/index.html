@@ -922,7 +922,8 @@ async function start() {
       think(p.known);
     }).catch(() => {}),
     () => {},
-    { maximumAge: 600_000, timeout: 8_000 },
+    // The phone's GPS, not a guess from the network: asked for exactly.
+    { enableHighAccuracy: true, maximumAge: 60_000, timeout: 15_000 },
   );
   addEventListener("pagehide", book, { once: true });
 }

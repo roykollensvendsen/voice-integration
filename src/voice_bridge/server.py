@@ -657,6 +657,11 @@ def _after_asking(bridge: Bridge, chosen: target.Target, got: dict[str, Any], tr
 QUESTION_CHARACTERS = 40
 
 
+def _slipped_in(text: str) -> bool:
+    """Whether a turn is a note added while the session was working, not a new request."""
+    return text.lstrip().startswith("<system-reminder")
+
+
 def _reply_to(read: dict[str, Any], said: str) -> tuple[str, bool]:
     """The session's reply to the turn that carried `said`, and whether that turn is over.
 
@@ -681,7 +686,9 @@ def _reply_to(read: dict[str, Any], said: str) -> tuple[str, bool]:
         return "", False
     written: list[dict[str, Any]] = []
     for turn in turns[asked + 1 :]:
-        if turn.get("role") == "user":
+        # A note slipped in while the session works is not the next thing it
+        # was asked: on 2026-10-09 one ended a reply before it was written.
+        if turn.get("role") == "user" and not _slipped_in(str(turn.get("text", ""))):
             return (answer_in({"turns": written[-1:]}) if written else ""), True
         if turn.get("role") == "assistant" and str(turn.get("text", "")).strip():
             written.append(turn)
