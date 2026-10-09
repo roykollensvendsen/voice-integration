@@ -386,7 +386,7 @@ async function answer(delegationId) {
   // A hint, not a script: sent as something to say, it was read out word for
   // word on every turn. As something to know, the voice says it its own way.
   if (holding) setTimeout(() => settled || append("thinking", delegationId, holding), HOLD_AFTER_MS);
-  let content, runId = null, finished = true, quiet = false;
+  let content, runId = null, finished = true, quiet = false, hangUp = false;
   try {
     const reply = await fetch("/delegation", {
       method: "POST",
@@ -395,7 +395,7 @@ async function answer(delegationId) {
     });
     const body = await reply.json();
     content = reply.ok ? body.content : FAILED_PLAINLY.refused(body.error);
-    ({ run_id: runId, finished, quiet = false } = body);
+    ({ run_id: runId, finished, quiet = false, hang_up: hangUp = false } = body);
   } catch (failure) {
     content = FAILED_PLAINLY.unreachable;
   }
@@ -409,6 +409,9 @@ async function answer(delegationId) {
   }
   offer(note("Answer from the agents", content), content);
   tell(delegationId, content);
+  // "Legg på": the voice says it, and then the microphone goes down, so that
+  // nothing more is paid for.
+  if (hangUp) setTimeout(stop, HANG_UP_MS);
   // A spoken "snakk med …" changes who is chosen; the tree should say so.
   refreshWho();
   if (!finished && runId) waitOn(runId, delegationId);
@@ -870,6 +873,9 @@ async function start() {
   );
   addEventListener("pagehide", book, { once: true });
 }
+
+// Long enough for the voice to say that it is hanging up.
+const HANG_UP_MS = 3500;
 
 function stop() {
   book();

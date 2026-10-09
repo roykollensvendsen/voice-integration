@@ -177,6 +177,11 @@ announced for 2026-06-15 and paused, not cancelled. That is a row in
 [`decisions/deferred.md`](../decisions/deferred.md) with a trigger, because the
 day it unpauses, a ceiling on the audio covers the smaller half of the bill.
 
+The audio bills while the microphone is open, so putting it down has to be as
+easy as speaking. Saying "legg på" (or "put it down", "stopp pengebruken")
+does it: the bridge answers that it is hanging up, and the page puts the
+microphone down once that has been said.
+
 ## The session model
 
 * A **room** is a Hermes session identifier. It is what the phone and the laptop

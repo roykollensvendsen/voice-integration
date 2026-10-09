@@ -376,7 +376,9 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     here, transcript = answered_here(bridge, transcript)
     if here is not None:
         return here, transcript
-    revoiced = stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript)
+    revoiced = hang_up(bridge, transcript) or (
+        stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript)
+    )
     if revoiced is not None:
         return revoiced, transcript
     switched = (
@@ -391,6 +393,15 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     if bridge.chosen.kind == "session":
         return ask_chosen(bridge, transcript), transcript
     return None, transcript
+
+
+def hang_up(bridge: Bridge, transcript: str) -> str | None:
+    """Put the microphone down, if that was asked: the page does it once this is said."""
+    if not target.hang_up_request(transcript):
+        return None
+    # Nothing more is paid for once the microphone is down.
+    bridge.hanging_up = True
+    return "Greit, jeg legger på."
 
 
 def stop_work(bridge: Bridge) -> str:
@@ -1004,8 +1015,10 @@ class _Handler(BaseHTTPRequestHandler):
                         "finished": self.server.following is None,
                         # Something for the voice to know rather than to say.
                         "quiet": self.server.quiet,
+                        "hang_up": self.server.hanging_up,
                     },
                 )
+                self.server.hanging_up = False
             elif self.path == "/run":
                 run_id = str(body.get("run_id", ""))
                 self.server.polled[run_id] = time.monotonic()
@@ -1066,6 +1079,8 @@ class Bridge(ThreadingHTTPServer):
         self.answers_awaited: dict[str, threading.Thread] = {}
         #: Whether the last answer is for the voice to know rather than to say.
         self.quiet = False
+        # Set by a spoken "legg på": the page puts the microphone down after saying so.
+        self.hanging_up = False
         #: Who speaks for each kind of target. ADR-VI-027.
         self.voices = target.load_voices(target.voices_file(chosen_file))
         #: What was worth saying, and how far it was heard, kept where a
