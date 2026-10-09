@@ -176,6 +176,20 @@ def test_asking_how_loud_it_is_gets_the_level_the_page_last_said(bridge):
     assert kept["say"] == "Lyden står på 35 prosent."
 
 
+def test_the_page_reloads_itself_for_a_new_version_but_never_during_a_call(bridge):
+    """Again and again on 2026-10-09 the phone kept the old page until the app was restarted."""
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{bridge.server_port}/config", timeout=5) as reply:
+            config = json.loads(reply.read())
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert len(config["page"]) == 12
+    assert "else if (page !== served && !pc) location.reload();" in server.PAGE.read_text()
+
+
 def test_hermes_is_told_not_to_change_the_computers_sound():
     """On 2026-10-09 Hermes set the computer's speaker, not the voice on the phone."""
     assert "never change the computer's sound" in server.TURN_INSTRUCTIONS

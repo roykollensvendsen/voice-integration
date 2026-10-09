@@ -934,6 +934,20 @@ window.wakeWordHeard = async () => {
   try { await start(); } catch (failure) { stop("failed"); state.textContent = failure.message; }
 };
 
+// A page left open in the phone app never sees a new version unless it is
+// reloaded by hand. So it looks once a minute, and reloads itself, but only
+// between calls: never in the middle of one.
+const NEWER_EVERY_MS = 60_000;
+let served = null;
+async function newer() {
+  const page = await fetch("/config").then((r) => r.json()).then((c) => c.page).catch(() => null);
+  if (!page) return;
+  if (served === null) served = page;
+  else if (page !== served && !pc) location.reload();
+}
+newer();
+setInterval(newer, NEWER_EVERY_MS);
+
 async function start() {
   const pressed = Date.now();
   // One microphone at a time: the app stops listening for the word first.

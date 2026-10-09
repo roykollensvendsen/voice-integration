@@ -19,6 +19,7 @@ The page never sees a key. It cannot: it is code handed to a browser.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import pathlib
@@ -959,7 +960,10 @@ class _Handler(BaseHTTPRequestHandler):
         elif self.path == "/config":
             # The page needs one phrase in the session's language and nothing
             # else. It is never given a key, a model name or a gateway address.
-            self._send(200, {"holding": live.holding()})
+            # And which page is being served, so a page left open on a phone
+            # can see it is old and load the new one between calls.
+            page = hashlib.sha256(PAGE.read_bytes()).hexdigest()[:12]
+            self._send(200, {"holding": live.holding(), "page": page})
         else:
             self._send(404, {"error": "no such path"})
 
