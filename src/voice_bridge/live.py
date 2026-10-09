@@ -250,8 +250,15 @@ def open_session(  # noqa: PLR0913 — the voice joined five that each change wh
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310 — as above
             answer = json.loads(response.read() or b"{}")
     except urllib.error.HTTPError as failure:
-        detail = json.loads(failure.read() or b"{}").get("error", {}).get("message", "no detail")
+        error = json.loads(failure.read() or b"{}").get("error", {})
+        detail = error.get("message", "no detail")
         message = f"OpenAI refused the session: {detail}"
+        if error.get("code") == "insufficient_quota":
+            # The bridge's own ceiling knows nothing of the account, which ran dry
+            # while the page still showed minutes left.
+            message = (
+                "The OpenAI account has no credit left. Top it up at platform.openai.com/settings/billing."
+            )
         raise Refused(message) from failure
     sdp = _answer_sdp(answer)
     if not sdp:

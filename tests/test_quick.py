@@ -6,6 +6,7 @@ time. These are the few where the bridge is the authority, and the list is
 short on purpose.
 """
 
+import json
 import re
 
 from voice_bridge import budget, quick, server
@@ -112,3 +113,33 @@ def test_asking_for_the_position_in_other_words_is_answered_too():
     """Roy asked "Jeg lurer på GPS-posisjonen min", and was not answered."""
     for asked in ("Jeg lurer på GPS-posisjonen min", "hva er min posisjon", "hvor er jeg"):
         assert any(word in asked.casefold() for word in quick.PLACE), asked
+
+
+def test_the_place_is_named_down_to_the_street(monkeypatch):
+    """Roy wanted the exact position from the phone's GPS, and was given only the town."""
+    found = {
+        "address": {
+            "road": "Svennskotveien",
+            "house_number": "23",
+            "hamlet": "Skuggevik",
+            "town": "Tvedestrand",
+            "country": "Norge",
+        }
+    }
+
+    class Reply:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return json.dumps(found).encode()
+
+    asked = []
+    monkeypatch.setattr(
+        quick.urllib.request, "urlopen", lambda request, **_: asked.append(request.full_url) or Reply()
+    )
+    assert quick.place_of(58.6, 8.9) == "Svennskotveien 23, Skuggevik, Tvedestrand, Norge"
+    assert "zoom=18" in asked[0]
