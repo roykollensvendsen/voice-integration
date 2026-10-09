@@ -394,3 +394,21 @@ def test_a_switch_said_in_plain_words_is_understood(said, wanted):
 
 def test_saying_whom_you_do_not_want_is_not_a_switch_to_them():
     assert target.switch_request("jeg vil ikke prate med Hermes") is None
+
+
+@pytest.mark.parametrize(
+    ("said", "project"),
+    [
+        ("Start en ny økt i voice-integration", "voice-integration"),
+        ("Kan du starte en ny økt i claude voice scratch?", "claude voice scratch"),
+        ("lag en økt i hydropower", "hydropower"),
+        ("start a new session in models.dev", "models.dev"),
+    ],
+)
+def test_starting_a_session_in_a_project_is_understood(said, project):
+    assert target.start_request(said) == project
+
+
+def test_a_sentence_about_starting_something_else_is_not_a_new_session():
+    assert target.start_request("start testene i voice-integration") is None
+    assert target.start_request("jeg vil ikke starte en ny økt i hydropower") is None
