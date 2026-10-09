@@ -774,8 +774,10 @@ async function choose(wanted) {
     body: JSON.stringify(wanted),
   }).then((r) => r.json()).catch((f) => ({ error: String(f) }));
   note("Who you are talking to", reply.said ?? reply.error ?? "");
-  // The voice should know who it is speaking for, without reading it out.
-  if (reply.said) think(reply.said);
+  // The voice should know who it is speaking for, without reading it out. Only
+  // a call that is open is told: a new one learns it when it starts, and seven
+  // taps between calls once reached the next call as three stale notices.
+  if (reply.said && pc) think(reply.said);
   refreshWho();
 }
 
