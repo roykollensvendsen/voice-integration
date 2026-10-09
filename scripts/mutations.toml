@@ -251,6 +251,12 @@ find = 'target\.save\(self\.chosen_file, chosen, '
 replace = 'pass'
 
 [[rule]]
+name = "\"hei Hermes\" is a switch to Hermes, said alone or after a greeting"
+file = "src/voice_bridge/target.py"
+find = 'return greeted != whole and bool\(_TO_HERMES\.fullmatch\(greeted\)\)'
+replace = 'return False'
+
+[[rule]]
 name = "a long sentence that mentions talking to someone is not a switch"
 file = "src/voice_bridge/target.py"
 find = 'if len\(words\) > SHORTEST_IS_SAFEST:'
