@@ -1,6 +1,6 @@
 # A phone app for the voice: a proposal
 
-*Draft for Roy to say yes or no to, 2026-10-09. Nothing here is built yet.*
+*Draft for Roy to say yes or no to, 2026-10-09. Nothing here is built yet. The phone is an Android phone (Roy, 2026-10-09).*
 
 ## What it is for
 
@@ -67,16 +67,24 @@ A wake word on the phone takes the microphone from the page.
 
 ## What I do not know yet
 
-- **Which phone.** Android allows all of this. iPhone restricts a background
-  microphone and does not let an app place a call without a tap, so locked
-  screen and calling would be weaker there. This decides almost everything
-  else, and it is the one thing I need from you.
+- **Which phone: settled, Android.** Android allows every part of this,
+  including a microphone with the screen locked and placing a call without a
+  tap, once you have allowed each in the app.
 - **How well wake words work outdoors.** A detector on the phone mishears in
   wind and traffic more than at a desk. I would measure that on the first
   build, before relying on it.
 - **Spotify's own controls.** Plain play and pause work for every player
   through the phone's media controls. Asking about the episode needs its
   title, which Spotify shares, and the rest is the bridge's work.
+
+## How it reaches your phone
+
+The app is built on the laptop, which already has Android's tools, and is not
+published in any store. You install it once by cable or as a file, after
+allowing installs from this one source on the phone, and later versions
+replace it the same way. Android then asks you, one at a time, for the
+microphone, contacts, calls and location. Each is your yes, and each can be
+taken back in the phone's settings.
 
 ## The order I would build it in
 
