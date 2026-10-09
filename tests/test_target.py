@@ -625,3 +625,25 @@ def test_a_question_with_no_quick_answer_goes_to_the_busy_session_after_all(
     say(bridge, "snakk med build-7c")
     say(bridge, "hva holder du på med?")
     assert [n for n, _ in claude_voice.called if n == "ask_active_session"]
+
+
+@pytest.mark.parametrize(
+    ("said", "wanted"),
+    [
+        # Said on 2026-10-09, moving between the three kinds of partner.
+        ("Okay. Gå over til en Claude Code-økt", ""),
+        ("gå over til Hermes-økta", target.Target("hermes")),
+        ("hopp til stemmeøkta", target.Target("voice")),
+        ("snakk med Hermes økte", target.Target("hermes")),
+        ("hopp til bare stemmen", target.Target("voice")),
+    ],
+)
+def test_moving_between_the_kinds_of_partner_is_understood(said, wanted):
+    assert target.switch_request(said) == wanted
+
+
+def test_a_session_asked_for_without_a_name_is_asked_about(bridge):
+    spoken = say(bridge, "gå over til en Claude Code-økt")
+    assert bridge.chosen == target.Target("hermes")
+    assert "Which session" in spoken
+    assert "build-7c" in spoken
