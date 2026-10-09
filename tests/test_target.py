@@ -598,6 +598,24 @@ def test_a_sentence_that_only_mentions_the_microphone_is_not_hanging_up():
     assert not target.hang_up_request("ikke legg på")
 
 
+def test_a_spoken_hang_up_puts_the_microphone_down_even_when_the_voice_answered_it_alone(bridge):
+    """On 2026-10-09 Roy said "Legg på røret" twice; the voice said "jeg legger på nå" and did not."""
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    turn = f"http://127.0.0.1:{bridge.server_port}/turn"
+    try:
+        _, roy = post(turn, {"who": "You", "text": "Legg på røret"})
+        _, voice = post(turn, {"who": "It said", "text": "Skjønner, jeg legger på nå."})
+        _, other = post(turn, {"who": "You", "text": "ikke legg på ennå"})
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert roy == {"hang_up": True}
+    assert voice == {"hang_up": False}
+    assert other == {"hang_up": False}
+    assert "if (kept.hang_up && pc) setTimeout(stop, HANG_UP_MS)" in server.PAGE.read_text()
+
+
 def test_hanging_up_by_voice_tells_the_page_to_put_the_microphone_down(bridge, hermes):
     """Roy: "Kan du stoppe pengebruken nå? Be også putt down microphone"."""
     thread = threading.Thread(target=bridge.serve_forever, daemon=True)
