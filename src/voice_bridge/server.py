@@ -379,7 +379,7 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     revoiced = stop_work(bridge) if target.cancel_request(transcript) else revoice(bridge, transcript)
     if revoiced is not None:
         return revoiced, transcript
-    switched = switch(bridge, transcript)
+    switched = switch(bridge, transcript) or start_session(bridge, transcript)
     if switched is not None:
         return switched, transcript
     # RULE: while the voice alone is chosen nothing is forwarded
@@ -461,6 +461,30 @@ def switch(bridge: Bridge, transcript: str) -> str | None:
         return f"{asked} could be {', '.join(found)}. Which one?"
     bridge.choose(target.Target("session", found[0]))
     return f"You are talking to {found[0]} now."
+
+
+#: How long claude-voice may take to start a session and see it running.
+START_SECONDS = 20.0
+
+
+def start_session(bridge: Bridge, transcript: str) -> str | None:
+    """Start a session in the background, if that was asked, and choose it at once."""
+    asked = target.start_request(transcript)
+    if asked is None:
+        return None
+    if bridge.sessions is None:
+        return "I cannot start a session: the coding sessions cannot be reached."
+    # Folders are written with hyphens and said with spaces.
+    project = "-".join(asked.split())
+    try:
+        started = bridge.sessions.call("start_active_session", {"project": project}, waits=START_SECONDS)
+    except (OSError, Refused) as failure:
+        return f"I could not start a session in {project}: {failure}"
+    name = str(started.get("name") or "")
+    if not name:
+        return f"I could not start a session in {project}."
+    bridge.choose(target.Target("session", name))
+    return f"I started {name} in {project}, and you are talking to it now."
 
 
 def ask_chosen(bridge: Bridge, transcript: str) -> str:

@@ -412,3 +412,23 @@ def test_starting_a_session_in_a_project_is_understood(said, project):
 def test_a_sentence_about_starting_something_else_is_not_a_new_session():
     assert target.start_request("start testene i voice-integration") is None
     assert target.start_request("jeg vil ikke starte en ny økt i hydropower") is None
+
+
+def test_a_session_started_by_voice_runs_in_the_background_and_is_talked_to_at_once(
+    bridge, hermes, claude_voice
+):
+    """Roy, 2026-10-09: "start the session in the background", and be put through to it."""
+    spoken = say(bridge, "Start en ny økt i claude voice scratch")
+    started = [arguments for name, arguments in claude_voice.called if name == "start_active_session"]
+    assert started == [{"project": "claude-voice-scratch"}]
+    assert bridge.chosen == target.Target("session", "claude-voice-scratch-1a2b")
+    assert "claude-voice-scratch-1a2b" in spoken
+    assert say(bridge, "hva heter du") == "The tests pass."
+    assert hermes.seen == []
+
+
+def test_a_session_cannot_be_started_without_claude_voice(bridge):
+    bridge.sessions = None
+    spoken = say(bridge, "start en ny økt i hydropower")
+    assert bridge.chosen == target.Target("hermes")
+    assert "cannot" in spoken

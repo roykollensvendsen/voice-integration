@@ -28,9 +28,10 @@ all, and nothing else changes.
 | `fleet_recap` | "what are the sessions doing", and a line under each session in the tree | `sessions`, each with `name`, `status` and `doing`, one line saying what it is doing |
 | `digest_session` | "oppsummer" a session: its long conversation summed up outside anybody's context, in the voice's language | `digest`, at most about 600 characters, and how much was considered |
 | `cancel` | "avbryt": stop the current turn of a session claude-voice runs; a terminal session answers that only its screen can stop it | `status`: `interrupted`, `not_running` or `not_supported` |
+| `start_active_session` | "start en ny økt i …": a Claude Code session started in the background in that project, and chosen at once | `name`, `claude_session_id`, `project`, `status`, once it is among the running sessions |
 | `health` | claude-voice's half of the health summary the page and the voice read | `now`, `tools` with latency and errors, the latest `errors`, `courier`, `watcher` |
 
-`voice_bridge.sessions.TOOLS` holds the same eleven, and the client refuses any
+`voice_bridge.sessions.TOOLS` holds the same twelve, and the client refuses any
 other name before anything is sent. `voicebridge check` fails when this table
 and that tuple disagree.
 
