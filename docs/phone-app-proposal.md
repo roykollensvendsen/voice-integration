@@ -1,6 +1,6 @@
-# A phone app for the voice: a proposal
+# A phone app for the voice
 
-*Draft for Roy to say yes or no to, 2026-10-09. Nothing here is built yet. The phone is an Android phone (Roy, 2026-10-09).*
+*Accepted by Roy on 2026-10-09, for an Android phone. Step 1 is being built as [ADR-VI-032](../decisions/ADR-VI-032-the-phone-app-starts-as-the-page-in-a-wrapper.md) describes.*
 
 ## What it is for
 
