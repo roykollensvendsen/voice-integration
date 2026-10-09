@@ -32,5 +32,5 @@ source when Android asks.
 
 The first time it opens, the app asks for the bridge's address. That is the
 HTTPS address `tailscale serve` gives, ending in `:10000/`. If the page cannot
-be reached later, the app asks again. Android asks once for the microphone and
-for notifications.
+be reached later, the app asks again. Android asks once for the microphone,
+for notifications and for your location.
