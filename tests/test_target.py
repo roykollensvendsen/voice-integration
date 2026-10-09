@@ -9,6 +9,7 @@ import pytest
 from conftest import NEWS, TOKEN
 
 from voice_bridge import budget, live, server, sessions, target
+from voice_bridge.policy import Refused
 
 
 @pytest.fixture
@@ -47,6 +48,24 @@ def test_while_the_voice_alone_is_chosen_nothing_is_forwarded(bridge, hermes, cl
     assert hermes.seen == []
     assert [name for name, _ in claude_voice.called] == []
     assert "nothing" in spoken.lower()
+
+
+def test_a_session_that_will_not_take_a_message_is_said_plainly(bridge, monkeypatch):
+    """On 2026-10-09 a refused send came back as a courier's own answer, in English."""
+    say(bridge, "snakk med build-7c")
+
+    # claude-voice's fixed words for it, since its PR #30.
+    refused = (
+        "Could not deliver: Claude Code refused to send it; the receiving session may be "
+        "waiting for the owner's permission"
+    )
+
+    def refuse(*_args, **_kwargs):
+        raise Refused(refused)
+
+    monkeypatch.setattr(bridge.sessions, "call", refuse)
+    spoken = server.ask_chosen(bridge, "fiks testen")
+    assert spoken == "build-7c is not taking messages right now; it may be waiting for you at the screen."
 
 
 def test_a_name_is_switched_to_only_when_it_matches_exactly_one_session(bridge):

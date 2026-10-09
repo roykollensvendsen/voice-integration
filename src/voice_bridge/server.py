@@ -611,6 +611,10 @@ def ask_chosen(bridge: Bridge, transcript: str) -> str:
             waits=wait,
         )
     except Refused as refusal:
+        # claude-voice's fixed words when Claude Code would not pass the
+        # message on: most often the session waits for its owner at the screen.
+        if "refused to send" in str(refusal):
+            return f"{chosen.name} is not taking messages right now; it may be waiting for you at the screen."
         return f"{chosen.name} could not be reached: {refusal}"
     except OSError:
         return "I cannot reach the coding sessions."
