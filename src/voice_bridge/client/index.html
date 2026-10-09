@@ -230,6 +230,9 @@ const keep = (turn) => fetch("/turn", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ who: turn.who, text: turn.text }),
+}).then((r) => r.json()).then((kept) => {
+  // "Legg på", heard by the bridge even when the voice answered it alone.
+  if (kept.hang_up && pc) setTimeout(stop, HANG_UP_MS);
 }).catch(() => {});
 
 // A fragment either continues the turn it belongs to or starts a new one.

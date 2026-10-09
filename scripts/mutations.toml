@@ -335,3 +335,9 @@ name = "a sound the transcriber marked is not something the person said"
 file = "src/voice_bridge/server.py"
 find = 'return NOISE\.sub\("", transcript\)'
 replace = 'return transcript'
+
+[[rule]]
+name = "a spoken hang-up puts the microphone down even when the voice answered it alone"
+file = "src/voice_bridge/server.py"
+find = 'return \{"hang_up": who == "You" and target\.hang_up_request\(without_noises\(said\)\)\}'
+replace = 'return {"hang_up": False}'

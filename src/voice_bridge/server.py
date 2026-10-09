@@ -987,8 +987,13 @@ class _Handler(BaseHTTPRequestHandler):
             # The page passes this on to the voice, which otherwise holds no
             # position at all and says so while the page displays one.
             return {"placed": self.server.placed, "known": live.known_place(self.server.placed)}
-        self.server.remember(str(body.get("who", "")), str(body.get("text", "")))
-        return {}
+        who, said = str(body.get("who", "")), str(body.get("text", ""))
+        self.server.remember(who, said)
+        # The voice answers "legg på" itself as often as it passes it on, and
+        # then nothing hangs up. Every turn the person says comes past here, so
+        # the page is told from here too.
+        # RULE: a spoken hang-up puts the microphone down even when the voice answered it alone
+        return {"hang_up": who == "You" and target.hang_up_request(without_noises(said))}
 
     def _who(self) -> dict[str, Any]:
         """Who turns go to now, and who else they could go to, and what each is doing."""
