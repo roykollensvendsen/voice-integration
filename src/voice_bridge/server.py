@@ -53,7 +53,19 @@ WATCH_POLL_SECONDS = 0.4
 #: The list is closed rather than open because `notice` acts on some event
 #: names: a page that could report `approval.request` could make the bridge
 #: believe a permission question is open when none is.
-PAGE_EVENTS = ("voice.told", "voice.unheard", "voice.lost")
+PAGE_EVENTS = (
+    "voice.told",
+    "voice.unheard",
+    "voice.lost",
+    # What happens in a call, kept with its time so it can be checked
+    # afterwards whether each happened when it should. Roy, 2026-10-09.
+    "call.opened",
+    "call.closed",
+    "wake.heard",
+    "hang_up.heard",
+    "target.changed",
+    "volume.changed",
+)
 
 #: How much of what the page reports is kept. It is a line of speech, not a log.
 NOTICED_CHARACTERS = 400
@@ -995,10 +1007,10 @@ class _Handler(BaseHTTPRequestHandler):
             if reported not in PAGE_EVENTS:
                 refusal = f"{reported or 'that'} is not the page's to report"
                 raise Refused(refusal)
-            notice(
-                self.server,
-                {"event": reported, "detail": str(body.get("detail", ""))[:NOTICED_CHARACTERS]},
-            )
+            detail = str(body.get("detail", ""))[:NOTICED_CHARACTERS]
+            notice(self.server, {"event": reported, "detail": detail})
+            # RULE: what the page reports is kept with its time, for checking afterwards
+            self.server.store.record("page", reported, detail=detail)
             return {}
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
@@ -1017,6 +1029,8 @@ class _Handler(BaseHTTPRequestHandler):
             # position at all and says so while the page displays one.
             return {"placed": self.server.placed, "known": live.known_place(self.server.placed)}
         who, said = str(body.get("who", "")), str(body.get("text", ""))
+        if isinstance(body.get("volume"), (int, float)):
+            self.server.volume = int(body["volume"])
         self.server.remember(who, said)
         # The voice answers "legg på" itself as often as it passes it on, and
         # then nothing hangs up. Every turn the person says comes past here, so
@@ -1195,6 +1209,8 @@ class Bridge(ThreadingHTTPServer):
         #: Where the person is, if the browser was allowed to say. Held here and
         #: nowhere else: never written to disk, never sent to an agent.
         self.placed: str | None = None
+        # How loud the voice is on the page, as the page last said; None until it has.
+        self.volume: int | None = None
         #: claude-voice, when there is a token to reach it with. ADR-VI-024.
         self.sessions: sessions.Client | None = None
         #: Requests Claude Code sessions are waiting on, by number, with what was said.

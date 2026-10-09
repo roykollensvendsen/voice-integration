@@ -43,6 +43,15 @@ FLEET = ("hva holder øktene på med", "hva skjer i øktene", "hva gjør øktene
 HEALTH = ("hvordan har broen", "hvordan går det med broen", "how has the bridge", "how is the bridge")
 # Asked by Roy on 2026-10-09: what can be done with the sessions, said back
 # from here rather than guessed at by a model that has never seen the list.
+#: "Når jeg spør om lydstyrken, vil jeg at du leser opp hva den faktisk står
+#: til" — Roy, 2026-10-09. The page tells the bridge with every turn.
+VOLUME_ASKED = (
+    "hva er lydstyrken",
+    "hva står lyden på",
+    "hvor høy er lyden",
+    "hvor høyt er lyden",
+    "how loud",
+)
 #: Said alone, these ask for help; inside a sentence they ask somebody else for it.
 HELP_ALONE = ("hjelp", "help", "hjelp meg", "jeg trenger hjelp", "i need help")
 HELP = (
@@ -240,6 +249,9 @@ def navigation(bridge: Bridge, said: str) -> str | None:
         return None
     if _matches(said, WHO):
         return where_you_are(bridge)
+    if _matches(said, VOLUME_ASKED):
+        known = bridge.volume
+        return "Jeg vet ikke hvor høy lyden er ennå." if known is None else f"Lyden står på {known} prosent."
     if _matches(said, HELP) or said.strip(".!? ") in HELP_ALONE:
         return HELP_SAID
     return None

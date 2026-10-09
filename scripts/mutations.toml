@@ -359,3 +359,9 @@ name = "a switch said among other things still switches, and what follows goes t
 file = "src/voice_bridge/target.py"
 find = 'if switch_request\(lines\[at\]\) is not None:'
 replace = 'if False:'
+
+[[rule]]
+name = "what the page reports is kept with its time, for checking afterwards"
+file = "src/voice_bridge/server.py"
+find = 'self\.server\.store\.record\("page", reported, detail=detail\)'
+replace = 'pass'
