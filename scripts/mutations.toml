@@ -339,5 +339,11 @@ replace = 'return transcript'
 [[rule]]
 name = "a spoken hang-up puts the microphone down even when the voice answered it alone"
 file = "src/voice_bridge/server.py"
-find = 'return \{"hang_up": who == "You" and target\.hang_up_request\(without_noises\(said\)\)\}'
-replace = 'return {"hang_up": False}'
+find = '"hang_up": mine and target\.hang_up_request\(without_noises\(said\)\),'
+replace = '"hang_up": False,'
+
+[[rule]]
+name = "asking where you are, or for help, is answered by the bridge wherever you are"
+file = "src/voice_bridge/quick.py"
+find = 'if _matches\(said, WHO\):'
+replace = 'if False:'

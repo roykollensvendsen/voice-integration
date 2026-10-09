@@ -226,6 +226,8 @@ const show = (who, text) => {
   return row;
 };
 
+// When the voice last passed a turn on: a turn after it was answered alone.
+let delegatedAt = 0;
 const keep = (turn) => fetch("/turn", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -233,6 +235,9 @@ const keep = (turn) => fetch("/turn", {
 }).then((r) => r.json()).then((kept) => {
   // "Legg på", heard by the bridge even when the voice answered it alone.
   if (kept.hang_up && pc) setTimeout(stop, HANG_UP_MS);
+  // "Hvem snakker jeg med" or "hjelp", answered alone by a voice that cannot
+  // see the sessions: the bridge's answer is said after all.
+  if (kept.say && pc && !(delegatedAt > turn.at)) tell(null, kept.say);
 }).catch(() => {});
 
 // A fragment either continues the turn it belongs to or starts a new one.
@@ -252,7 +257,7 @@ function heard(who, delta, startMs, endMs) {
     last.settle = setTimeout(() => keep(last), TURN_GAP_MS + 400);
     return last;
   }
-  const fresh = { who, text: delta, start: startMs, end: endMs, session, row: show(who, delta) };
+  const fresh = { who, text: delta, start: startMs, end: endMs, session, at: Date.now(), row: show(who, delta) };
   turns.push(fresh);
   // A turn is kept by the bridge, not by this page: a page forgets on reload,
   // and the bridge is what a new session asks for its history.
@@ -447,7 +452,7 @@ function onEvent(event) {
       if (unsent.length) unsent = [];
       heard("It said", event.delta, event.start_ms, event.end_ms);
       break;
-    case "session.delegation.created": answer(event.delegation.id); break;
+    case "session.delegation.created": delegatedAt = Date.now(); answer(event.delegation.id); break;
     case "session.commentary.appended":
     case "session.thinking.appended":
     // The acknowledgement carries its own event_id; ours comes back as
@@ -864,13 +869,14 @@ const QUIET_MS = 45_000;
 let woken = false, lastActive = 0, quietCheck = null, mic = null;
 function active() { lastActive = Date.now(); }
 
-// A short rising tone: the word was heard, and the voice is coming.
-function chime() {
+// A short tone: rising when the word was heard and the voice is coming,
+// falling when the call is over and nothing more is heard or paid for.
+function chime(from = 660, to = 990) {
   try {
     const sound = new AudioContext();
     const tone = sound.createOscillator(), level = sound.createGain();
-    tone.frequency.setValueAtTime(660, sound.currentTime);
-    tone.frequency.linearRampToValueAtTime(990, sound.currentTime + 0.15);
+    tone.frequency.setValueAtTime(from, sound.currentTime);
+    tone.frequency.linearRampToValueAtTime(to, sound.currentTime + 0.15);
     level.gain.setValueAtTime(0.2, sound.currentTime);
     level.gain.linearRampToValueAtTime(0, sound.currentTime + 0.2);
     tone.connect(level).connect(sound.destination);
@@ -979,6 +985,8 @@ async function start() {
 const HANG_UP_MS = 3500;
 
 function stop() {
+  // Only a call that was open ends with a tone; a failed start never began.
+  if (pc) chime(990, 495);
   book();
   queued = [];
   clearInterval(booking);

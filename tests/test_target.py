@@ -8,7 +8,7 @@ import urllib.request
 import pytest
 from conftest import NEWS, TOKEN
 
-from voice_bridge import budget, live, server, sessions, target
+from voice_bridge import budget, live, quick, server, sessions, target
 from voice_bridge.policy import Refused
 
 
@@ -48,6 +48,59 @@ def test_while_the_voice_alone_is_chosen_nothing_is_forwarded(bridge, hermes, cl
     assert hermes.seen == []
     assert [name for name, _ in claude_voice.called] == []
     assert "nothing" in spoken.lower()
+
+
+@pytest.mark.parametrize(
+    "said",
+    # Said on 2026-10-09; the voice answered "Det ser jeg ikke herfra".
+    [
+        "Hvilke økter har jeg snakket med nå da",
+        "Hvem snakker jeg med?",
+        "Hjelp!",
+        "hvordan bytter jeg til Hermes",
+    ],
+)
+def test_asking_where_you_are_or_for_help_is_answered_by_the_bridge_wherever_you_are(bridge, said):
+    say(bridge, "snakk med build-7c")
+    spoken = server.answer_delegation(said, "http://127.0.0.1:9", bridge=bridge)
+    assert "«hei Hermes»" in spoken
+    assert "tilbake til stemmen" in spoken
+
+
+def test_who_you_are_talking_to_names_the_choice_and_the_running_sessions(bridge):
+    say(bridge, "snakk med build-7c")
+    spoken = quick.where_you_are(bridge)
+    assert spoken.startswith("Du snakker med økta build-7c.")
+    assert "build-7c" in spoken.split("Øktene som kjører, er ", 1)[1]
+
+
+def test_help_inside_a_sentence_goes_where_it_was_going():
+    assert quick.navigation(None, "kan du hjelpe meg med den røde testen") is None
+
+
+def test_the_page_says_the_bridges_answer_when_the_voice_answered_alone(bridge):
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        _, kept = post(f"http://127.0.0.1:{bridge.server_port}/turn", {"who": "You", "text": "Hjelp"})
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert kept["say"] == quick.HELP_SAID
+    assert "if (kept.say && pc && !(delegatedAt > turn.at)) tell(null, kept.say)" in server.PAGE.read_text()
+
+
+def test_the_end_of_a_call_is_heard_as_a_falling_tone():
+    """Roy, 2026-10-09: a tone at the end too, so he knows the call is over."""
+    assert "if (pc) chime(990, 495);" in server.PAGE.read_text()
+
+
+@pytest.mark.parametrize(
+    ("said", "wanted"),
+    [("Tilbake til stemmen", "voice"), ("tilbake til Hermes", "hermes"), ("Sett over til Hermes", "hermes")],
+)
+def test_back_to_is_a_switch_as_the_help_says(said, wanted):
+    assert target.switch_request(said) == target.Target(wanted)
 
 
 def test_a_session_that_will_not_take_a_message_is_said_plainly(bridge, monkeypatch):
@@ -576,8 +629,9 @@ def test_asking_the_voice_to_hang_up_is_understood(said):
 
 def test_the_voice_is_told_to_claim_nothing_the_backend_has_not_said():
     """On 2026-10-09 it told Roy he had been talking to Hermes all along. He had not."""
-    assert "hvem personen snakker med, før bakenden har sagt det" in live.INSTRUCTIONS["nb"]
-    assert "before the backend has said so" in live.INSTRUCTIONS["en"]
+    assert "Si aldri at noe er gjort før bakenden har sagt det" in live.INSTRUCTIONS["nb"]
+    assert "Hvem personen snakker med, hvilke økter som finnes" in live.INSTRUCTIONS["nb"]
+    assert "Never say something is done before the backend has said so" in live.INSTRUCTIONS["en"]
 
 
 def test_a_sound_the_transcriber_marked_is_not_something_the_person_said():
@@ -610,9 +664,9 @@ def test_a_spoken_hang_up_puts_the_microphone_down_even_when_the_voice_answered_
     finally:
         bridge.shutdown()
         thread.join(timeout=5)
-    assert roy == {"hang_up": True}
-    assert voice == {"hang_up": False}
-    assert other == {"hang_up": False}
+    assert roy["hang_up"] is True
+    assert voice["hang_up"] is False
+    assert other["hang_up"] is False
     assert "if (kept.hang_up && pc) setTimeout(stop, HANG_UP_MS)" in server.PAGE.read_text()
 
 
