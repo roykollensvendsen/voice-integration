@@ -216,7 +216,16 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
         arguments = message["params"].get("arguments") or {}
         self.server.called.append((name, arguments))
         self.server.metas.append(message["params"].get("_meta") or {})
+        if name == "start_active_session":
+            # Like claude-voice: it answers once the new session is among the running ones.
+            started = {
+                "name": f"{arguments['project']}-1a2b",
+                "project": arguments["project"],
+                "status": "idle",
+            }
+            self.server.active.append({**started, "kind": "bg", "claude_session_id": "new-1"})
         canned = {
+            "start_active_session": {**self.server.active[-1]},
             "whats_new": {"cursor": "b9.f0", "events": NEWS},
             "list_active_sessions": {"sessions": self.server.active},
             "ask_active_session": self.server.answer,
