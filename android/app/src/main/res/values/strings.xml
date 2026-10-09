@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Stemmen</string>
+    <string name="ask_address">Adressen til stemmebroen</string>
+    <string name="ask_address_hint">https://maskinen.tailnett.ts.net:10000/</string>
+    <string name="save">Lagre</string>
+    <string name="listening_title">Stemmen er klar</string>
+    <string name="listening_text">Lyden fortsetter med skjermen av. Trykk for å åpne.</string>
+    <string name="channel">Stemmen</string>
+</resources>
