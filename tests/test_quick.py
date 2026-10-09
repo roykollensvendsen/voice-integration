@@ -106,3 +106,9 @@ def test_asking_what_can_be_done_with_the_sessions_is_answered_from_the_bridge(t
         assert quick.answer(made, "kan du hjelpe meg med koden") is None
     finally:
         made.server_close()
+
+
+def test_asking_for_the_position_in_other_words_is_answered_too():
+    """Roy asked "Jeg lurer på GPS-posisjonen min", and was not answered."""
+    for asked in ("Jeg lurer på GPS-posisjonen min", "hva er min posisjon", "hvor er jeg"):
+        assert any(word in asked.casefold() for word in quick.PLACE), asked

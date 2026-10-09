@@ -56,7 +56,19 @@ HELP_SAID = (
     "for å snakke med én økt. Du kan starte en ny økt i et prosjekt, lukke en økt jeg har startet, "
     "svare ja eller nei når en økt ber om lov, og si avbryt for å stoppe det som pågår."
 )
-PLACE = ("hvor er jeg", "hvor befinner jeg", "where am i", "my location", "hvilket sted er jeg")
+# "Jeg lurer på GPS-posisjonen min", asked on 2026-10-09, went past these.
+PLACE = (
+    "hvor er jeg",
+    "hvor befinner jeg",
+    "where am i",
+    "my location",
+    "hvilket sted er jeg",
+    "posisjonen min",
+    "min posisjon",
+    "gps-posisjon",
+    "gps posisjon",
+    "my position",
+)
 
 #: What marks a question as one for the web rather than for this machine. The
 #: gateway is the one that reads files and runs things; the web is everything
