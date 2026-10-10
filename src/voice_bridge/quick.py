@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING
 
-from voice_bridge import metrics
+from voice_bridge import metrics, moving
 
 if TYPE_CHECKING:
     from voice_bridge.server import Bridge
@@ -203,7 +203,7 @@ def _known(bridge: Bridge, said: str) -> str | None:
     if _matches(said, RUNNING):
         return "Ingenting kjører akkurat nå." if bridge.following is None else "Noe kjører fortsatt."
     if _matches(said, PLACE):
-        return f"Du er i {bridge.placed}." if bridge.placed else "Jeg vet ikke hvor du er."
+        return moving.described(bridge.fix, bridge.placed)
     return None
 
 
@@ -235,8 +235,29 @@ _KINDS = (
 )
 
 
+#: A question about what is around, which Hermes answers better knowing where.
+AROUND = (
+    "rundt meg",
+    "rundt oss",
+    "i nærheten",
+    "omgivelse",
+    "her vi kjører",
+    "her vi går",
+    "near me",
+    "around me",
+    "around us",
+)
+
+
+def about_surroundings(said: str) -> bool:
+    """Whether a turn is about where the person is or what is around them."""
+    return kind_of(said) in ("place", "around") or _matches(said.casefold(), AROUND)
+
+
 def kind_of(said: str) -> str | None:
     """Which of the bridge's own answers this asks for, by name, or None."""
+    if moving.side_asked(said):
+        return "around"
     said = said.strip().casefold()
     for name, words in _KINDS:
         if _matches(said, words):
@@ -270,11 +291,15 @@ def navigation(bridge: Bridge, said: str) -> str | None:
     if _matches(said, SESSIONS):
         return sessions_running(bridge)
     if _matches(said, VOLUME_ASKED):
-        known = bridge.volume
-        return "Jeg vet ikke hvor høy lyden er ennå." if known is None else f"Lyden står på {known} prosent."
-    if _matches(said, HELP) or said.strip(".!? ") in HELP_ALONE:
-        return HELP_SAID
-    return None
+        return (
+            "Jeg vet ikke hvor høy lyden er ennå."
+            if bridge.volume is None
+            else f"Lyden står på {bridge.volume} prosent."
+        )
+    side = moving.side_asked(said)
+    if side:
+        return bridge.around(side)
+    return HELP_SAID if _matches(said, HELP) or said.strip(".!? ") in HELP_ALONE else None
 
 
 def _looked_up(bridge: Bridge, said: str) -> str | None:

@@ -1084,25 +1084,41 @@ async function start() {
   // just opted into being listened to is in the right frame for this question,
   // and asking on page load is not. Declining is answered honestly rather than
   // guessed at, and the coordinates never leave the bridge's memory.
-  navigator.geolocation?.getCurrentPosition(
-    ({ coords }) => fetch("/where", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude }),
-    }).then((r) => r.json()).then((p) => {
-      if (!p.placed) return;
-      note("Where you are", p.placed);
-      think(p.known);
-    }).catch(() => {}),
+  // Followed for the whole call, not asked once: on a drive the place changes,
+  // and "hva er til venstre" needs the way the phone is going. The phone says
+  // where it is every few seconds; the voice is told only when the place
+  // changes. docs/location-proposal.md, step 1.
+  positionWatch = navigator.geolocation?.watchPosition(
+    ({ coords }) => {
+      if (Date.now() - lastSent < WHERE_EVERY_MS) return;
+      lastSent = Date.now();
+      fetch("/where", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          heading: coords.heading,
+          speed: coords.speed,
+        }),
+      }).then((r) => r.json()).then((p) => {
+        if (!p.placed || !p.changed) return;
+        note("Where you are", p.placed);
+        think(p.known);
+      }).catch(() => {});
+    },
     () => {},
     // The phone's GPS, not a guess from the network: asked for exactly.
-    { enableHighAccuracy: true, maximumAge: 60_000, timeout: 15_000 },
-  );
+    { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
+  ) ?? null;
   addEventListener("pagehide", book, { once: true });
 }
 
 // Long enough for the voice to say that it is hanging up.
 const HANG_UP_MS = 3500;
+// How often the phone's position is sent during a call.
+const WHERE_EVERY_MS = 5_000;
+let positionWatch = null, lastSent = 0;
 
 function stop(why = "button") {
   // Only a call that was open ends with a tone; a failed start never began.
@@ -1126,6 +1142,10 @@ function stop(why = "button") {
   mic = null;
   clearInterval(quietCheck);
   quietCheck = null;
+  // The position is followed only while a call is open.
+  if (positionWatch != null) navigator.geolocation?.clearWatch(positionWatch);
+  positionWatch = null;
+  lastSent = 0;
   woken = false;
   window.VoiceApp?.sessionClosed();
   state.textContent = "idle";
