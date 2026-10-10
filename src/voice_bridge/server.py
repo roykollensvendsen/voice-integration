@@ -862,6 +862,22 @@ def without_noises(transcript: str) -> str:
     return NOISE.sub("", transcript)
 
 
+def traced(bridge: Bridge, source: str, said: str, before: str, outcome: str) -> None:
+    """Keep what was heard, what it was taken as, what was done, and whom it went to.
+
+    Roy, 2026-10-10: "Den sier at den bytter men gjør det ikke. Noen ganger
+    funker det." A turn the page saw but no delegation followed is one the
+    voice answered alone; a switch shows who it went from and to.
+    """
+    label = target.command_of(said) or quick.kind_of(said) or "talk"
+    after = bridge.chosen.said()
+    whom = f"{before} → {after}" if after != before else f"with {after}"
+    heard = " ".join(said.split())[:80]
+    done = " ".join(outcome.split())[:50]
+    # RULE: every spoken command is traced with what was heard, what was done, and whom it went to
+    bridge.store.record("action", label, detail=f"{source} | {heard} | {done} | {whom}")
+
+
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
@@ -1032,22 +1048,45 @@ class _Handler(BaseHTTPRequestHandler):
             # The page passes this on to the voice, which otherwise holds no
             # position at all and says so while the page displays one.
             return {"placed": self.server.placed, "known": live.known_place(self.server.placed)}
+        return self._turn(body)
+
+    def _turn(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Keep a turn, and act on what the voice too often answers alone."""
         who, said = str(body.get("who", "")), str(body.get("text", ""))
         if isinstance(body.get("volume"), (int, float)):
             self.server.volume = int(body["volume"])
         self.server.remember(who, said)
+        if who != "You":
+            return {"hang_up": False, "say": None, "volume": None}
+        heard = without_noises(said)
+        before = self.server.chosen.said()
         # The voice answers "legg på" itself as often as it passes it on, and
         # then nothing hangs up. Every turn the person says comes past here, so
         # the page is told from here too.
         # RULE: a spoken hang-up puts the microphone down even when the voice answered it alone
-        mine = who == "You"
-        return {
-            "hang_up": mine and target.hang_up_request(without_noises(said)),
-            # The voice answers "hvem snakker jeg med" by itself too, and then
-            # says it cannot see. The page says this instead, if it did.
-            "say": quick.navigation(self.server, without_noises(said)) if mine else None,
-            "volume": target.volume_request(said) if mine else None,
-        }
+        hang_up = target.hang_up_request(heard)
+        volume = target.volume_request(heard)
+        # The voice says "jeg bytter" and does not ask as often as it asks.
+        # Every turn comes past here, so the switch is made from here too.
+        # RULE: a spoken switch is made even when the voice answered it alone
+        moved = switch(self.server, heard) if self._plainly_a_switch(heard) else None
+        # The voice answers "hvem snakker jeg med" by itself too, and then
+        # says it cannot see. The page says this instead, if it did.
+        say = quick.navigation(self.server, heard) or moved
+        done = "hang up" if hang_up else f"volume {volume[1]}" if volume else say or ""
+        traced(self.server, "turn", heard, before, done)
+        return {"hang_up": hang_up, "say": say, "volume": volume}
+
+    def _plainly_a_switch(self, heard: str) -> bool:
+        """A switch to Jarvis, Hermes, or a name that is exactly one running session.
+
+        Chat that only sounds like a switch, "bytt til Hermes nå og si noe",
+        is left to the voice: here a wrong guess would move the person.
+        """
+        asked = target.switch_request(heard)
+        if isinstance(asked, target.Target):
+            return True
+        return bool(asked) and len(target.matching(str(asked), self.server.running())) == 1
 
     def _who(self) -> dict[str, Any]:
         """Who turns go to now, and who else they could go to, and what each is doing."""
@@ -1147,6 +1186,7 @@ class _Handler(BaseHTTPRequestHandler):
                     metrics.tracing(metrics.new_trace()),
                     metrics.measured(self.server.store, "turn", self.server.chosen.kind) as outcome,
                 ):
+                    before = self.server.chosen.said()
                     spoken = answer_delegation(
                         str(body.get("transcript", "")),
                         self.server.gateway_url,
@@ -1157,6 +1197,7 @@ class _Handler(BaseHTTPRequestHandler):
                     outcome["detail"] = (
                         "quiet" if self.server.quiet else "following" if self.server.following else "answered"
                     )
+                    traced(self.server, "delegation", str(body.get("transcript", "")), before, spoken)
                 self._send(
                     200,
                     {

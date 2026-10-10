@@ -219,6 +219,33 @@ def answer(bridge: Bridge, transcript: str) -> str | None:
     return _known(bridge, said) or _looked_up(bridge, said)
 
 
+#: The bridge's own answers by name, for the trace of what each turn was taken as.
+_KINDS = (
+    ("web", LOOK_IT_UP),
+    ("clock", CLOCK),
+    ("place", PLACE),
+    ("budget", SPENT),
+    ("running", RUNNING),
+    ("who", WHO),
+    ("sessions", SESSIONS),
+    ("volume_asked", VOLUME_ASKED),
+    ("help", HELP),
+    ("fleet", FLEET),
+    ("health", HEALTH),
+)
+
+
+def kind_of(said: str) -> str | None:
+    """Which of the bridge's own answers this asks for, by name, or None."""
+    said = said.strip().casefold()
+    for name, words in _KINDS:
+        if _matches(said, words):
+            return name
+    if said.strip(".!? ") in HELP_ALONE:
+        return "help"
+    return "digest" if DIGEST.match(said.strip(".!? ")) else None
+
+
 def where_you_are(bridge: Bridge) -> str:
     """Who the person is talking to, and nothing more."""
     if bridge.chosen.kind == "session":

@@ -11,17 +11,20 @@
   } catch { /* no storage: follow the device */ }
 </script>
 <style>
-  :root { color-scheme: light dark; --ink: #17181c; --dim: #6c7079; --line: #d7d9de; --live: #1a7f4b; }
+  :root { color-scheme: light dark; --bg: #ffffff; --ink: #17181c; --dim: #6c7079; --line: #d7d9de; --live: #1a7f4b; }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
+    :root:not([data-theme="light"]) { --bg: #121317; --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
   }
   :root[data-theme="light"] { color-scheme: light; }
   /* Chosen by hand: the phone app's view of the web does not always pass the
-     device's dark setting on, so the page cannot rely on following it. */
-  :root[data-theme="dark"] { color-scheme: dark; --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
+     device's dark setting on, so the page cannot rely on following it. The
+     background is a colour of its own for the same reason: the system colour
+     Canvas stayed white there. */
+  :root[data-theme="dark"] { color-scheme: dark; --bg: #121317; --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
+  html { background: var(--bg); }
   body { margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
          font: 15px/1.55 ui-sans-serif, system-ui, sans-serif; color: var(--ink);
-         background: Canvas; max-width: 76rem; margin-inline: auto; }
+         background: var(--bg); max-width: 76rem; margin-inline: auto; }
 
   /* Wide: the conversation on the left, the agents on the right, side by side.
      Narrow: the same two panes, one screen each, swiped between. Scroll snap
@@ -49,7 +52,7 @@
   #state { margin-left: .9rem; color: var(--dim); }
   .volume { display: flex; align-items: center; gap: .5rem; margin-top: .6rem; font-size: .8rem; color: var(--dim); }
   .volume input { flex: 1; max-width: 14rem; }
-  .volume select { font: inherit; color: inherit; background: Canvas; border: 1px solid var(--line);
+  .volume select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
                    border-radius: .3rem; padding: .1rem .3rem; }
   .usage svg { width: 100%; height: 5rem; display: block; margin: .4rem 0; }
   .usage rect { fill: var(--live); }
@@ -113,6 +116,13 @@
 <label class="volume">Utseende <select id="look">
   <option value="auto">Som enheten</option><option value="light">Lyst</option><option value="dark">Mørkt</option>
 </select></label>
+<div id="voices" class="voices"></div>
+<details id="health">
+  <summary>Helse</summary>
+  <div class="usage"></div>
+  <div class="body"></div>
+</details>
+
 
 <details id="sayable">
   <summary>Hva kan jeg si?</summary>
@@ -136,14 +146,7 @@
 <section id="who" aria-label="Who you are talking to">
   <div class="now">Du snakker med <strong id="chosen">…</strong></div>
   <ul id="tree"></ul>
-  <div id="voices" class="voices"></div>
 </section>
-
-<details id="health">
-  <summary>Helse</summary>
-  <div class="usage"></div>
-  <div class="body"></div>
-</details>
 
 <nav id="tabs" aria-label="Which side to show">
   <button type="button" data-pane="0" aria-current="true">The conversation</button>
