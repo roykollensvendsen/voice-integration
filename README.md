@@ -183,6 +183,27 @@ $20.00 left of $20.00 this month — 400 minutes
 Twenty dollars is 400 minutes, or about thirteen minutes a day. `--ledger` names
 where the spend is kept; without it, this installation's own.
 
+## What happened in a call
+
+Every spoken command is kept with its time: what was heard, what it was taken
+as, what was done, and whom it went to. With them are the page's own events,
+such as a call opening or closing and why. `timeline` shows them in order:
+
+```console
+$ voicebridge timeline --minutes 5 --store /tmp/voicebridge-example/metrics.sqlite
+nothing in the last 5 minutes
+```
+
+A line reads like this one:
+
+```text
+21:14:36  action switch         turn | Bytt til Hermes | You are talking to Hermes now. | Jarvis alone → Hermes
+```
+
+A turn marked `turn` and no `delegation` after it is one the voice answered by
+itself. `--minutes` says how far back to look, and `--store` names where the
+measurements are kept; without it, this installation's own.
+
 ## Running the checks
 
 Every fact stated twice here is compared by something that can fail, and every
@@ -193,9 +214,9 @@ $ voicebridge check .
 voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed
 gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed
 claude-voice tools: 14 in docs/claude-voice-contract.md, 14 in the code, agreed
-rules: 57 in the source, 57 in scripts/mutations.toml, agreed
-rule tests: 57 rules, each with a test named after it
-mutation rows: 57, each on the line its rule marks
+rules: 59 in the source, 59 in scripts/mutations.toml, agreed
+rule tests: 59 rules, each with a test named after it
+mutation rows: 59, each on the line its rule marks
 ```
 
 The rest of the gates, and how a change is made, are in

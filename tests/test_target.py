@@ -2,13 +2,14 @@
 
 import json
 import threading
+import time
 import urllib.error
 import urllib.request
 
 import pytest
 from conftest import NEWS, TOKEN
 
-from voice_bridge import budget, live, quick, server, sessions, target
+from voice_bridge import budget, cli, live, metrics, quick, server, sessions, target
 from voice_bridge.policy import Refused
 
 
@@ -232,6 +233,65 @@ def test_the_page_can_be_made_dark_by_choice_and_remembers_it():
     assert 'localStorage.setItem("look", look.value)' in page
     # Applied in the head, before the body is drawn.
     assert page.index('localStorage.getItem("look")') < page.index("<h1>")
+
+
+def test_a_spoken_switch_is_made_even_when_the_voice_answered_it_alone(bridge):
+    """Roy, 2026-10-10: "Den sier at den bytter men gjør det ikke."."""
+    say(bridge, "snakk med build-7c")
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    try:
+        _, kept = post(
+            f"http://127.0.0.1:{bridge.server_port}/turn", {"who": "You", "text": "Bytt til Hermes"}
+        )
+        _, chat = post(
+            f"http://127.0.0.1:{bridge.server_port}/turn",
+            {"who": "You", "text": "Hei, bytt til Hermes nå og si noe"},
+        )
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    assert bridge.chosen == target.Target("hermes")
+    assert kept["say"] == "You are talking to Hermes now."
+    assert chat["say"] is None
+
+
+def test_every_spoken_command_is_traced_with_what_was_heard_what_was_done_and_whom_it_went_to(bridge):
+    say(bridge, "snakk med build-7c")
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    turn = f"http://127.0.0.1:{bridge.server_port}/turn"
+    try:
+        post(turn, {"who": "You", "text": "Hva er klokka?"})
+        post(turn, {"who": "You", "text": "Bytt til Hermes"})
+        post(turn, {"who": "You", "text": "Legg på røret"})
+        post(f"http://127.0.0.1:{bridge.server_port}/delegation", {"transcript": "Hvor er jeg?"})
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    actions = [(row["name"], row["detail"]) for row in bridge.store.rows("action")]
+    assert [name for name, _ in actions] == ["clock", "switch", "hang_up", "place"]
+    assert actions[0][1].startswith("turn | Hva er klokka? | ")
+    assert actions[1][1] == "turn | Bytt til Hermes | You are talking to Hermes now. | build-7c → Hermes"
+    assert actions[2][1].endswith("| hang up | with Hermes")
+    assert actions[3][1].startswith("delegation | Hvor er jeg? | ")
+
+
+def test_the_timeline_shows_what_was_said_and_done_in_order(tmp_path, capsys):
+    store = metrics.Store(tmp_path / "metrics.sqlite")
+    store.record("page", "call.opened", detail="wake word", at=time.time() - 30)
+    store.record(
+        "action", "switch", detail="turn | Bytt til Hermes | ok | Jarvis alone → Hermes", at=time.time() - 20
+    )
+    store.record("page", "call.closed", detail="hang-up", at=time.time() - 10)
+    assert cli.main(["timeline", "--store", str(tmp_path / "metrics.sqlite")]) == 0
+    # The store also writes each event to the log as JSON; the timeline is the rest.
+    lines = [line for line in capsys.readouterr().out.splitlines() if not line.startswith("{")]
+    assert [line.split()[1:3] for line in lines] == [
+        ["page", "call.opened"],
+        ["action", "switch"],
+        ["page", "call.closed"],
+    ]
 
 
 def test_hermes_is_told_not_to_change_the_computers_sound():

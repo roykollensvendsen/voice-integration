@@ -296,6 +296,21 @@ def split_at_switch(transcript: str) -> tuple[str | None, str]:
     return None, transcript
 
 
+def command_of(said: str) -> str | None:
+    """Which spoken command this is, by name, or None: for the trace of each turn."""
+    if hang_up_request(said):
+        return "hang_up"
+    if volume_request(said):
+        return "volume"
+    if split_at_switch(said)[0] is not None:
+        return "switch"
+    if start_request(said):
+        return "start"
+    if close_request(said) is not None:
+        return "close"
+    return "cancel" if cancel_request(said) else None
+
+
 def greets_hermes(said: str) -> bool:
     """Whether this is "hei Hermes": what the voice itself suggests saying to reach Hermes."""
     whole = " ".join(said.casefold().split()).strip(" .!?")

@@ -13,6 +13,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import time
 from typing import TYPE_CHECKING, ClassVar
 
 from voice_bridge import alerts, budget, gateway, metrics, ready, server, sessions, target
@@ -127,6 +128,24 @@ def _ready(args: argparse.Namespace) -> int:
     return 0 if not failing else 1
 
 
+def _timeline(args: argparse.Namespace) -> int:
+    """What happened in the latest calls, line by line: what was said, what was done, what the page saw."""
+    kept = metrics.Store(
+        pathlib.Path(args.store) if args.store else target.state_file().with_name("metrics.sqlite")
+    )
+    since = time.time() - args.minutes * 60
+    rows = sorted(
+        (row for event in ("page", "action", "turn", "voice") for row in kept.rows(event, since)),
+        key=lambda row: row["at"],
+    )
+    for row in rows:
+        when = time.strftime("%H:%M:%S", time.localtime(row["at"]))
+        print(f"{when}  {row['event']:<7}{row['name']:<15}{row['detail'] or ''}".rstrip())
+    if not rows:
+        print(f"nothing in the last {args.minutes} minutes")
+    return 0
+
+
 def _check(args: argparse.Namespace) -> int:
     """Compare every fact the documents and the code both state."""
     try:
@@ -147,6 +166,7 @@ class Main:
         "dispatch": _dispatch,
         "ready": _ready,
         "serve": _serve,
+        "timeline": _timeline,
         "tools": _tools,
     }
 
@@ -176,6 +196,10 @@ class Main:
         readiness.add_argument("--json", action="store_true", help="the same, for an assistant")
         readiness.add_argument("--offline", action="store_true", help="ask nothing beyond this machine")
         readiness.add_argument("--gateway", default=DEFAULT_GATEWAY, help="the Hermes gateway")
+
+        timeline = verbs.add_parser("timeline", help=_timeline.__doc__)
+        timeline.add_argument("--minutes", type=int, default=60, help="how far back to look")
+        timeline.add_argument("--store", default="", help="where the measurements are kept")
 
         check = verbs.add_parser("check", help=_check.__doc__)
         check.add_argument("root", nargs="?", default=".", help="the repository to check")

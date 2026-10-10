@@ -339,8 +339,8 @@ replace = 'return transcript'
 [[rule]]
 name = "a spoken hang-up puts the microphone down even when the voice answered it alone"
 file = "src/voice_bridge/server.py"
-find = '"hang_up": mine and target\.hang_up_request\(without_noises\(said\)\),'
-replace = '"hang_up": False,'
+find = 'hang_up = target\.hang_up_request\(heard\)'
+replace = 'hang_up = False'
 
 [[rule]]
 name = "asking where you are, or for help, is answered by the bridge wherever you are"
@@ -365,3 +365,15 @@ name = "what the page reports is kept with its time, for checking afterwards"
 file = "src/voice_bridge/server.py"
 find = 'self\.server\.store\.record\("page", reported, detail=detail\)'
 replace = 'pass'
+
+[[rule]]
+name = "every spoken command is traced with what was heard, what was done, and whom it went to"
+file = "src/voice_bridge/server.py"
+find = 'bridge\.store\.record\("action", label, detail=.*'
+replace = 'pass'
+
+[[rule]]
+name = "a spoken switch is made even when the voice answered it alone"
+file = "src/voice_bridge/server.py"
+find = 'moved = switch\(self\.server, heard\) if self\._plainly_a_switch\(heard\) else None'
+replace = 'moved = None'
