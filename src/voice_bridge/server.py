@@ -121,8 +121,11 @@ TURN_INSTRUCTIONS = (
     # Heard on 2026-10-09: it said a location check was running, said it had
     # sent messages that the voice bridge had sent, and promised a message it
     # only sent when asked again.
-    "You have no access to the person's phone, its GPS or their position; the voice bridge "
-    "knows where they are, not you. Never say something is running or was sent unless a tool "
+    # Since 2026-10-10 the whereabouts service answers that, over MCP: Hermes
+    # asks it rather than guessing, and never makes a position up.
+    "Where the person is, which way and how fast they are going, what is around them and "
+    "their route come only from the whereabouts tools: where_am_i, whats_around, route_taken. "
+    "Ask them; never guess a position. Never say something is running or was sent unless a tool "
     "you called in this turn did it. Messages that reach a Claude session while the person "
     "talks to that session are sent by the voice bridge, not by you. When asked to send "
     "something, send it in this turn, not later. "

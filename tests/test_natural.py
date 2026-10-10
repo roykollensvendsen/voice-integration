@@ -110,6 +110,6 @@ def test_the_voice_waits_for_the_end_of_a_thought_before_it_answers():
 def test_the_planner_never_claims_what_it_did_not_do():
     """Hermes said a location check was running, and took credit for messages the bridge sent."""
     told = server.TURN_INSTRUCTIONS
-    assert "no access to the person's phone" in told
+    assert "come only from the whereabouts tools" in told
     assert "unless a tool you called in this turn did it" in told
     assert "sent by the voice bridge, not by you" in told
