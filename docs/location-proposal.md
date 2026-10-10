@@ -1,6 +1,6 @@
 # Where you are, while you move
 
-*A proposal, waiting for Roy's yes or no. Nothing here is built yet.*
+*Proposed on 2026-10-10. Asked about the choices below, Roy gave no preference, so the safer one is taken in each case. He can change any of them. Step 1 is being built, since it writes nothing down. Step 2 waits for his plain yes.*
 
 ## What it is for
 
@@ -24,8 +24,8 @@ a page in a locked phone is paused. The bridge keeps the latest reading. When
 no call is open, nothing is sent, unless you have switched on "follow the
 route".
 
-**Hermes is told where you are with every turn.** One line goes with each
-question to Hermes: for example, "Roy is on Fv 410 at Skuggevik, heading north
+**Hermes is told where you are when you ask about it.** One line goes with a
+question to Hermes about where you are or what is around you: for example, "Roy is on Fv 410 at Skuggevik, heading north
 at 60 km/h, at 14:02". Nothing else changes for Hermes. A session you talk to
 is not told unless it asks.
 
@@ -70,7 +70,9 @@ Each step can be tried in the car before the next one starts.
 
 ## What Roy decides
 
-- Whether the route may be written down on the laptop at all, and for how long.
-- Whether Hermes's model may see the position with every turn, or only when you
-  ask about where you are.
-- Whether the map may fetch its tiles from OpenStreetMap.
+- **Whether the route may be written down, and for how long.** Taken for now:
+  on the laptop only, for 30 days, and wiped by "slett ruta". Not built until
+  Roy says yes to step 2.
+- **Whether Hermes's model sees the position with every turn.** Taken for now:
+  only when you ask about where you are or what is around you.
+- **Whether the map may fetch its tiles from OpenStreetMap.** Asked with step 2.
