@@ -224,6 +224,16 @@ def test_a_tap_between_calls_is_not_told_to_the_next_call():
     assert "if (reply.said && pc) think(reply.said);" in page
 
 
+def test_the_page_can_be_made_dark_by_choice_and_remembers_it():
+    """Roy, 2026-10-10: a choice of dark mode, not only whatever the device says."""
+    page = server.PAGE.read_text()
+    assert ':root[data-theme="dark"] { color-scheme: dark;' in page
+    assert '<option value="dark">Mørkt</option>' in page
+    assert 'localStorage.setItem("look", look.value)' in page
+    # Applied in the head, before the body is drawn.
+    assert page.index('localStorage.getItem("look")') < page.index("<h1>")
+
+
 def test_hermes_is_told_not_to_change_the_computers_sound():
     """On 2026-10-09 Hermes set the computer's speaker, not the voice on the phone."""
     assert "never change the computer's sound" in server.TURN_INSTRUCTIONS
