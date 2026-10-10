@@ -115,3 +115,18 @@ def test_where_the_person_is_never_reaches_the_trace(bridge):
     (row,) = bridge.store.rows("action")
     assert "Svennskotveien" not in row["detail"]
     assert "(where you are, said)" in row["detail"]
+
+
+def test_no_place_the_person_has_been_is_written_into_the_measurements(bridge):
+    """On 2026-10-10 the street address reached the measurements through the page's own report."""
+    bridge.placed = "Svennskotveien 23, Skuggevik"
+    thread = threading.Thread(target=bridge.serve_forever, daemon=True)
+    thread.start()
+    told = "Brukeren er i Svennskotveien 23, Skuggevik. Det vet du."
+    try:
+        post(f"http://127.0.0.1:{bridge.server_port}/noticed", {"event": "voice.told", "detail": told})
+    finally:
+        bridge.shutdown()
+        thread.join(timeout=5)
+    (row,) = bridge.store.rows("page")
+    assert row["detail"] == "Brukeren er i (where you are). Det vet du."
