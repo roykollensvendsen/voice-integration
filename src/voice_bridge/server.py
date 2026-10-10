@@ -1055,7 +1055,7 @@ class _Handler(BaseHTTPRequestHandler):
             detail = str(body.get("detail", ""))[:NOTICED_CHARACTERS]
             notice(self.server, {"event": reported, "detail": detail})
             # RULE: what the page reports is kept with its time, for checking afterwards
-            self.server.store.record("page", reported, detail=detail)
+            self.server.store.record("page", reported, detail=self.server.unplaced(detail))
             return {}
         if path == "/spent":
             # RULE: an open microphone is booked while it is open
@@ -1405,6 +1405,17 @@ class Bridge(ThreadingHTTPServer):
             "known": live.known_place(self.placed),
             "changed": self.placed != before,
         }
+
+    def unplaced(self, text: str) -> str:
+        """`text` with where the person is taken out: it goes into a file, and a place never does.
+
+        On 2026-10-10 the page's report that the voice had been told the place
+        put the street address into the measurements.
+        """
+        # RULE: no place the person has been is written into the measurements
+        if self.placed and self.placed in text:
+            return text.replace(self.placed, "(where you are)")
+        return text
 
     def around(self, side: str) -> str:
         """What is on one side of the way the person is going, from the latest reading."""
