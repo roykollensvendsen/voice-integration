@@ -95,14 +95,6 @@ def test_the_place_is_looked_up_again_only_after_a_real_move(bridge, monkeypatch
     assert bridge.fix.heading == 0
 
 
-def test_hermes_is_told_where_the_person_is_only_when_they_ask_about_it(bridge):
-    bridge.fix, bridge.placed = DRIVING, "Skuggevik"
-    told = server.whereabouts_for_hermes(bridge, "Hva er det rundt meg her?")
-    # Way, speed and the time of the reading: Roy, 2026-10-10.
-    assert "Du er i Skuggevik, på vei øst i omtrent 60 kilometer i timen. Målt klokka " in told
-    assert server.whereabouts_for_hermes(bridge, "Hvordan går det med testene?") == ""
-
-
 def test_where_the_person_is_never_reaches_the_trace(bridge):
     bridge.fix, bridge.placed = STILL, "Svennskotveien 23, Skuggevik"
     thread = threading.Thread(target=bridge.serve_forever, daemon=True)

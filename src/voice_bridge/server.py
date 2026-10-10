@@ -888,20 +888,6 @@ def traced(bridge: Bridge, source: str, said: str, before: str, outcome: str) ->
     bridge.store.record("action", label, detail=f"{source} | {heard} | {done} | {whom}")
 
 
-def whereabouts_for_hermes(bridge: Bridge | None, transcript: str) -> str:
-    """Where the person is, for Hermes, but only when the turn is about where they are."""
-    # RULE: Hermes is told where the person is only when they ask about it
-    if (
-        bridge is None
-        or bridge.fix is None
-        or not bridge.fix.fresh()
-        or not quick.about_surroundings(transcript)
-    ):
-        return ""
-    now = moving.described(bridge.fix, bridge.placed, timed=True)
-    return f" Where the person is now, from their phone: {now}"
-
-
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
     transcript: str,
     url: str,
@@ -928,7 +914,8 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     }
     (capabilities or Capabilities()).permit("agent_task", arguments)
     planned = gateway.plan("agent_task", arguments, url)
-    instructions = TURN_INSTRUCTIONS + whereabouts_for_hermes(bridge, transcript)
+    # Where the person is, Hermes asks whereabouts for itself: one source, not two.
+    instructions = TURN_INSTRUCTIONS
     # RULE: a voice turn asks the gateway to finish inside it
     carrying: dict[str, Any] = {"instructions": instructions}
     if bridge is not None:
