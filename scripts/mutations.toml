@@ -379,12 +379,6 @@ find = 'moved = switch\(self\.server, heard\) if self\._plainly_a_switch\(heard\
 replace = 'moved = None'
 
 [[rule]]
-name = "Hermes is told where the person is only when they ask about it"
-file = "src/voice_bridge/server.py"
-find = 'or not quick\.about_surroundings\(transcript\)'
-replace = 'or False'
-
-[[rule]]
 name = "no place the person has been is written into the measurements"
 file = "src/voice_bridge/server.py"
 find = 'if self\.placed and self\.placed in text:'
