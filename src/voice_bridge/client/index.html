@@ -2,11 +2,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jarvis</title>
+<script>
+  // The look chosen on this device, set before anything is drawn, so a dark
+  // page never flashes light first. "auto" follows the device. Roy, 2026-10-10.
+  try {
+    const look = localStorage.getItem("look");
+    if (look === "light" || look === "dark") document.documentElement.dataset.theme = look;
+  } catch { /* no storage: follow the device */ }
+</script>
 <style>
   :root { color-scheme: light dark; --ink: #17181c; --dim: #6c7079; --line: #d7d9de; --live: #1a7f4b; }
   @media (prefers-color-scheme: dark) {
-    :root { --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
+    :root:not([data-theme="light"]) { --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
   }
+  :root[data-theme="light"] { color-scheme: light; }
+  /* Chosen by hand: the phone app's view of the web does not always pass the
+     device's dark setting on, so the page cannot rely on following it. */
+  :root[data-theme="dark"] { color-scheme: dark; --ink: #e9eaee; --dim: #9aa0aa; --line: #33363d; --live: #4ed58c; }
   body { margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
          font: 15px/1.55 ui-sans-serif, system-ui, sans-serif; color: var(--ink);
          background: Canvas; max-width: 76rem; margin-inline: auto; }
@@ -37,6 +49,8 @@
   #state { margin-left: .9rem; color: var(--dim); }
   .volume { display: flex; align-items: center; gap: .5rem; margin-top: .6rem; font-size: .8rem; color: var(--dim); }
   .volume input { flex: 1; max-width: 14rem; }
+  .volume select { font: inherit; color: inherit; background: Canvas; border: 1px solid var(--line);
+                   border-radius: .3rem; padding: .1rem .3rem; }
   .usage svg { width: 100%; height: 5rem; display: block; margin: .4rem 0; }
   .usage rect { fill: var(--live); }
   .usage rect.none { fill: var(--line); }
@@ -96,6 +110,9 @@
 <button id="talk">Take the microphone</button><span id="state">idle</span>
 <label class="volume">Lyd <input id="volume" type="range" min="0" max="100" step="5" value="100">
   <span id="volume-said">100 %</span></label>
+<label class="volume">Utseende <select id="look">
+  <option value="auto">Som enheten</option><option value="light">Lyst</option><option value="dark">Mørkt</option>
+</select></label>
 
 <details id="sayable">
   <summary>Hva kan jeg si?</summary>
@@ -271,6 +288,15 @@ try {
   if (kept != null) setVolume(Number(kept));
 } catch { /* no storage: full volume */ }
 volume.oninput = () => setVolume(Number(volume.value));
+
+// Light, dark, or as the device is; kept on this device.
+const look = document.getElementById("look");
+look.value = document.documentElement.dataset.theme ?? "auto";
+look.onchange = () => {
+  if (look.value === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = look.value;
+  try { localStorage.setItem("look", look.value); } catch { /* this visit only */ }
+};
 volume.onchange = () => noticed("volume.changed", `${volume.value} slider`);
 
 // When the voice last passed a turn on: a turn after it was answered alone.
