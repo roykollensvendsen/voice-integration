@@ -544,7 +544,8 @@ def test_the_page_asks_for_a_position_when_the_microphone_is_taken(bridge):
     """Not on load: somebody who has just opted into being heard is in the frame for it."""
     with urllib.request.urlopen(bridge, timeout=10) as reply:
         page = reply.read().decode()
-    assert "navigator.geolocation?.getCurrentPosition" in page
+    # Followed through the call, since a drive moves it: docs/location-proposal.md.
+    assert "navigator.geolocation?.watchPosition" in page
     assert page.index("booking = setInterval") < page.index("navigator.geolocation")
 
 

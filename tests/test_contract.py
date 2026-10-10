@@ -17,9 +17,9 @@ def test_the_documents_and_the_code_still_agree():
         "voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed",
         "gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed",
         "claude-voice tools: 14 in docs/claude-voice-contract.md, 14 in the code, agreed",
-        "rules: 59 in the source, 59 in scripts/mutations.toml, agreed",
-        "rule tests: 59 rules, each with a test named after it",
-        "mutation rows: 59, each on the line its rule marks",
+        "rules: 60 in the source, 60 in scripts/mutations.toml, agreed",
+        "rule tests: 60 rules, each with a test named after it",
+        "mutation rows: 60, each on the line its rule marks",
     ]
 
 

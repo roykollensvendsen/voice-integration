@@ -174,8 +174,8 @@ replace = 'return None'
 [[rule]]
 name = "a position is held in memory and written nowhere"
 file = "src/voice_bridge/server.py"
-find = 'self\.server\.placed = quick\.place_of\('
-replace = 'self.server.placed = None; _ = ('
+find = 'self\.placed = quick\.place_of\(fix\.latitude, fix\.longitude\) or before'
+replace = 'self.placed = None'
 
 [[rule]]
 name = "the page may only report events in its own name"
@@ -377,3 +377,9 @@ name = "a spoken switch is made even when the voice answered it alone"
 file = "src/voice_bridge/server.py"
 find = 'moved = switch\(self\.server, heard\) if self\._plainly_a_switch\(heard\) else None'
 replace = 'moved = None'
+
+[[rule]]
+name = "Hermes is told where the person is only when they ask about it"
+file = "src/voice_bridge/server.py"
+find = 'or not quick\.about_surroundings\(transcript\)'
+replace = 'or False'

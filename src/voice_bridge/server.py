@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from voice_bridge import budget, gateway, live, metrics, quick, sessions, target
+from voice_bridge import budget, gateway, live, metrics, moving, quick, sessions, target
 from voice_bridge.budget import Ledger
 from voice_bridge.policy import Capabilities, Refused
 from voice_bridge.speech import say
@@ -862,6 +862,12 @@ def without_noises(transcript: str) -> str:
     return NOISE.sub("", transcript)
 
 
+#: How far the person must move before the place name is looked up again.
+RENAME_METRES = 150
+#: How long what is near one spot is kept before it is asked for again.
+AROUND_KEPT_SECONDS = 60
+
+
 def traced(bridge: Bridge, source: str, said: str, before: str, outcome: str) -> None:
     """Keep what was heard, what it was taken as, what was done, and whom it went to.
 
@@ -873,9 +879,24 @@ def traced(bridge: Bridge, source: str, said: str, before: str, outcome: str) ->
     after = bridge.chosen.said()
     whom = f"{before} → {after}" if after != before else f"with {after}"
     heard = " ".join(said.split())[:80]
-    done = " ".join(outcome.split())[:50]
+    # Where the person is goes in no file: the trace says only that it was said.
+    done = "(where you are, said)" if label in ("place", "around") else " ".join(outcome.split())[:50]
     # RULE: every spoken command is traced with what was heard, what was done, and whom it went to
     bridge.store.record("action", label, detail=f"{source} | {heard} | {done} | {whom}")
+
+
+def whereabouts_for_hermes(bridge: Bridge | None, transcript: str) -> str:
+    """Where the person is, for Hermes, but only when the turn is about where they are."""
+    # RULE: Hermes is told where the person is only when they ask about it
+    if (
+        bridge is None
+        or bridge.fix is None
+        or not bridge.fix.fresh()
+        or not quick.about_surroundings(transcript)
+    ):
+        return ""
+    now = moving.described(bridge.fix, bridge.placed, timed=True)
+    return f" Where the person is now, from their phone: {now}"
 
 
 def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling them hides what it uses
@@ -904,8 +925,9 @@ def answer_delegation(  # noqa: PLR0913 — a turn needs all six, and bundling t
     }
     (capabilities or Capabilities()).permit("agent_task", arguments)
     planned = gateway.plan("agent_task", arguments, url)
+    instructions = TURN_INSTRUCTIONS + whereabouts_for_hermes(bridge, transcript)
     # RULE: a voice turn asks the gateway to finish inside it
-    carrying: dict[str, Any] = {"instructions": TURN_INSTRUCTIONS}
+    carrying: dict[str, Any] = {"instructions": instructions}
     if bridge is not None:
         # RULE: a request carries the conversation it came out of
         carrying["conversation_history"] = bridge.context()
@@ -1039,15 +1061,7 @@ class _Handler(BaseHTTPRequestHandler):
             self.server.store.record("voice", "open", ms=float(body.get("seconds", 0)) * 1000)
             return left_this_month(self.server.ledger)
         if path == "/where":
-            # RULE: a position is held in memory and written nowhere
-            self.server.placed = quick.place_of(
-                float(body.get("latitude", 0)), float(body.get("longitude", 0))
-            )
-            if not self.server.placed:
-                return {"placed": None}
-            # The page passes this on to the voice, which otherwise holds no
-            # position at all and says so while the page displays one.
-            return {"placed": self.server.placed, "known": live.known_place(self.server.placed)}
+            return self.server.where(body)
         return self._turn(body)
 
     def _turn(self, body: dict[str, Any]) -> dict[str, Any]:
@@ -1254,6 +1268,11 @@ class Bridge(ThreadingHTTPServer):
         #: Where the person is, if the browser was allowed to say. Held here and
         #: nowhere else: never written to disk, never sent to an agent.
         self.placed: str | None = None
+        # The latest reading from the phone, and the one the place name was
+        # looked up for: a name is looked up again only after a real move.
+        self.fix: moving.Fix | None = None
+        self.placed_from: moving.Fix | None = None
+        self.around_cache: tuple[tuple[float, float], float, list[dict[str, Any]]] | None = None
         # How loud the voice is on the page, as the page last said; None until it has.
         self.volume: int | None = None
         #: claude-voice, when there is a token to reach it with. ADR-VI-024.
@@ -1358,6 +1377,43 @@ class Bridge(ThreadingHTTPServer):
                 notice(self, {"event": "watch.lost", "run_id": run_id, "why": str(failure)})
 
         threading.Thread(target=read, daemon=True).start()
+
+    def where(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Take a reading from the phone, and say whether the place it is in has changed."""
+        fix = moving.fix_from(body)
+        self.fix = fix
+        last = self.placed_from
+        if (
+            last is not None
+            and self.placed
+            and moving.metres_between(last, fix.latitude, fix.longitude) < RENAME_METRES
+        ):
+            return {"placed": self.placed, "changed": False}
+        before = self.placed
+        # RULE: a position is held in memory and written nowhere
+        self.placed = quick.place_of(fix.latitude, fix.longitude) or before
+        self.placed_from = fix
+        if not self.placed:
+            return {"placed": None, "changed": False}
+        # The page passes this on to the voice, which otherwise holds no
+        # position at all and says so while the page displays one.
+        return {
+            "placed": self.placed,
+            "known": live.known_place(self.placed),
+            "changed": self.placed != before,
+        }
+
+    def around(self, side: str) -> str:
+        """What is on one side of the way the person is going, from the latest reading."""
+        fix = self.fix
+        if fix is None or not fix.fresh():
+            return "Jeg vet ikke hvor du er akkurat nå."
+        key = (round(fix.latitude, 3), round(fix.longitude, 3))
+        cached = self.around_cache
+        if cached is None or cached[0] != key or time.time() - cached[1] > AROUND_KEPT_SECONDS:
+            cached = (key, time.time(), moving.nearby(fix))
+            self.around_cache = cached
+        return moving.on_the_side(fix, side, cached[2])
 
     def choose(self, chosen: target.Target) -> None:
         """Send turns somewhere else from now on."""
