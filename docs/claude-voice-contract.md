@@ -31,9 +31,11 @@ all, and nothing else changes.
 | `start_active_session` | "start en ny økt i …": a Claude Code session started in the background in that project, and chosen at once | `name`, `claude_session_id`, `project`, `status`, once it is among the running sessions |
 | `stop_active_session` | "lukk denne økta": stop a session `start_active_session` started; claude-voice refuses any other | `name`, and `status`: `stopped`, `not_started_here` or `not_running` |
 | `side_question` | a question to the chosen session while it is busy: answered at once from what it has written, like Claude Code's /btw, and never put into the session | `answer` of at most about 300 characters, `considered_turns`, and `cut` when older turns were left out |
+| `get_active_session` | before each turn: a session Roy tapped in the companion app since last asked becomes the target | `name`, `set_by` (`page` or `voice`) and `set_at` |
+| `set_active_session` | every switch to a session, by voice or on the page, so the companion app shows the same one | the same fields as `get_active_session` |
 | `health` | claude-voice's half of the health summary the page and the voice read | `now`, `tools` with latency and errors, the latest `errors`, `courier`, `watcher` |
 
-`voice_bridge.sessions.TOOLS` holds the same fourteen, and the client refuses any
+`voice_bridge.sessions.TOOLS` holds the same sixteen, and the client refuses any
 other name before anything is sent. `voicebridge check` fails when this table
 and that tuple disagree.
 
