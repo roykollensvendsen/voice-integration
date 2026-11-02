@@ -44,6 +44,8 @@ TOOLS = (
     "fleet_recap",
     "digest_session",
     "cancel",
+    "get_active_session",
+    "set_active_session",
 )
 
 #: What is worth saying aloud. The rest is shown and not said: a session that

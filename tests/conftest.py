@@ -238,6 +238,8 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
             "whats_new": {"cursor": "b9.f0", "events": NEWS},
             "list_active_sessions": {"sessions": self.server.active},
             "ask_active_session": self.server.answer,
+            "get_active_session": self.server.tapped,
+            "set_active_session": {"name": arguments.get("session"), "set_by": "voice"},
             "read_session_output": self.server.output,
             "session_tree": {"version": "v1", "nodes": TREE},
             "fleet_recap": {"sessions": FLEET},
@@ -300,6 +302,8 @@ def claude_voice():
         "next_after": 5,
         "status": "idle",
     }
+    # The session the companion app shows as chosen: none until somebody taps.
+    running.tapped = {"id": None, "name": None, "set_by": None, "set_at": None}
     thread = threading.Thread(target=running.serve_forever, daemon=True)
     thread.start()
     try:

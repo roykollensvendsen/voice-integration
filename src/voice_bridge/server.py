@@ -19,6 +19,7 @@ The page never sees a key. It cannot: it is code handed to a browser.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -414,6 +415,9 @@ def routed(bridge: Bridge, transcript: str) -> tuple[str | None, str]:
     redirected = _redirected(bridge, transcript)
     if redirected is not None:
         return redirected
+    # Asked only now: what the voice answers itself, or a switch just said,
+    # comes first.
+    bridge.follow_tap()
     # RULE: while the voice alone is chosen nothing is forwarded
     if bridge.chosen.kind == "voice":
         bridge.quiet = True
@@ -1267,6 +1271,8 @@ class Bridge(ThreadingHTTPServer):
         self.volume: int | None = None
         #: claude-voice, when there is a token to reach it with. ADR-VI-024.
         self.sessions: sessions.Client | None = None
+        #: When the companion app was last tapped, as claude-voice said it.
+        self.tap_seen = ""
         #: Requests Claude Code sessions are waiting on, by number, with what was said.
         self.asked: dict[str, str] = {}
         self.told = 0
@@ -1416,12 +1422,36 @@ class Bridge(ThreadingHTTPServer):
             self.around_cache = cached
         return moving.on_the_side(fix, side, cached[2])
 
-    def choose(self, chosen: target.Target) -> None:
-        """Send turns somewhere else from now on."""
+    def choose(self, chosen: target.Target, *, tell: bool = True) -> None:
+        """Send turns somewhere else from now on, and show the companion app the session chosen."""
         self.chosen = chosen
         known = {s.get("name"): s.get("claude_session_id") for s in self.running()} if chosen.name else {}
         # RULE: the choice survives a restart
         target.save(self.chosen_file, chosen, str(known.get(chosen.name) or ""))
+        # RULE: a switch by voice is shown in the app
+        if tell and chosen.kind == "session" and self.sessions is not None:
+            with contextlib.suppress(OSError, Refused):
+                self.sessions.call("set_active_session", {"session": chosen.name})
+
+    def follow_tap(self) -> None:
+        """Talk to the session Roy last tapped in the companion app, if he tapped one since last asked.
+
+        The app and the voice choose the same thing two ways; claude-voice keeps
+        the one choice. Only a new tap counts, so a later switch by voice holds.
+        """
+        if self.sessions is None:
+            return
+        try:
+            shown = self.sessions.call("get_active_session", {})
+        except (OSError, Refused):
+            return
+        tapped = str(shown.get("set_at") or "")
+        # RULE: a session tapped in the app is where the next turn goes
+        if shown.get("set_by") != "page" or not tapped or tapped == self.tap_seen:
+            return
+        self.tap_seen = tapped
+        if shown.get("name"):
+            self.choose(target.Target("session", str(shown["name"])), tell=False)
 
     def voice_now(self) -> str:
         """The voice the chosen target speaks with."""

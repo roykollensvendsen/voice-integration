@@ -383,3 +383,15 @@ name = "no place the person has been is written into the measurements"
 file = "src/voice_bridge/server.py"
 find = 'if self\.placed and self\.placed in text:'
 replace = 'if False:'
+
+[[rule]]
+name = "a switch by voice is shown in the app"
+file = "src/voice_bridge/server.py"
+find = 'if tell and chosen\.kind == "session" and self\.sessions is not None:'
+replace = 'if False:'
+
+[[rule]]
+name = "a session tapped in the app is where the next turn goes"
+file = "src/voice_bridge/server.py"
+find = 'if shown\.get\("set_by"\) != "page" or not tapped or tapped == self\.tap_seen:'
+replace = 'if True:'

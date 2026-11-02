@@ -47,7 +47,8 @@ def test_while_the_voice_alone_is_chosen_nothing_is_forwarded(bridge, hermes, cl
     say(bridge, "snakk med stemmen")
     spoken = say(bridge, "run the tests")
     assert hermes.seen == []
-    assert [name for name, _ in claude_voice.called] == []
+    # Asking which session the companion app shows passes nothing on.
+    assert [name for name, _ in claude_voice.called if name != "get_active_session"] == []
     assert "nothing" in spoken.lower()
 
 
@@ -1003,3 +1004,22 @@ def test_a_session_asked_for_without_a_name_is_asked_about(bridge):
     assert bridge.chosen == target.Target("hermes")
     assert "Which session" in spoken
     assert "build-7c" in spoken
+
+
+def test_a_session_tapped_in_the_app_is_where_the_next_turn_goes(bridge, claude_voice):
+    """The companion app and the voice talk to the same session, whichever was used to choose it."""
+    claude_voice.tapped = {"id": "s1", "name": "build-7c", "set_by": "page", "set_at": "2026-11-02T10:00:00Z"}
+    say(bridge, "kjør testene")
+    assert bridge.chosen == target.Target("session", "build-7c")
+    asked = [arguments for tool, arguments in claude_voice.called if tool == "ask_active_session"]
+    assert asked
+    assert asked[-1]["session"] == "build-7c"
+    # Its own echo is not a new tap: switching away by voice stays switched.
+    say(bridge, "snakk med stemmen")
+    say(bridge, "hei")
+    assert bridge.chosen == target.Target("voice")
+
+
+def test_a_switch_by_voice_is_shown_in_the_app(bridge, claude_voice):
+    say(bridge, "snakk med build-7c")
+    assert ("set_active_session", {"session": "build-7c"}) in claude_voice.called
