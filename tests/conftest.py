@@ -238,7 +238,7 @@ class _ClaudeVoice(BaseHTTPRequestHandler):
             "whats_new": {"cursor": "b9.f0", "events": NEWS},
             "list_active_sessions": {"sessions": self.server.active},
             "ask_active_session": self.server.answer,
-            "read_session_output": self.server.output,
+            "read_session_output": self.server.pages.get(arguments.get("after"), self.server.output),
             "session_tree": {"version": "v1", "nodes": TREE},
             "fleet_recap": {"sessions": FLEET},
             "cancel": {"session_id": arguments.get("session_id"), **self.server.cancelled},
@@ -300,6 +300,8 @@ def claude_voice():
         "next_after": 5,
         "status": "idle",
     }
+    # A reply claude-voice hands out in parts, by the turn it was read after.
+    running.pages = {}
     thread = threading.Thread(target=running.serve_forever, daemon=True)
     thread.start()
     try:

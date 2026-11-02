@@ -828,6 +828,32 @@ def test_a_busy_session_s_answer_is_only_what_it_wrote_after_reading_the_questio
     assert (spoken, done) == ("", False)
 
 
+def test_a_reply_handed_out_in_parts_is_read_to_the_end(bridge, claude_voice):
+    """claude-voice hands out a long reply in parts; the first part alone looked like all of it."""
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.pages = {
+        4: {
+            "turns": [
+                {"index": 5, "role": "user", "text": "hører du meg"},
+                {"index": 6, "role": "assistant", "text": "Ser på det."},
+            ],
+            "next_after": 6,
+            "turns_left": 1,
+            "status": "idle",
+        },
+        6: {
+            "turns": [{"index": 7, "role": "assistant", "text": "Ja, jeg hører deg."}],
+            "next_after": 7,
+            "turns_left": 0,
+            "status": "idle",
+        },
+    }
+    say(bridge, "hører du meg")
+    spoken, done = server.follow_chosen(bridge, "claude:4:build-7c", 0.5, said="hører du meg")
+    assert (spoken, done) == ("Ja, jeg hører deg.", True)
+
+
 @pytest.mark.parametrize(
     "said",
     [
