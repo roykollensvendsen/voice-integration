@@ -821,6 +821,15 @@ def _read_after(bridge: Bridge, name: str, after: int) -> dict[str, Any]:
         )
         turns += list(more.get("turns") or [])
         read = {**read, **more}
+    # Still more than the parts read: claude-voice says the newest reply too,
+    # and that is the one Roy sees on the screen.
+    latest = read.get("latest")
+    if (
+        read.get("turns_left")
+        and isinstance(latest, dict)
+        and latest.get("index") not in {turn.get("index") for turn in turns}
+    ):
+        turns.append(latest)
     return {**read, "turns": turns}
 
 

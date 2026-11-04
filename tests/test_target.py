@@ -854,6 +854,28 @@ def test_a_reply_handed_out_in_parts_is_read_to_the_end(bridge, claude_voice):
     assert (spoken, done) == ("Ja, jeg hører deg.", True)
 
 
+def test_a_reply_too_long_to_read_in_parts_ends_with_the_newest_reply(bridge, claude_voice, monkeypatch):
+    """On 2026-11-04 garage-door had written 40 turns; the one on Roy's screen was the last."""
+    monkeypatch.setattr(server, "MOST_PARTS", 0)
+    say(bridge, "snakk med build-7c")
+    claude_voice.answer = {"status": "still_working", "reply": "", "next_after": 4}
+    claude_voice.pages = {
+        4: {
+            "turns": [
+                {"index": 5, "role": "user", "text": "hører du meg"},
+                {"index": 6, "role": "assistant", "text": "Ser på det."},
+            ],
+            "next_after": 6,
+            "turns_left": 34,
+            "latest": {"index": 40, "role": "assistant", "text": "Ja, jeg hører deg."},
+            "status": "idle",
+        },
+    }
+    say(bridge, "hører du meg")
+    spoken, done = server.follow_chosen(bridge, "claude:4:build-7c", 0.5, said="hører du meg")
+    assert (spoken, done) == ("Ja, jeg hører deg.", True)
+
+
 @pytest.mark.parametrize(
     "said",
     [
