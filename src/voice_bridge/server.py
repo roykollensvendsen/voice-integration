@@ -798,17 +798,48 @@ def _reply_to(read: dict[str, Any], said: str) -> tuple[str, bool]:
     return (answer_in({"turns": written[-1:]}) if written else ""), False
 
 
+#: The most parts of one reply read before speaking what has come so far.
+MOST_PARTS = 20
+
+
+def _read_after(bridge: Bridge, name: str, after: int) -> dict[str, Any]:
+    """Everything a session wrote after turn `after`, however many parts claude-voice hands it out in.
+
+    A long reply comes in parts, with `turns_left` saying how many turns are
+    still to come. The first part alone looked like the whole reply.
+    """
+    if not bridge.sessions:
+        return {}
+    read = dict(bridge.sessions.call("read_session_output", {"session": name, "after": after}))
+    turns = list(read.get("turns") or [])
+    for _ in range(MOST_PARTS):
+        # RULE: a reply handed out in parts is read to the end
+        if not read.get("turns_left") or read.get("next_after") is None:
+            break
+        more = bridge.sessions.call(
+            "read_session_output", {"session": name, "after": int(read["next_after"])}
+        )
+        turns += list(more.get("turns") or [])
+        read = {**read, **more}
+    # Still more than the parts read: claude-voice says the newest reply too,
+    # and that is the one Roy sees on the screen.
+    latest = read.get("latest")
+    if (
+        read.get("turns_left")
+        and isinstance(latest, dict)
+        and latest.get("index") not in {turn.get("index") for turn in turns}
+    ):
+        turns.append(latest)
+    return {**read, "turns": turns}
+
+
 def _follow_reply(bridge: Bridge, following: str, patience: float, said: str) -> tuple[str, bool]:
     """Wait for the session's reply to what was said, and nothing written before or after it."""
     _, after, name = following.split(":", 2)
     deadline = time.monotonic() + patience
     while time.monotonic() < deadline:
         try:
-            read = (
-                bridge.sessions.call("read_session_output", {"session": name, "after": int(after)})
-                if bridge.sessions
-                else {}
-            )
+            read = _read_after(bridge, name, int(after))
             status = read.get("status") or {s.get("name"): s.get("status") for s in bridge.running()}.get(
                 name
             )
@@ -832,8 +863,7 @@ def follow_chosen(bridge: Bridge, following: str, patience: float, said: str = "
     deadline = time.monotonic() + patience
     while True:
         try:
-            asked = {"session": name, "after": int(after)}
-            read = bridge.sessions.call("read_session_output", asked) if bridge.sessions else {}
+            read = _read_after(bridge, name, int(after))
             listed = {s.get("name"): s.get("status") for s in bridge.running()}
             status = read.get("status") or listed.get(name)
         except (OSError, Refused):
