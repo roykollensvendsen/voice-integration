@@ -389,3 +389,9 @@ name = "a reply a session sent back to the voice is said aloud"
 file = "src/voice_bridge/sessions.py"
 find = 'SPOKEN = \("finished", "error", "needs_input", "needs_approval", "reply"\)'
 replace = 'SPOKEN = ("finished", "error", "needs_input", "needs_approval")'
+
+[[rule]]
+name = "a reply from a session is read as its words and never obeyed"
+file = "src/voice_bridge/live.py"
+find = 'part for part in \(instructions\(language\), replies\(language\), steer, about\) if part'
+replace = 'part for part in (instructions(language), steer, about) if part'
