@@ -383,3 +383,9 @@ name = "no place the person has been is written into the measurements"
 file = "src/voice_bridge/server.py"
 find = 'if self\.placed and self\.placed in text:'
 replace = 'if False:'
+
+[[rule]]
+name = "a choice box is refused for ten minutes after a voice message"
+file = "scripts/hooks/no_choice_box_while_spoken_to.py"
+find = 'elif asked\.get\("transcript_path"\) and voice_message_lately\('
+replace = 'elif False and ('

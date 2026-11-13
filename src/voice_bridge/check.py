@@ -64,9 +64,12 @@ def table_after(page: pathlib.Path, anchor: str, pattern: re.Pattern[str]) -> se
 
 
 def marked_rules(root: pathlib.Path) -> set[str]:
-    """Every rule the source marks, by the words the marker gives it."""
+    """Every rule the source marks, by the words the marker gives it.
+
+    The hooks under `scripts/hooks` run inside Claude Code sessions, so their rules count too.
+    """
     found = set()
-    for module in sorted((root / "src").rglob("*.py")):
+    for module in sorted([*(root / "src").rglob("*.py"), *(root / "scripts" / "hooks").glob("*.py")]):
         for line in module.read_text().splitlines():
             match = _RULE.search(line)
             if match:
