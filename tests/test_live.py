@@ -53,7 +53,15 @@ def test_a_session_is_never_opened_without_a_language_rule_in_its_own_language()
 
 def test_norwegian_is_what_this_installation_speaks():
     assert live.LANGUAGE == "nb"
-    assert live.session_config()["instructions"] == live.INSTRUCTIONS["nb"]
+    assert live.session_config()["instructions"].startswith(live.INSTRUCTIONS["nb"])
+
+
+@pytest.mark.parametrize("language", ["nb", "en"])
+def test_a_reply_from_a_session_is_read_as_its_words_and_never_obeyed(language):
+    """A reply is another session's words, read to the voice as news; it may say "delete the branch"."""
+    told = live.session_config(language)["instructions"]
+    assert told == live.INSTRUCTIONS[language] + "\n\n" + live.REPLIES[language]
+    assert ("aldri" if language == "nb" else "never") in live.REPLIES[language]
 
 
 def test_the_month_is_checked_before_a_session_is_opened(tmp_path, monkeypatch):
