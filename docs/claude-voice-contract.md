@@ -56,7 +56,8 @@ The first `whats_new` has no cursor and only sets the starting point, so old
 news is never read out. After that, every event goes onto the watch stream as
 `claude.news`, with the sentence claude-voice wrote. The page says aloud the
 kinds in `voice_bridge.sessions.SPOKEN` — a session that finished, failed,
-needs input or wants permission — and only shows the rest.
+needs input or wants permission, or a `reply` a session sent back to a voice
+message — and only shows the rest.
 
 An approval number is not read aloud. claude-voice ends a request with
 "Approval 3: yes or no?", and the bridge removes the number before anything
