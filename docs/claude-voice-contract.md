@@ -110,6 +110,10 @@ While a session is the target, a hook in the person's Claude Code settings
 refuses choice boxes in that session, so it asks in its reply instead
 ([ADR-VI-030](../decisions/ADR-VI-030-no-choice-box-in-a-session-spoken-to.md)).
 The bridge therefore keeps the session's `claude_session_id` in `target.json`.
+The same hook refuses a box for ten minutes after claude-voice's courier
+brought a session a message, whichever session is the target. It knows the
+courier's message by the line claude-voice puts under each one, "Your reply is
+read by the voice.", or by the sender running in a `claude-voice-msg-` folder.
 
 ## What we do not call, on purpose
 

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted, by Roy Kollen Svendsen, 2026-10-06.
+Accepted, by Roy Kollen Svendsen, 2026-10-06. Amended 2026-11-13: a session
+that got a message from the voice in the last ten minutes is spoken to as well.
 
 ## Context
 
@@ -43,6 +44,12 @@ or the same session once the voice has moved on, keeps its boxes.
 The bridge keeps the chosen session's id beside its name, because a hook knows
 its session only by id.
 
+Amended 2026-11-13: the voice also sends messages to sessions it has not chosen,
+through claude-voice's courier. A box such a session opens strands that message
+just the same. So for ten minutes after a courier's message reaches a session,
+its boxes are refused the same way. The hook finds that message at the end of
+the session's own transcript.
+
 ## Consequences
 
 The session being spoken to never freezes behind a box the person cannot
@@ -52,7 +59,10 @@ What gets worse: this is the first thing from this repository that runs inside
 every Claude Code session on the machine, not only beside them. It reads one
 small file and allows the box whenever that file is missing or unreadable. A
 session that was already running when the hook was installed may not pick it up
-until it is restarted.
+until it is restarted. Since the amendment it also reads the end of the
+session's transcript, so a box waits a little longer to open. A session that
+had one voice message keeps no boxes for ten minutes, even if it was asked
+something else at the keyboard meanwhile.
 
 ## Related
 
