@@ -91,6 +91,12 @@ def test_only_some_news_is_said_aloud(heard):
     assert [e["aloud"] for e in told] == [True, True, False]
 
 
+def test_a_reply_a_session_sent_back_to_the_voice_is_said_aloud(heard):
+    heard.hear([{"session": "build", "kind": "reply", "text": "Reply from build: the tests are green."}])
+    told = [e for e in heard.watching if e["event"] == "claude.news"]
+    assert told[-1]["aloud"]
+
+
 def test_a_plain_yes_or_no_answers_the_coding_session_that_asked(heard, claude_voice, hermes):
     spoken = server.answer_delegation("ja", heard.gateway_url, bridge=heard)
     assert ("approve", {"approval_id": "3"}) in claude_voice.called

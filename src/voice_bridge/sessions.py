@@ -47,8 +47,10 @@ TOOLS = (
 )
 
 #: What is worth saying aloud. The rest is shown and not said: a session that
-#: started working is not news to somebody walking down the street.
-SPOKEN = ("finished", "error", "needs_input", "needs_approval")
+#: started working is not news to somebody walking down the street. A "reply"
+#: is what a session sent back to a message from the voice, which nobody else reads.
+# RULE: a reply a session sent back to the voice is said aloud
+SPOKEN = ("finished", "error", "needs_input", "needs_approval", "reply")
 
 #: How often to ask. A poll is a local call that costs nothing, and six seconds
 #: is quicker than anybody notices a silence.
