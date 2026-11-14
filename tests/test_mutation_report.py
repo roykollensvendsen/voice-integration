@@ -35,6 +35,8 @@ def _run(tmp_path, monkeypatch, red, *args):
         "find = 'if guarded:'\nreplace = 'if True:'\n"
     )
     monkeypatch.setattr(mutate, "ROOT", tmp_path)
+    # Its own: the real one holds the temporary files of the mutation run this may be inside.
+    monkeypatch.setattr(mutate, "MUTATE_TMP", tmp_path / "mutate-tmp")
     monkeypatch.setattr(mutate, "run_suite", lambda _targets=None: (len(red), red))
     monkeypatch.setattr(sys, "argv", ["mutate.py", *args])
     return mutate.main()
