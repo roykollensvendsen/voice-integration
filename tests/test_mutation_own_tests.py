@@ -40,6 +40,8 @@ def test_a_mutation_runs_only_the_test_files_that_hold_the_rule_s_own_test(tmp_p
     _tree(tmp_path)
     ran = []
     monkeypatch.setattr(mutate, "ROOT", tmp_path)
+    # Its own: the real one holds the temporary files of the mutation run this may be inside.
+    monkeypatch.setattr(mutate, "MUTATE_TMP", tmp_path / "mutate-tmp")
     monkeypatch.setattr(
         mutate, "run_suite", lambda targets=None: (ran.append(targets), (1, ["test_a_guard_holds"]))[1]
     )
@@ -56,8 +58,9 @@ def test_a_rule_whose_own_test_no_file_holds_runs_the_whole_suite(tmp_path, monk
     assert mutate.files_naming("test_a_guard_holds") == ["tests/deeper/test_guard.py"]
 
 
-def test_the_suite_is_given_the_files_to_run(monkeypatch):
+def test_the_suite_is_given_the_files_to_run(tmp_path, monkeypatch):
     mutate = _mutate()
+    monkeypatch.setattr(mutate, "MUTATE_TMP", tmp_path / "mutate-tmp")
     seen = []
 
     class Done:
@@ -67,4 +70,4 @@ def test_the_suite_is_given_the_files_to_run(monkeypatch):
     mutate.run_suite(["tests/test_a.py"])
     mutate.run_suite([])
     assert seen[0][-1] == "tests/test_a.py"
-    assert seen[1][-1] == "no:cacheprovider"
+    assert seen[1][-1].startswith("--basetemp=")

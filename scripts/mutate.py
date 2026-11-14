@@ -20,19 +20,33 @@ after the rule is one of the ones that went red, and fails when it is not.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
+import hashlib
 import json
 import os
 import pathlib
 import re
+import shutil
 import signal
+import stat
 import subprocess
 import sys
-from typing import Any
+import tempfile
+from typing import TYPE_CHECKING, Any
 
 from voice_bridge.check import Disagreement, all_rows, test_name_for
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+#: Where each suite run keeps its temporary files, one folder per run, removed when it
+#: ends. Outside the checkout, where a test making a git repository of its own would
+#: find this one instead; named after the checkout, so two never sweep each other's.
+MUTATE_TMP = pathlib.Path(tempfile.gettempdir()) / (
+    "voice-integration-mutate-" + hashlib.sha256(str(ROOT).encode()).hexdigest()[:8]
+)
 
 
 def line_of(text: str, pattern: str, occurrence: int) -> int:
@@ -47,8 +61,50 @@ def line_of(text: str, pattern: str, occurrence: int) -> int:
     raise SystemExit(msg)
 
 
+def _open_up(place: pathlib.Path) -> None:
+    """Give the owner back every right on one folder or file, adding to the rights it has.
+
+    A link is left alone: changing its rights would change whatever it points to,
+    which may be outside the run's folder.
+    """
+    if place.is_symlink():
+        return
+    with contextlib.suppress(OSError):
+        place.chmod(place.stat().st_mode | stat.S_IRWXU)
+
+
+def _writable_again(func: Callable[[str], object], path: str, _exc: object) -> None:
+    """Let a refused delete through: open up the path and its folder, then try again."""
+    for place in (pathlib.Path(path).parent, pathlib.Path(path)):
+        _open_up(place)
+    func(path)
+
+
+def _remove(folder: pathlib.Path) -> None:
+    """Delete a run's folder, even where a test took away the rights to read or delete it."""
+    if not folder.exists():
+        return
+    # A folder a test shut (mode 0) cannot even be listed, so open every folder first;
+    # the handler then covers anything that still refuses.
+    for place, folders, _ in os.walk(folder):
+        for name in folders:
+            _open_up(pathlib.Path(place) / name)
+    # Python 3.11, which this project still supports, names the handler `onerror`.
+    handler = {"onexc": _writable_again} if sys.version_info >= (3, 12) else {"onerror": _writable_again}
+    shutil.rmtree(folder, **handler)
+
+
+def sweep() -> None:
+    """Remove what an earlier run, killed before it could clean up, left behind."""
+    # RULE: a killed run's temporary files are swept at the next start
+    for left in MUTATE_TMP.iterdir() if MUTATE_TMP.is_dir() else []:
+        _remove(left)
+
+
 def files_naming(test: str) -> list[str]:
     """The test files that define `test`, or none when no file does."""
+    # Wider than voice_bridge.check.test_names, which takes only a top-level `def test_`:
+    # widen that first if a rule's own test is ever an `async def`.
     pattern = re.compile(rf"^\s*(?:async )?def {re.escape(test)}\(", re.MULTILINE)
     return [
         p.relative_to(ROOT).as_posix()
@@ -59,23 +115,30 @@ def files_naming(test: str) -> list[str]:
 
 def run_suite(targets: list[str] | None = None) -> tuple[int, list[str]]:
     """Run the tests (only `targets` when given) and give back how many failed, and which ones."""
-    r = subprocess.run(  # noqa: S603 - this interpreter running pytest on files found under tests/
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "--tb=no",
-            "--color=no",
-            "-p",
-            "no:cacheprovider",
-            *(targets or []),
-        ],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
-    )
+    MUTATE_TMP.mkdir(parents=True, exist_ok=True)
+    temporary = pathlib.Path(tempfile.mkdtemp(prefix="run-", dir=MUTATE_TMP))
+    try:
+        r = subprocess.run(  # noqa: S603 - this interpreter running pytest on files found under tests/
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "--tb=no",
+                "--color=no",
+                "-p",
+                "no:cacheprovider",
+                f"--basetemp={temporary}",
+                *(targets or []),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
+    finally:
+        # RULE: a suite run leaves no temporary files behind
+        _remove(temporary)
     m = re.search(r"(\d+) (?:failed|error)", r.stdout)
     failed = re.findall(r"^FAILED (\S+)", r.stdout, re.MULTILINE)
     return int(m.group(1)) if m else 0, [f.split("::")[-1].split("[")[0] for f in failed]
@@ -91,6 +154,7 @@ def main() -> int:
     # Stopped from outside, the run still puts every file back: a SIGTERM
     # otherwise skips the `finally` below and leaves a rule switched off.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+    sweep()
     try:
         rules = all_rows(ROOT)
     except Disagreement as refused:
@@ -156,6 +220,8 @@ def figures(results: list[Result]) -> dict[str, Any]:
     """The run as numbers: per rule, its name, file, tests gone red and whether its own was one.
 
     The same shape in every voice repository, for the bridge's code-health page to read.
+    `tests_red` counts only the tests in the files run, which are the files that hold the
+    rule's own test; a rule only some other file notices shows as survived.
     """
     rules = [
         {"name": name, "file": file, "tests_red": count, "own_test_red": own_red}
