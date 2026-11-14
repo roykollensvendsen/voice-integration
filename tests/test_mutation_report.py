@@ -35,7 +35,7 @@ def _run(tmp_path, monkeypatch, red, *args):
         "find = 'if guarded:'\nreplace = 'if True:'\n"
     )
     monkeypatch.setattr(mutate, "ROOT", tmp_path)
-    monkeypatch.setattr(mutate, "run_suite", lambda: (len(red), red))
+    monkeypatch.setattr(mutate, "run_suite", lambda _targets=None: (len(red), red))
     monkeypatch.setattr(sys, "argv", ["mutate.py", *args])
     return mutate.main()
 
