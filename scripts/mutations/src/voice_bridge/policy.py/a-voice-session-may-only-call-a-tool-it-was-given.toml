@@ -1,0 +1,5 @@
+[[rule]]
+name = "a voice session may only call a tool it was given"
+file = "src/voice_bridge/policy.py"
+find = 'if name not in self\.tools:'
+replace = 'if False:'

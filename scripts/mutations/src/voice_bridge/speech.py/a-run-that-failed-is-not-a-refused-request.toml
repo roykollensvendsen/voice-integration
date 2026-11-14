@@ -1,0 +1,5 @@
+[[rule]]
+name = "a run that failed is not a refused request"
+file = "src/voice_bridge/speech.py"
+find = 'if "error" in payload and "object" not in payload:'
+replace = 'if "error" in payload:'

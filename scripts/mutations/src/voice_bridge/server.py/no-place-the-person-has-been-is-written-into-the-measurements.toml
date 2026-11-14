@@ -1,0 +1,5 @@
+[[rule]]
+name = "no place the person has been is written into the measurements"
+file = "src/voice_bridge/server.py"
+find = 'if self\.placed and self\.placed in text:'
+replace = 'if False:'

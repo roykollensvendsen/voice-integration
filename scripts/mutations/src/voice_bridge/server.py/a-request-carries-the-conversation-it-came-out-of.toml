@@ -1,0 +1,5 @@
+[[rule]]
+name = "a request carries the conversation it came out of"
+file = "src/voice_bridge/server.py"
+find = 'carrying\["conversation_history"\] = bridge\.context\(\)'
+replace = 'carrying.pop("conversation_history", None)'

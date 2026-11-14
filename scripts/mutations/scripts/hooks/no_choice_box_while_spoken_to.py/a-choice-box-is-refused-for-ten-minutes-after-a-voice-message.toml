@@ -1,0 +1,5 @@
+[[rule]]
+name = "a choice box is refused for ten minutes after a voice message"
+file = "scripts/hooks/no_choice_box_while_spoken_to.py"
+find = 'elif asked\.get\("transcript_path"\) and voice_message_lately\('
+replace = 'elif False and ('

@@ -1,0 +1,5 @@
+[[rule]]
+name = "only a word that is plainly yes or no answers a permission question"
+file = "src/voice_bridge/server.py"
+find = 'if answered is None:'
+replace = 'if False:'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "old news is never read out"
+file = "src/voice_bridge/sessions.py"
+find = 'happened = \(got\.get\("events"\) or \[\]\) if cursor else \[\]'
+replace = 'happened = got.get("events") or []'

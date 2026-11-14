@@ -1,0 +1,5 @@
+[[rule]]
+name = "an open microphone is booked while it is open"
+file = "src/voice_bridge/server.py"
+find = 'self\.server\.ledger\.record\(float\(body\.get\("seconds", 0\)\)\)'
+replace = 'pass'

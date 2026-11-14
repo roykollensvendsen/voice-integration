@@ -1,0 +1,5 @@
+[[rule]]
+name = "a permission question is noticed however late it arrives"
+file = "src/voice_bridge/server.py"
+find = 'if str\(event\.get\("event", ""\)\)\.startswith\("approval\.request"\):'
+replace = 'if False:'

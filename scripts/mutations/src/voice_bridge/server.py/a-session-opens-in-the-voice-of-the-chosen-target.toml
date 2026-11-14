@@ -1,0 +1,5 @@
+[[rule]]
+name = "a session opens in the voice of the chosen target"
+file = "src/voice_bridge/server.py"
+find = 'voice=self\.server\.voice_now\(\),'
+replace = 'voice="marin",'

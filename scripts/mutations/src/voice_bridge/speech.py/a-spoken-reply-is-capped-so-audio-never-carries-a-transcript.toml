@@ -1,0 +1,5 @@
+[[rule]]
+name = "a spoken reply is capped, so audio never carries a transcript"
+file = "src/voice_bridge/speech.py"
+find = 'if len\(collapsed\) <= SPOKEN_REPLY_MAX_CHARS:'
+replace = 'if True:'

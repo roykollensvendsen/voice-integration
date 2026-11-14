@@ -1,0 +1,8 @@
+[[rule]]
+name = "a gateway refusal is spoken, not raised"
+file = "src/voice_bridge/speech.py"
+# Two rules share this line and mutate it differently: switch the whole test
+# off and no refusal is ever spoken; widen it back and a failed run is called
+# a refusal again.
+find = 'if "error" in payload and "object" not in payload:'
+replace = 'if False:'

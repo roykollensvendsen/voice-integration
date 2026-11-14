@@ -1,0 +1,6 @@
+[[rule]]
+name = "a session that ended hands the conversation back to the voice"
+file = "src/voice_bridge/server.py"
+find = 'bridge\.choose\(target\.Target\("voice"\)\)'
+replace = 'pass'
+occurrence = 2

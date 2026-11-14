@@ -1,0 +1,5 @@
+[[rule]]
+name = "every spoken command is traced with what was heard, what was done, and whom it went to"
+file = "src/voice_bridge/server.py"
+find = 'bridge\.store\.record\("action", label, detail=.*'
+replace = 'pass'

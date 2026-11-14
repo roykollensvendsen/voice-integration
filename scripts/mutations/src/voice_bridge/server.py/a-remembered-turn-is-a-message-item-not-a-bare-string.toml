@@ -1,0 +1,5 @@
+[[rule]]
+name = "a remembered turn is a message item, not a bare string"
+file = "src/voice_bridge/server.py"
+find = '"content": \[\{"type": "input_text" if role == "user" else "output_text", "text": text\}\],'
+replace = '"content": text,'

@@ -51,7 +51,7 @@ repeatedly, which is exactly the friction that makes people want `always`. The
 person will hit this, and will be annoyed by it, and that is the trade.
 
 The rule is enforced in `voice_bridge.policy`, marked `# RULE:` in the source,
-rowed in `scripts/mutations.toml`, and proven by a test that goes red when the
+rowed under `scripts/mutations/`, and proven by a test that goes red when the
 rule is switched off. It also survives one layer down: the voice tool surface
 does not offer `session` or `always` as values at all, so the model is never
 told they exist.

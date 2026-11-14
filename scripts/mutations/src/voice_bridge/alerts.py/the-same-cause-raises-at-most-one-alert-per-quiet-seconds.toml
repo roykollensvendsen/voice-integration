@@ -1,0 +1,5 @@
+[[rule]]
+name = "the same cause raises at most one alert per QUIET_SECONDS"
+file = "src/voice_bridge/alerts.py"
+find = 'if time\.monotonic\(\) - self\.last\.get\(cause, -QUIET_SECONDS\) < QUIET_SECONDS:'
+replace = 'if False:'

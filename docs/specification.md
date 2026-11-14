@@ -316,7 +316,7 @@ compares each pair on every pull request:
 | the voice tools | [`voice-contract.md`](voice-contract.md) | `voice_bridge.contract.VOICE_TOOLS` |
 | the gateway endpoints | [`hermes-contract.md`](hermes-contract.md) | the `path` of each tool |
 | the claude-voice tools | [`claude-voice-contract.md`](claude-voice-contract.md) | `voice_bridge.sessions.TOOLS` |
-| the rules | `# RULE:` markers | rows in `scripts/mutations.toml` |
+| the rules | `# RULE:` markers | one row file each under `scripts/mutations/` |
 
 The third pair is the one that keeps the evidence honest: a rule added without a
 mutation row is a rule no test has ever been proven to catch.
