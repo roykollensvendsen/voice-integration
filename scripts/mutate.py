@@ -47,10 +47,30 @@ def line_of(text: str, pattern: str, occurrence: int) -> int:
     raise SystemExit(msg)
 
 
-def run_suite() -> tuple[int, list[str]]:
-    """Run the tests and give back how many failed, and which ones."""
-    r = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--tb=no", "--color=no", "-p", "no:cacheprovider"],
+def files_naming(test: str) -> list[str]:
+    """The test files that define `test`, or none when no file does."""
+    pattern = re.compile(rf"^\s*(?:async )?def {re.escape(test)}\(", re.MULTILINE)
+    return [
+        p.relative_to(ROOT).as_posix()
+        for p in sorted((ROOT / "tests").rglob("test_*.py"))
+        if pattern.search(p.read_text(encoding="utf-8"))
+    ]
+
+
+def run_suite(targets: list[str] | None = None) -> tuple[int, list[str]]:
+    """Run the tests (only `targets` when given) and give back how many failed, and which ones."""
+    r = subprocess.run(  # noqa: S603 - this interpreter running pytest on files found under tests/
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "--tb=no",
+            "--color=no",
+            "-p",
+            "no:cacheprovider",
+            *(targets or []),
+        ],
         capture_output=True,
         text=True,
         cwd=ROOT,
@@ -88,10 +108,14 @@ def main() -> int:
             indent = lines[i][: len(lines[i]) - len(lines[i].lstrip())]
             lines[i] = indent + rule["replace"].strip()
             path.write_text("\n".join(lines) + "\n")
-            count, failed = run_suite()
+            own = test_name_for(rule["name"])
+            # The whole suite once per rule took over three hours. Only the rule's own
+            # test decides a kill, so only the files that hold it are run; when no file
+            # does, the whole suite runs, and the rule shows as not killed by its own.
+            # RULE: a mutation runs only the test files that hold the rule's own test
+            count, failed = run_suite(files_naming(own))
             path.write_text(text)
             # A kill by some other test is not evidence about this rule.
-            own = test_name_for(rule["name"])
             by_its_own = own in failed
             results.append((rule["name"], rule["file"], count, own, by_its_own))
             verdict = "KILLED  " if by_its_own else ("BY LUCK " if count else "SURVIVED")
