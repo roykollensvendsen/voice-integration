@@ -1,0 +1,5 @@
+[[rule]]
+name = "what the page reports is kept with its time, for checking afterwards"
+file = "src/voice_bridge/server.py"
+find = 'self\.server\.store\.record\("page", reported, detail=self\.server\.unplaced\(detail\)\)'
+replace = 'pass'

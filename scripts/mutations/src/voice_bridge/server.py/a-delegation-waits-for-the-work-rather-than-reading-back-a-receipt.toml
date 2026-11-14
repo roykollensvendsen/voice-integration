@@ -1,0 +1,5 @@
+[[rule]]
+name = "a delegation waits for the work rather than reading back a receipt"
+file = "src/voice_bridge/server.py"
+find = 'finished = gateway\.wait_for\(str\(run_id\), url, patience\)'
+replace = 'finished = started'

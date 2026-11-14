@@ -1,0 +1,5 @@
+[[rule]]
+name = "a phrase the gateway demanded is said for the person, not by them"
+file = "src/voice_bridge/server.py"
+find = 'transcript, bridge\.demanded = bridge\.demanded, None'
+replace = 'bridge.demanded = None'

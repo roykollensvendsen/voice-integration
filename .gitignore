@@ -15,3 +15,6 @@ src/*/_version.py
 .coverage
 coverage.xml
 htmlcov/
+
+# The mutation run's figures belong to the checks, never to the repository.
+mutations.json

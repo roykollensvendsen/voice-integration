@@ -7,7 +7,7 @@ quietly go stale:
 * the voice tools, in `docs/voice-contract.md` and in `voice_bridge.contract`
 * the gateway endpoints, in `docs/hermes-contract.md` and in `voice_bridge.gateway`
 * the claude-voice tools, in `docs/claude-voice-contract.md` and in `voice_bridge.sessions`
-* the rules, marked `# RULE:` in the source and rowed in `scripts/mutations.toml`
+* the rules, marked `# RULE:` in the source and rowed under `scripts/mutations/`, one file each
 * every rule, against a test in `tests/` named after it
 
 The third is the one that keeps the mutation evidence honest. A rule added
@@ -23,9 +23,10 @@ nobody would see the difference.
 
 from __future__ import annotations
 
-import pathlib  # noqa: TC003 — a runtime default reads it, not only the annotations
+import pathlib
 import re
 import tomllib
+from typing import Any
 
 from voice_bridge.contract import BY_NAME
 from voice_bridge.gateway import BESIDES_THE_TOOLS
@@ -91,14 +92,79 @@ def test_name_for(rule: str) -> str:
     return "test_" + re.sub(r"_+", "_", words).strip("_")
 
 
-def rowed_rules(root: pathlib.Path) -> set[str]:
-    """Every rule the mutation table claims to switch off."""
-    listing = root / "scripts/mutations.toml"
-    if not listing.is_file():
-        message = f"{listing} is gone, and no rule has evidence without it"
+#: Where the rows live: one file per rule, at
+#: scripts/mutations/<the row's `file`, extension included>/<the rule's words>.toml.
+#: One shared table collided with every pull request that added a row; a file per
+#: row only meets another pull request adding the same rule. Every voice
+#: repository uses this same layout.
+ROWS = "scripts/mutations"
+
+
+def row_path(rule: dict[str, Any]) -> pathlib.PurePosixPath:
+    """Where a rule's row belongs, under ``ROWS``: its source file's whole path, its own words."""
+    words = re.sub(r"[^a-z0-9]+", "-", str(rule["name"]).lower()).strip("-")
+    if not words:
+        message = f"the rule {rule['name']!r} has no letter or digit to file its row under; reword it"
         raise Disagreement(message)
-    table = tomllib.loads(listing.read_text())
-    return {str(rule["name"]) for rule in table.get("rule", [])}
+    return pathlib.PurePosixPath(str(rule["file"])) / f"{words}.toml"
+
+
+def _row_files(root: pathlib.Path) -> list[pathlib.Path]:
+    folder = root / ROWS
+    if not folder.is_dir():
+        message = f"{folder} is gone, and no rule has evidence without it"
+        raise Disagreement(message)
+    return sorted(path for path in folder.rglob("*.toml") if path.is_file())
+
+
+def _rows_in(path: pathlib.Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = tomllib.loads(path.read_text()).get("rule", [])
+    return rows
+
+
+def all_rows(root: pathlib.Path) -> list[dict[str, Any]]:
+    """Every mutation row, one file each, in path order. A rule rowed twice is refused."""
+    where: dict[str, str] = {}
+    found = []
+    for path in _row_files(root):
+        place = path.relative_to(root / "scripts").as_posix()
+        for rule in _rows_in(path):
+            if rule["name"] in where:
+                message = (
+                    f"the rule {rule['name']!r} has two rows, in {where[rule['name']]} and in {place};"
+                    f" delete one and keep {ROWS}/{row_path(rule)}"
+                )
+                raise Disagreement(message)
+            where[rule["name"]] = place
+            found.append(rule)
+    return found
+
+
+def rowed_rules(root: pathlib.Path) -> set[str]:
+    """Every rule the mutation rows claim to switch off."""
+    return {str(rule["name"]) for rule in all_rows(root)}
+
+
+def misfiled(root: pathlib.Path) -> list[str]:
+    """Row files that hold other than one row, or sit where their rule does not put them."""
+    found = []
+    for path in _row_files(root):
+        here = pathlib.PurePosixPath(path.relative_to(root / ROWS).as_posix())
+        rows = _rows_in(path)
+        if len(rows) != 1:
+            found.append(f"{here} holds {len(rows)} rows; give each rule a file of its own")
+        elif here != (belongs := row_path(rows[0])):
+            found.append(f"{here} should be {belongs}; move it there")
+    return found
+
+
+def rows_in_their_files(root: pathlib.Path) -> str:
+    """Every row file sits where its rule puts it, so two can never be written in one place."""
+    wrong = misfiled(root)
+    if wrong:
+        message = "mutation row files out of place — " + "; ".join(wrong)
+        raise Disagreement(message)
+    return f"row files: {len(_row_files(root))}, each where its rule puts it"
 
 
 #: How far below its marker a rule's line may sit: a marker, a comment or two,
@@ -123,7 +189,7 @@ def rows_hit_their_rules(root: pathlib.Path) -> str:
     first, or the line changes and nothing matches at all. Either way the rule
     looks guarded, or the run stops, and nobody notices.
     """
-    table = tomllib.loads((root / "scripts/mutations.toml").read_text()).get("rule", [])
+    table = all_rows(root)
     drifted = []
     for row in table:
         lines = (root / row["file"]).read_text().splitlines()
@@ -177,11 +243,12 @@ def report(root: pathlib.Path) -> list[str]:
             rules,
             "the source",
             rowed_rules(root),
-            "scripts/mutations.toml",
+            f"{ROWS}/",
         )
     )
     lines.append(_every_rule_has_its_own_test(rules, test_names(root)))
     lines.append(rows_hit_their_rules(root))
+    lines.append(rows_in_their_files(root))
     return lines
 
 

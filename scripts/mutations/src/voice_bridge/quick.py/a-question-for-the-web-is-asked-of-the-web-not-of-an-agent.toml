@@ -1,0 +1,5 @@
+[[rule]]
+name = "a question for the web is asked of the web, not of an agent"
+file = "src/voice_bridge/quick.py"
+find = 'return on_the_web\(transcript\.strip\(\)\)'
+replace = 'return None'

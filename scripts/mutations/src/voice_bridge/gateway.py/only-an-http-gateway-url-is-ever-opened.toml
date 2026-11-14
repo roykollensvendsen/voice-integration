@@ -1,0 +1,5 @@
+[[rule]]
+name = "only an HTTP gateway URL is ever opened"
+file = "src/voice_bridge/gateway.py"
+find = 'if not request\.url\.startswith\(_ALLOWED_SCHEMES\):'
+replace = 'if False:'

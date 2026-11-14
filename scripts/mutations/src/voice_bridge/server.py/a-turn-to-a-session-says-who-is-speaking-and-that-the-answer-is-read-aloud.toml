@@ -1,0 +1,5 @@
+[[rule]]
+name = "a turn to a session says who is speaking and that the answer is read aloud"
+file = "src/voice_bridge/server.py"
+find = '\{"session": chosen\.name, "message": relayed\(bridge, transcript\), "wait_seconds": wait\},'
+replace = '{"session": chosen.name, "message": as_said(transcript), "wait_seconds": wait},'

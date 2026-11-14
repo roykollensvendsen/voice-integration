@@ -39,7 +39,7 @@ getting it wrong is unbounded and deferred; the cost of answering `once` twice
 is one extra sentence.
 
 So: **an approval answered by voice binds one call only.** It is a rule in
-`voice_bridge.policy`, it has a row in `scripts/mutations.toml`, and switching
+`voice_bridge.policy`, it has a row under `scripts/mutations/`, and switching
 it off turns a named test red.
 
 ## What a voice session is given

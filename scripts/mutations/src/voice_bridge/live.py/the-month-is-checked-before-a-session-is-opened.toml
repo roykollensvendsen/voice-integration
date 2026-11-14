@@ -1,0 +1,5 @@
+[[rule]]
+name = "the month is checked before a session is opened"
+file = "src/voice_bridge/live.py"
+find = '\(ledger or Ledger\(\)\)\.authorise\(\)'
+replace = 'pass'

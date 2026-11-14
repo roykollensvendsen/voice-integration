@@ -1,0 +1,5 @@
+[[rule]]
+name = "a spoken switch is made even when the voice answered it alone"
+file = "src/voice_bridge/server.py"
+find = 'moved = switch\(self\.server, heard\) if self\._plainly_a_switch\(heard\) else None'
+replace = 'moved = None'

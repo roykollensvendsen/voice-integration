@@ -1,0 +1,5 @@
+[[rule]]
+name = "a voice turn asks the gateway to finish inside it"
+file = "src/voice_bridge/server.py"
+find = 'asking = replace\(planned'
+replace = 'asking = planned'

@@ -44,11 +44,14 @@ way to learn that the gates are not a ritual performed once.
 3. **Write a test and watch it fail.** A test that passes on its first run
    proves nothing. Where the rule already exists and no test can precede it,
    turn the rule off with `uv run python scripts/mutate.py`, watch a named test
-   go red, and keep the row in `scripts/mutations.toml`.
+   go red, and keep the row.
 
    A rule is a line marked `# RULE: what it says` in the source. Every one needs
-   a row in `scripts/mutations.toml` and a test whose name is the rule's own
-   words — `# RULE: a spoken reply is capped` wants
+   a row in a file of its own,
+   `scripts/mutations/<the source file's whole path>/<the rule's words>.toml`
+   ([`scripts/mutations/README.md`](scripts/mutations/README.md) shows one), so
+   two pull requests adding rules never meet in one file. It also needs a test
+   whose name is the rule's own words — `# RULE: a spoken reply is capped` wants
    `test_a_spoken_reply_is_capped`. `voicebridge check` refuses a rule missing
    either. That naming is not decoration: the mutation script checks that the
    test named after a rule is one of the ones that went red, and fails the run

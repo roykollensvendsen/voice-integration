@@ -1,0 +1,5 @@
+[[rule]]
+name = "a plain yes or no answers the coding session that asked"
+file = "src/voice_bridge/server.py"
+find = 'return answer_session\(bridge, answered\)'
+replace = 'return None'

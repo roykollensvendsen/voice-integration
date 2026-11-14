@@ -1,0 +1,5 @@
+[[rule]]
+name = "an approval answered by voice binds one call only"
+file = "src/voice_bridge/policy.py"
+find = 'if choice not in SPOKEN_APPROVAL_CHOICES:'
+replace = 'if False:'

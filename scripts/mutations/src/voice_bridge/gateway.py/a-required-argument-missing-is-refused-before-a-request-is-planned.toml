@@ -1,0 +1,5 @@
+[[rule]]
+name = "a required argument missing is refused before a request is planned"
+file = "src/voice_bridge/gateway.py"
+find = 'if missing:'
+replace = 'if False:'

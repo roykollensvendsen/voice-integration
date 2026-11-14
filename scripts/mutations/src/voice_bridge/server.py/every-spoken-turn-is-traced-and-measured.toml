@@ -1,0 +1,5 @@
+[[rule]]
+name = "every spoken turn is traced and measured"
+file = "src/voice_bridge/server.py"
+find = 'metrics\.tracing\(metrics\.new_trace\(\)\),'
+replace = 'metrics.tracing(""),'

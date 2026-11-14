@@ -1,0 +1,6 @@
+[[rule]]
+name = "the place in the news survives a restart"
+file = "src/voice_bridge/server.py"
+find = '^        self\._keep\(\)$'
+replace = 'pass'
+occurrence = 1

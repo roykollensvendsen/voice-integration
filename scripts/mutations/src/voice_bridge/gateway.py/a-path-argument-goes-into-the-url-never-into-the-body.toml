@@ -1,0 +1,5 @@
+[[rule]]
+name = "a path argument goes into the URL, never into the body"
+file = "src/voice_bridge/gateway.py"
+find = 'path = path\.replace\(placeholder'
+replace = 'path = path  # mutated'

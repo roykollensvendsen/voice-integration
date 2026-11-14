@@ -1,0 +1,5 @@
+[[rule]]
+name = "a spoken hang-up puts the microphone down even when the voice answered it alone"
+file = "src/voice_bridge/server.py"
+find = 'hang_up = target\.hang_up_request\(heard\)'
+replace = 'hang_up = False'

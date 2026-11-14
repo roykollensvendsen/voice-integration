@@ -1,0 +1,5 @@
+[[rule]]
+name = "news that was not heard is said when the microphone is taken again"
+file = "src/voice_bridge/server.py"
+find = '"missed": self\.server\.missed\(\),'
+replace = '"missed": "",'

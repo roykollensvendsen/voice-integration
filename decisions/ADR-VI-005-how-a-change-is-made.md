@@ -40,7 +40,8 @@ what is enforced and what another system's API does.
    `tests/test_documented_commands.py` and its output compared with the page. A
    block that looks like commands and is not run says in the document why.
 4. **Every rule has a mutation row.** A rule marked `# RULE:` in the source has
-   a row in `scripts/mutations.toml`; switching it off must turn a named test
+   a row under `scripts/mutations/` (one shared `scripts/mutations.toml` until
+   2026-11-14); switching it off must turn a named test
    red. `voicebridge check` compares the two sets, so the evidence cannot fall
    behind the code.
 5. **Decisions that cost more to reverse than to take are written here first.**

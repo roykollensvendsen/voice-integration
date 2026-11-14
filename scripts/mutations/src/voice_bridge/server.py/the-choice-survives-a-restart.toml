@@ -1,0 +1,5 @@
+[[rule]]
+name = "the choice survives a restart"
+file = "src/voice_bridge/server.py"
+find = 'target\.save\(self\.chosen_file, chosen, '
+replace = 'pass'

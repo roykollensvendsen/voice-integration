@@ -1,0 +1,5 @@
+[[rule]]
+name = "a position is held in memory and written nowhere"
+file = "src/voice_bridge/server.py"
+find = 'self\.placed = quick\.place_of\(fix\.latitude, fix\.longitude\) or before'
+replace = 'self.placed = None'

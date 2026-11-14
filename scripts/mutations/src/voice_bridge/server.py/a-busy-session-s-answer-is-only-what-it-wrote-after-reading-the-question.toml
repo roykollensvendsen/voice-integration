@@ -1,0 +1,5 @@
+[[rule]]
+name = "a busy session's answer is only what it wrote after reading the question"
+file = "src/voice_bridge/server.py"
+find = '^        return "", False$'
+replace = 'asked = -1'

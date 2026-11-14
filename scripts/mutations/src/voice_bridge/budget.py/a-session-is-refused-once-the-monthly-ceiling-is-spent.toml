@@ -1,0 +1,5 @@
+[[rule]]
+name = "a session is refused once the monthly ceiling is spent"
+file = "src/voice_bridge/budget.py"
+find = 'if self\.remaining_usd\(\) <= 0:'
+replace = 'if False:'

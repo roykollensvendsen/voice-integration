@@ -1,0 +1,5 @@
+[[rule]]
+name = "a chosen session hears everything that is said"
+file = "src/voice_bridge/server.py"
+find = 'steer=target\.steer\(self\.server\.chosen\),'
+replace = 'steer="",'

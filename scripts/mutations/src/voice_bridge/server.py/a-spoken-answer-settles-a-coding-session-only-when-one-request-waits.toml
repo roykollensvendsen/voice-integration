@@ -1,0 +1,5 @@
+[[rule]]
+name = "a spoken answer settles a coding session only when one request waits"
+file = "src/voice_bridge/server.py"
+find = 'if len\(bridge\.asked\) > 1:'
+replace = 'if False:'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a switch said among other things still switches, and what follows goes to the new one"
+file = "src/voice_bridge/target.py"
+find = 'if switch_request\(lines\[at\]\) is not None:'
+replace = 'if False:'

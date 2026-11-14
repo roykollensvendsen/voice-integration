@@ -1,0 +1,5 @@
+[[rule]]
+name = "the page may only report events in its own name"
+file = "src/voice_bridge/server.py"
+find = 'if reported not in PAGE_EVENTS:'
+replace = 'if False:'
