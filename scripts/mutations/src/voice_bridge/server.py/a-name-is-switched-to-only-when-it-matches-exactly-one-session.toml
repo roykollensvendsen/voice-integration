@@ -1,0 +1,5 @@
+[[rule]]
+name = "a name is switched to only when it matches exactly one session"
+file = "src/voice_bridge/server.py"
+find = 'if len\(found\) != 1:'
+replace = 'if not found:'

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a refused call says why and exits non-zero"
+file = "src/voice_bridge/cli.py"
+find = '^        return 2$'
+replace = 'return 0'

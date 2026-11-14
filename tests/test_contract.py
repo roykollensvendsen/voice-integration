@@ -17,9 +17,10 @@ def test_the_documents_and_the_code_still_agree():
         "voice tools: 6 in docs/voice-contract.md, 6 in the code, agreed",
         "gateway paths: 7 in docs/hermes-contract.md, 7 in the code, agreed",
         "claude-voice tools: 14 in docs/claude-voice-contract.md, 14 in the code, agreed",
-        "rules: 61 in the source, 61 in scripts/mutations.toml, agreed",
+        "rules: 61 in the source, 61 in scripts/mutations/, agreed",
         "rule tests: 61 rules, each with a test named after it",
         "mutation rows: 61, each on the line its rule marks",
+        "row files: 61, each where its rule puts it",
     ]
 
 
@@ -57,10 +58,78 @@ def test_a_mutation_row_that_drifted_from_its_rule_is_refused(tmp_path):
     """Six rows had drifted: two switched off an earlier identical line, two matched nothing."""
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "a.py").write_text("x = 1\ny = 0\nz = 0\n# RULE: a thing holds\nx = 1\n")
-    (tmp_path / "scripts").mkdir()
     row = '[[rule]]\nname = "a thing holds"\nfile = "src/a.py"\nfind = "x = 1"\nreplace = "x = 2"\n'
-    (tmp_path / "scripts" / "mutations.toml").write_text(row)
+    there = _row_file(tmp_path, "src/a.py", "a-thing-holds", row)
     with pytest.raises(drift.Disagreement, match="a thing holds"):
         drift.rows_hit_their_rules(tmp_path)
-    (tmp_path / "scripts" / "mutations.toml").write_text(row + "occurrence = 2\n")
+    there.write_text(row + "occurrence = 2\n")
     assert drift.rows_hit_their_rules(tmp_path) == "mutation rows: 1, each on the line its rule marks"
+
+
+def _row_file(root, source, words, text):
+    """One rule's row, written where the layout puts it."""
+    folder = root / "scripts" / "mutations" / source
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{words}.toml").write_text(text)
+    return folder / f"{words}.toml"
+
+
+def _row(name, source="src/a.py"):
+    return f'[[rule]]\nname = "{name}"\nfile = "{source}"\nfind = "x"\nreplace = "y"\n'
+
+
+def test_a_row_s_folder_is_the_whole_path_of_the_file_it_switches_off():
+    """The layout every voice repository uses.
+
+    Two files called home.ts, or a .h beside its .c, would share a folder under a
+    short name; under the whole path they never can.
+    """
+    place = drift.row_path
+    assert str(place({"name": "A spoken reply is capped!", "file": "src/voice_bridge/speech.py"})) == (
+        "src/voice_bridge/speech.py/a-spoken-reply-is-capped.toml"
+    )
+    assert place({"name": "x", "file": "src/app/home.ts"}) != place({"name": "x", "file": "src/view/home.ts"})
+    assert place({"name": "x", "file": "src/door.h"}) != place({"name": "x", "file": "src/door.c"})
+
+
+def test_every_row_is_read_from_a_file_of_its_own(tmp_path):
+    _row_file(tmp_path, "src/a.py", "one", _row("one"))
+    _row_file(tmp_path, "src/b.py", "two", _row("two", "src/b.py"))
+    assert [row["name"] for row in drift.all_rows(tmp_path)] == ["one", "two"]
+    assert drift.rowed_rules(tmp_path) == {"one", "two"}
+
+
+def test_the_same_rule_in_two_row_files_names_both(tmp_path):
+    _row_file(tmp_path, "src/a.py", "one", _row("one"))
+    _row_file(tmp_path, "src/a.py", "one-again", _row("one"))
+    with pytest.raises(drift.Disagreement) as refused:
+        drift.all_rows(tmp_path)
+    said = str(refused.value)
+    assert "mutations/src/a.py/one.toml" in said
+    assert "mutations/src/a.py/one-again.toml" in said
+
+
+def test_a_rule_whose_words_give_no_file_name_is_refused():
+    with pytest.raises(drift.Disagreement, match="no letter or digit"):
+        drift.row_path({"name": "!!!", "file": "src/a.py"})
+
+
+def test_without_the_row_folder_no_rule_has_evidence(tmp_path):
+    with pytest.raises(drift.Disagreement, match="is gone"):
+        drift.rowed_rules(tmp_path)
+
+
+def test_a_row_file_sits_in_its_source_s_folder_under_its_own_name(tmp_path):
+    _row_file(tmp_path, "src/a.py", "one", _row("one"))
+    _row_file(tmp_path, "src/b.py", "two", _row("two"))  # its rule is in src/a.py
+    _row_file(tmp_path, "src/a.py", "both", _row("three") + _row("four"))
+    assert drift.misfiled(tmp_path) == [
+        "src/a.py/both.toml holds 2 rows; give each rule a file of its own",
+        "src/b.py/two.toml should be src/a.py/two.toml; move it there",
+    ]
+    with pytest.raises(drift.Disagreement, match=r"should be src/a\.py/two\.toml"):
+        drift.rows_in_their_files(tmp_path)
+
+
+def test_the_repository_s_own_row_files_sit_where_their_rules_say():
+    assert drift.misfiled(ROOT) == []

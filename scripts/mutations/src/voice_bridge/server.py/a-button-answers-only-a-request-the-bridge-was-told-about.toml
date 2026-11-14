@@ -1,0 +1,5 @@
+[[rule]]
+name = "a button answers only a request the bridge was told about"
+file = "src/voice_bridge/server.py"
+find = 'if asked not in self\.server\.asked:'
+replace = 'if False:'

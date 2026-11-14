@@ -1,0 +1,5 @@
+[[rule]]
+name = "measurements are kept for KEPT_DAYS and no longer"
+file = "src/voice_bridge/metrics.py"
+find = 'self\.db\.execute\("DELETE FROM events WHERE at < \?", \(time\.time\(\) - KEPT_DAYS \* 86400,\)\)'
+replace = 'pass'

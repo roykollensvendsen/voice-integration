@@ -1,0 +1,5 @@
+[[rule]]
+name = "while the voice alone is chosen nothing is forwarded"
+file = "src/voice_bridge/server.py"
+find = 'if bridge\.chosen\.kind == "voice":'
+replace = 'if False:'

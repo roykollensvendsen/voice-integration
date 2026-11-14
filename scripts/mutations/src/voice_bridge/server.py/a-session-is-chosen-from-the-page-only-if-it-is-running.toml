@@ -1,0 +1,5 @@
+[[rule]]
+name = "a session is chosen from the page only if it is running"
+file = "src/voice_bridge/server.py"
+find = 'if kind == "session" and chosen\.name not in'
+replace = 'if False:'

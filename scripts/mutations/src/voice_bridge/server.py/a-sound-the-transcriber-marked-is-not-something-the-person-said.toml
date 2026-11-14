@@ -1,0 +1,5 @@
+[[rule]]
+name = "a sound the transcriber marked is not something the person said"
+file = "src/voice_bridge/server.py"
+find = 'return NOISE\.sub\("", transcript\)'
+replace = 'return transcript'

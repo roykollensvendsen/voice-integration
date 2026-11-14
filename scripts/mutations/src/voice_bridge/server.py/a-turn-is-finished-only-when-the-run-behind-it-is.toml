@@ -1,0 +1,5 @@
+[[rule]]
+name = "a turn is finished only when the run behind it is"
+file = "src/voice_bridge/server.py"
+find = 'bridge\.following = str\(run_id\) if still_running\(finished\) else None'
+replace = 'bridge.following = None'

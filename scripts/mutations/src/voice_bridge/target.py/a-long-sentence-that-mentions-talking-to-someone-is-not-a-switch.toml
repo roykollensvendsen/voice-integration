@@ -1,0 +1,6 @@
+[[rule]]
+name = "a long sentence that mentions talking to someone is not a switch"
+file = "src/voice_bridge/target.py"
+find = 'if len\(words\) > SHORTEST_IS_SAFEST:'
+replace = 'if False:'
+occurrence = 2

@@ -1,0 +1,5 @@
+[[rule]]
+name = "a question the bridge can answer never travels further"
+file = "src/voice_bridge/server.py"
+find = 'if immediate is not None:'
+replace = 'if False:'

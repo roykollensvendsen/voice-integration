@@ -1,0 +1,5 @@
+[[rule]]
+name = "an approval number is never read aloud"
+file = "src/voice_bridge/sessions.py"
+find = 'text = _ASKING\.sub\(" Yes or no\?", text\)'
+replace = 'return text'

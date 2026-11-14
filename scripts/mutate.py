@@ -3,10 +3,13 @@
 
 Green on a first run proves nothing: a test that has never been red tests
 nothing. Where a rule is written before its test, the test is run red first.
-Where a rule already exists, this is the substitute. Every rule lives in
-scripts/mutations.toml, one row each. Run it from the repository root:
+Where a rule already exists, this is the substitute. Every rule has one row,
+in a file of its own under scripts/mutations/. Run it from the repository root:
 
-    uv run python scripts/mutate.py [--write evidence/tests/rule-mutations.md]
+    uv run python scripts/mutate.py [--json mutations.json] [--write evidence/tests/rule-mutations.md]
+
+`--json` writes the run's figures for the checks to keep, as `quality-mutations`
+on main; in a check, the readable table also goes to the run's summary page.
 
 A kill is not enough on its own. A mutation can break a test for an incidental
 reason — a documented example whose output happened to change — and leave a rule
@@ -18,17 +21,18 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
+import os
 import pathlib
 import re
 import signal
 import subprocess
 import sys
-import tomllib
+from typing import Any
 
-from voice_bridge.check import test_name_for
+from voice_bridge.check import Disagreement, all_rows, test_name_for
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TABLE = ROOT / "scripts/mutations.toml"
 
 
 def line_of(text: str, pattern: str, occurrence: int) -> int:
@@ -60,13 +64,17 @@ def run_suite() -> tuple[int, list[str]]:
 def main() -> int:
     """Mutate every rule in turn, restore the tree, and report."""
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--json", type=pathlib.Path, help="write the run's figures here, for the checks")
     parser.add_argument("--write", type=pathlib.Path, help="write the evidence table here")
     args = parser.parse_args()
 
     # Stopped from outside, the run still puts every file back: a SIGTERM
     # otherwise skips the `finally` below and leaves a rule switched off.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
-    rules = tomllib.loads(TABLE.read_text())["rule"]
+    try:
+        rules = all_rows(ROOT)
+    except Disagreement as refused:
+        raise SystemExit(str(refused)) from None
     originals = {r["file"]: (ROOT / r["file"]).read_text() for r in rules}
     results = []
     try:
@@ -85,15 +93,18 @@ def main() -> int:
             # A kill by some other test is not evidence about this rule.
             own = test_name_for(rule["name"])
             by_its_own = own in failed
-            results.append((rule["name"], count, own, by_its_own))
+            results.append((rule["name"], rule["file"], count, own, by_its_own))
             verdict = "KILLED  " if by_its_own else ("BY LUCK " if count else "SURVIVED")
             print(f"{verdict} {rule['name']}: {count}")  # noqa: T201
     finally:
         for name, text in originals.items():
             (ROOT / name).write_text(text)
 
-    survived = [name for name, count, _, _ in results if count == 0]
-    lucky = [name for name, count, _, own in results if count and not own]
+    survived = [name for name, _, count, _, _ in results if count == 0]
+    lucky = [name for name, _, count, _, own in results if count and not own]
+    # Written before a failing run exits: a run where a rule survived is exactly
+    # what the code-health page has to show, not the last run that passed.
+    publish(args.json, results, survived, lucky)
     proven = len(results) - len(survived) - len(lucky)
     print(f"\n{proven}/{len(results)} rules turned off their own test")  # noqa: T201
     if survived:
@@ -105,11 +116,35 @@ def main() -> int:
     return 1 if survived or lucky else 0
 
 
-def report(results: list[tuple[str, int, str, bool]], survived: list[str], lucky: list[str]) -> str:
+Result = tuple[str, str, int, str, bool]
+
+
+def publish(to: pathlib.Path | None, results: list[Result], survived: list[str], lucky: list[str]) -> None:
+    """Give the run to the checks: its figures to `to`, its table to the run's summary page."""
+    if to:
+        to.write_text(json.dumps(figures(results), indent=2) + "\n")
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with pathlib.Path(summary).open("a") as page:
+            page.write(report(results, survived, lucky))
+
+
+def figures(results: list[Result]) -> dict[str, Any]:
+    """The run as numbers: per rule, its name, file, tests gone red and whether its own was one.
+
+    The same shape in every voice repository, for the bridge's code-health page to read.
+    """
+    rules = [
+        {"name": name, "file": file, "tests_red": count, "own_test_red": own_red}
+        for name, file, count, _, own_red in results
+    ]
+    return {"killed": sum(rule["own_test_red"] for rule in rules), "total": len(rules), "rules": rules}
+
+
+def report(results: list[Result], survived: list[str], lucky: list[str]) -> str:
     """Render the run as the evidence page."""
     rows = "\n".join(
         f"| {name} | {count} | `{own}` | {'yes' if by_own else 'NO'} |"
-        for name, count, own, by_own in results
+        for name, _, count, own, by_own in results
     )
     proven = len(results) - len(survived) - len(lucky)
     verdict = (
@@ -143,8 +178,8 @@ names it says so. The last column is why that is worth more than a count. A
 mutation can break a test for an incidental reason and leave a rule looking
 guarded when nothing guards it, so a `NO` in that column fails this script even
 though something went red. A new rule follows the order in `CONTRIBUTING.md` instead, a failing
-test first, and is added to `scripts/mutations.toml`, which both a test in the
-suite and `voicebridge check` require.
+test first, and gets a row of its own under `scripts/mutations/`, which both a
+test in the suite and `voicebridge check` require.
 """
 
 

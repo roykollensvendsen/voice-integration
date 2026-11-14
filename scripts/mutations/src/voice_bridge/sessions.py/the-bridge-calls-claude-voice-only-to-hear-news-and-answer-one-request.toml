@@ -1,0 +1,5 @@
+[[rule]]
+name = "the bridge calls claude-voice only to hear news and answer one request"
+file = "src/voice_bridge/sessions.py"
+find = 'if tool not in TOOLS:'
+replace = 'if False:'
